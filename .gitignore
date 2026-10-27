@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# generated / large files
+sim/
+clips/
+results/
+markers/
+calib/images/
+*.mp4
+*.avi

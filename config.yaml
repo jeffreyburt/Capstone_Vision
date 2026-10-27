@@ -1,0 +1,61 @@
+# Central vision system configuration.
+# Units: meters, degrees, seconds. Relative paths are relative to this file.
+
+camera:
+  source: picam             # picam | webcam | path/to/video.mp4 | tcp://host:port (any OpenCV URL)
+  webcam_index: 0
+  width: 1920
+  height: 1080
+  fps: 30
+  sensor_mode: [2304, 1296] # Camera Module 3 full-FOV binned mode (smaller modes crop the view)
+  focus_dioptres: 0.25      # fixed lens position = 1 / distance_m (0.25 = 4 m). null = continuous autofocus
+  hfov_deg: 66              # used for rough intrinsics until calibrate_camera.py has been run
+  controls: {}              # extra Picamera2 controls, e.g. {ExposureTime: 8000, AnalogueGain: 4.0}
+
+calibration:
+  intrinsics: calib/camera_intrinsics.yaml   # written by tools/calibrate_camera.py
+  floor_pose: calib/floor_pose.yaml          # written by tools/calibrate_floor.py
+
+markers:
+  dictionary: DICT_4X4_50   # any cv2.aruco dictionary name, e.g. DICT_APRILTAG_36h11
+  size_m: 0.15              # edge length of the BLACK square, measured on the print
+  center_height_m: 0.30     # height of the marker's center above the floor
+
+robots:
+  # faces: marker id -> direction that face points, in degrees CCW from the robot's front
+  #        (0 = front, 90 = left side, 180 = back, 270 = right side)
+  # center_offset_m: distance from the marker surface to the robot's center (half of a 30 cm robot)
+  - id: 1
+    faces: {0: 0, 1: 90, 2: 180, 3: 270}
+    center_offset_m: 0.15
+  - id: 2
+    faces: {4: 0, 5: 90, 6: 180, 7: 270}
+    center_offset_m: 0.15
+  # Optional per-robot overrides: marker_size_m, marker_center_height_m
+
+# (Person detection is planned for a later phase; output currently sends "user": null.)
+
+tracking:
+  alpha: 0.5                # position smoothing: 1.0 = raw measurements, lower = smoother/laggier
+  beta: 0.05                # velocity smoothing
+  heading_alpha: 0.4        # heading smoothing (0..1)
+  lost_after_s: 1.0         # a track not seen for this long is re-initialized on the next sighting
+  max_jump_m: 0.75          # reject single measurements that jump further than this
+  forget_after_s: 5.0       # stop reporting objects not seen for this long
+
+# Ignore detections that land outside this floor rectangle (null to disable)
+area:
+  x: [-5.0, 5.0]
+  y: [-1.0, 10.0]
+
+output:
+  host: 127.0.0.1           # controller laptop IP (or 255.255.255.255 with broadcast: true)
+  port: 5005
+  broadcast: false
+  rate_hz: 10
+
+debug:
+  stream_port: 8080         # MJPEG debug stream port when run with --stream
+  map_x: [-3.0, 3.0]        # top-down map extent (meters)
+  map_y: [-0.5, 7.0]
+  map_px_per_m: 70

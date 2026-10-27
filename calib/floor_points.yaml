@@ -1,0 +1,11 @@
+# World (x, y) coordinates in meters of tape marks on the floor, in the order you will click them.
+# Example layout: origin = the floor point directly below the camera, x to the right, y straight out
+# from the camera (so y = distance from the camera). Spread the marks over the whole area the robots
+# use, near and far. 6-8 points is a good number. Edit these to match your real tape marks.
+points:
+  - [-1.0, 2.5]
+  - [1.0, 2.5]
+  - [1.5, 4.0]
+  - [-1.5, 4.0]
+  - [-2.0, 6.0]
+  - [2.0, 6.0]

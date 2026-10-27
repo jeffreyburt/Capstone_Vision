@@ -1,0 +1,6 @@
+numpy
+opencv-python>=4.8   # includes cv2.aruco (ArucoDetector API needs >= 4.7)
+pyyaml
+pillow               # printable PDF output for markers / checkerboard
+pytest               # tests
+# On the Pi, Picamera2 comes from apt (python3-picamera2), not pip. See README.
