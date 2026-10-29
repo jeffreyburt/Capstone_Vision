@@ -65,3 +65,21 @@ def render_scene(geometry, robots, specs, frame_size=(1920, 1080), dictionary="D
         rng = rng or np.random.default_rng(0)
         img = np.clip(img + rng.normal(0, noise, img.shape), 0, 255).astype(np.uint8)
     return img
+
+
+def paste_person(img, geometry, person_img, x, y, height=1.75):
+    """Paste a (tightly cropped) photo of a person so they appear standing at floor (x, y)."""
+    (fu, fv), (_, hv) = geometry.world_to_pixels([[x, y, 0.0], [x, y, height]])
+    ph = int(round(fv - hv))
+    if ph < 10:
+        return img
+    pw = max(1, int(round(person_img.shape[1] * ph / person_img.shape[0])))
+    p = cv2.resize(person_img, (pw, ph), interpolation=cv2.INTER_AREA)
+    x0, y0 = int(round(fu - pw / 2)), int(round(fv - ph))
+    H, W = img.shape[:2]
+    sx0, sy0 = max(0, -x0), max(0, -y0)
+    dx0, dy0 = max(0, x0), max(0, y0)
+    dx1, dy1 = min(W, x0 + pw), min(H, y0 + ph)
+    if dx1 > dx0 and dy1 > dy0:
+        img[dy0:dy1, dx0:dx1] = p[sy0:sy0 + dy1 - dy0, sx0:sx0 + dx1 - dx0]
+    return img

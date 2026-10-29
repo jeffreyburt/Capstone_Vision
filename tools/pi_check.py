@@ -25,7 +25,7 @@ def report(name, ok, detail=""):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--no-camera", action="store_true")
-    ap.add_argument("--source", help="camera source (default from config)")
+    ap.add_argument("--source", default="picam", help="camera source (default: picam)")
     ap.add_argument("--frames", type=int, default=60)
     args = ap.parse_args()
 
@@ -41,7 +41,7 @@ def main():
     except Exception as e:  # noqa: BLE001
         report("numpy / opencv / pyyaml", False, repr(e))
         return finish()
-    if not args.no_camera and args.source in (None, "picam"):
+    if not args.no_camera and args.source == "picam":
         try:
             import picamera2  # noqa: F401
             report("picamera2", True)
@@ -55,6 +55,7 @@ def main():
     from vision.sim import render_scene
 
     cfg = load_config()
+    cfg["people"] = {"enabled": False}  # person detection runs on the laptop, not the Pi
     w, h = cfg["camera"]["width"], cfg["camera"]["height"]
 
     print(f"\n[2/4] Detection self-test: synthetic robots at 20 ft (6.1 m), {w}x{h}")

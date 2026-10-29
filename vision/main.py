@@ -1,11 +1,14 @@
 """Run the central vision system.
 
+Normally runs on the controller laptop, processing the master Pi's birds-eye stream
+(the master Pi runs `python -m camstream.sender birdseye`).
+
 Examples:
-    python -m vision.main                          # Pi camera, send UDP to the host in config.yaml
-    python -m vision.main --stream                 # ...plus a debug view at http://<pi-ip>:8080/
-    python -m vision.main --source webcam --show   # laptop webcam with a debug window
+    python -m vision.main --show                   # birds-eye stream (config camera.source), debug window
+    python -m vision.main --stream                 # ...or debug view in a browser at http://localhost:8080/
+    python -m vision.main --source webcam --show   # laptop webcam
     python -m vision.main --source clip.mp4 --show # replay a recording
-    python -m vision.main --source tcp://<pi-ip>:8888 --show   # process a video stream from the Pi on a laptop
+    python -m vision.main --source picam           # run directly on a Pi with its own camera
 """
 
 import argparse
@@ -76,7 +79,9 @@ def main(argv=None):
                 fps = frames_since_status / (now - last_status) if last_status else None
                 robots = ", ".join(f"R{r['id']} ({r['x']:.2f}, {r['y']:.2f}) {r['heading'] or 0:.0f}deg age {r['age']:.1f}s"
                                    for r in result.message["robots"]) or "no robots"
-                print(f"[{fps or 0:5.1f} fps] markers {[m.id for m in result.markers]}  {robots}")
+                u = result.message["user"]
+                user = f"user ({u['x']:.2f}, {u['y']:.2f}) age {u['age']:.1f}s" if u else "no user"
+                print(f"[{fps or 0:5.1f} fps] markers {[m.id for m in result.markers]}  {robots}  {user}")
                 last_status, frames_since_status = now, 0
 
             want_stream = server is not None and now - last_stream >= 0.1  # ~10 fps is plenty for viewing
@@ -105,6 +110,7 @@ def main(argv=None):
         pass
     finally:
         source.close()
+        pipeline.close()
         publisher.close()
         if server:
             server.close()

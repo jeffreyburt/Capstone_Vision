@@ -14,6 +14,7 @@ import time
 from pathlib import Path
 
 import cv2
+import numpy as np
 
 
 class _LiveSource:
@@ -112,8 +113,9 @@ class OpenCVSource(_LiveSource):
 
 
 class VideoFileSource:
-    def __init__(self, path, loop=False):
-        self.path, self.loop = str(path), loop
+    def __init__(self, path, loop=False, realtime=False):
+        """realtime: play back at the file's frame rate (like a live camera) instead of as fast as possible."""
+        self.path, self.loop, self.realtime = str(path), loop, realtime
         self.cap = cv2.VideoCapture(self.path)
         if not self.cap.isOpened():
             raise RuntimeError(f"Could not open video {path}")
@@ -129,6 +131,8 @@ class VideoFileSource:
         if not ok:
             return None
         ts = self.t0 + self.index / self.fps
+        if self.realtime and ts > time.time():
+            time.sleep(ts - time.time())
         self.index += 1
         return frame, ts
 
@@ -136,16 +140,78 @@ class VideoFileSource:
         self.cap.release()
 
 
+class TestPatternSource:
+    """Synthetic moving test pattern (no camera needed): for testing streaming and bandwidth."""
+
+    __test__ = False  # not a pytest test class, despite the name
+
+    def __init__(self, width=640, height=480, fps=10, label="test"):
+        self.w, self.h, self.period, self.label = int(width), int(height), 1.0 / float(fps), label
+        self.n, self.next_t = 0, time.time()
+        rng = np.random.default_rng(0)
+        # Fixed noise texture so JPEG sizes resemble a real scene rather than a flat image.
+        self.texture = rng.integers(40, 200, (self.h, self.w, 3), dtype=np.uint8)
+        self.texture = cv2.GaussianBlur(self.texture, (0, 0), 2)
+
+    def read(self):
+        wait = self.next_t - time.time()
+        if wait > 0:
+            time.sleep(wait)
+        self.next_t = max(self.next_t + self.period, time.time() - self.period)
+        img = self.texture.copy()
+        x = int((self.n * 8) % self.w)
+        cv2.rectangle(img, (x, 0), (x + self.w // 10, self.h), (0, 200, 255), -1)
+        cv2.putText(img, f"{self.label}  #{self.n}  {time.strftime('%H:%M:%S')}", (10, 40),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
+        self.n += 1
+        return img, time.time()
+
+    def close(self):
+        pass
+
+
+class StreamSource:
+    """Frames from a camstream sender on another machine (e.g. stream://birdseye from the master Pi)."""
+
+    def __init__(self, cfg, name):
+        from camstream.receiver import FrameReceiver
+
+        self.name = name
+        self.rx = FrameReceiver(cfg, [name])
+        self.last_seq = None
+
+    def read(self, warn_after=5.0):
+        start = time.time()
+        while True:
+            f = self.rx.wait_new(self.name, self.last_seq, timeout=1.0)
+            if f is not None:
+                self.last_seq = f.seq
+                return f.image, f.t_capture  # capture time on the sender's clock
+            if time.time() - start > warn_after:
+                s = self.rx.streams[self.name]
+                print(f"Waiting for stream '{self.name}' from {s['host']}:{s['port']} ... "
+                      f"(is camstream.sender running there?)")
+                start = time.time()
+
+    def close(self):
+        self.rx.close()
+
+
 def open_source(cfg, source=None, loop=False):
     """Open the frame source named by `source` (or config camera.source).
 
-    "picam" -> Pi Camera, "webcam" or a number -> webcam, an existing file -> video file,
-    anything else (e.g. tcp://pi:8888) -> OpenCV stream URL.
+    "picam" -> Pi Camera, "webcam" or a number -> webcam, "test" -> synthetic test pattern,
+    "stream://<name>" -> camstream from another machine (config `streams:`), an existing file -> video
+    file, anything else (e.g. tcp://pi:8888) -> OpenCV stream URL.
     """
     cam = cfg.get("camera", {})
     source = str(source if source is not None else cam.get("source", "picam"))
     w, h, fps = cam.get("width", 1280), cam.get("height", 720), cam.get("fps", 30)
 
+    if source.startswith("stream://"):
+        return StreamSource(cfg, source[len("stream://"):])
+    if source == "test":
+        return TestPatternSource(w, h, fps)
     if source == "picam":
         return PiCameraSource(w, h, fps, cam.get("sensor_mode"), cam.get("focus_dioptres"), cam.get("controls"))
     if source == "webcam":

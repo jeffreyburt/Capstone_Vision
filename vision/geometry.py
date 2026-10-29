@@ -132,6 +132,16 @@ class Geometry:
         x, y = self.pixels_to_floor([[u, v]], height)[0]
         return None if np.isnan(x) else (float(x), float(y))
 
+    def height_above(self, u, v, x, y):
+        """Height (z) at which pixel (u, v)'s ray passes over floor point (x, y).
+
+        E.g. the top of a person's bounding box, over the point where their feet are -> their height."""
+        ray = (self.camera.pixels_to_rays([[u, v]]) @ self.pose.R)[0]
+        cam = self.camera_position
+        d = ray[:2]
+        s = float(np.dot(np.array([x, y]) - cam[:2], d) / np.dot(d, d))  # closest approach, horizontally
+        return float(cam[2] + s * ray[2])
+
     def world_to_pixels(self, xyz):
         """(N, 3) world points -> (N, 2) pixels (for drawing and tests)."""
         xyz = np.asarray(xyz, dtype=float).reshape(-1, 3)

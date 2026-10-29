@@ -62,6 +62,38 @@ class Track:
         return math.inf if self.t is None else t - self.t
 
 
+class UserTracker:
+    """Tracks the one user. Position is smoothed like the robots; height and confidence with a simple average."""
+
+    def __init__(self, tracking_cfg=None):
+        c = dict(tracking_cfg or {})
+        self.forget_after_s = c.pop("forget_after_s", 5.0)
+        self.track = Track(**c)
+        self.height, self.confidence = None, None
+
+    def update(self, t, observations):
+        from .people import select_user
+
+        o = select_user(observations, self.track, t, self.track.lost_after_s)
+        if o is None:
+            return None
+        fresh = self.track.age(t) > self.track.lost_after_s
+        if self.track.update(t, (o.x, o.y)):
+            a = 1.0 if fresh or self.height is None else 0.3
+            self.height = o.height if self.height is None else (1 - a) * self.height + a * o.height
+            self.confidence = o.confidence
+        return o
+
+    def state(self, t):
+        """User dict for the output message, or None if not seen recently."""
+        age = self.track.age(t)
+        if age > self.forget_after_s:
+            return None
+        p, v = self.track.pos, self.track.vel
+        return {"x": float(p[0]), "y": float(p[1]), "height": self.height, "vx": float(v[0]),
+                "vy": float(v[1]), "age": age, "confidence": self.confidence}
+
+
 class RobotTracker:
     def __init__(self, robot_ids, tracking_cfg=None):
         c = dict(tracking_cfg or {})

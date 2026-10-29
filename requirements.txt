@@ -1,6 +1,8 @@
+# Common to every machine (Pis and laptop)
 numpy
 opencv-python>=4.8   # includes cv2.aruco (ArucoDetector API needs >= 4.7)
 pyyaml
+pyzmq                # camera streaming (camstream)
 pillow               # printable PDF output for markers / checkerboard
 pytest               # tests
-# On the Pi, Picamera2 comes from apt (python3-picamera2), not pip. See README.
+# On the Pis, Picamera2 comes from apt (python3-picamera2), not pip. See docs/PI_GUIDE.md.

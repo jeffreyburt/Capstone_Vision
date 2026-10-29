@@ -35,6 +35,7 @@ def main():
     args = ap.parse_args()
 
     cfg = load_config()
+    cfg["people"] = {"enabled": False}  # markers only
     cells = get_dictionary(cfg["markers"].get("dictionary", "DICT_4X4_50")).markerSize + 2
     pipeline = VisionPipeline(cfg)
     src = open_source(cfg, args.source)

@@ -5,9 +5,10 @@ Message format (one UDP packet per update):
   "t": 1728170000.123,          # time of the frame (seconds since epoch)
   "frame": 4512,
   "robots": [{"id": 1, "x": 1.42, "y": 3.10, "heading": 87.5, "vx": 0.0, "vy": 0.1, "age": 0.05}, ...],
-  "user": null                  # person detection comes in a later phase: {"x", "y", "age", "confidence"}
+  "user": {"x": 0.1, "y": 4.8, "height": 1.72, "vx": 0.0, "vy": 0.0, "age": 0.12, "confidence": 0.88}
 }
 Distances in meters, heading in degrees CCW from world +x, age = seconds since last seen.
+"user" is null when nobody has been seen for tracking.forget_after_s. "height" = estimated top of head.
 """
 
 import json
@@ -24,7 +25,10 @@ def make_message(t, frame, robots, user=None):
         "robots": [{"id": b["id"], "x": r(b["x"], 3), "y": r(b["y"], 3), "heading": r(b.get("heading"), 1),
                     "vx": r(b.get("vx", 0.0), 3), "vy": r(b.get("vy", 0.0), 3), "age": r(b["age"], 3)}
                    for b in robots],
-        "user": user,
+        "user": None if user is None else {
+            "x": r(user["x"], 3), "y": r(user["y"], 3), "height": r(user.get("height"), 2),
+            "vx": r(user.get("vx", 0.0), 3), "vy": r(user.get("vy", 0.0), 3),
+            "age": r(user["age"], 3), "confidence": r(user.get("confidence"), 2)},
     }
 
 

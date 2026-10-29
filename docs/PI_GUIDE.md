@@ -1,29 +1,41 @@
-# Raspberry Pi Install & Test Guide
+# Install & Test Guide (Pis + controller laptop)
 
-This takes you from a blank SD card to robots showing up on the controller laptop. Each part ends with a
-check, so if something breaks you know which step caused it. Run every command on the Pi from inside the
-`Capstone_Vision` folder unless a step says **(laptop)**.
+This takes you from blank SD cards to robot and user positions arriving on the controller laptop.
+Each part ends with a ✅ check, so if something breaks you know which step caused it.
+
+**Who does what:**
+
+| Machine | Runs | Command |
+|---|---|---|
+| **Master Pi** | Birds-eye camera sender | `python -m camstream.sender birdseye` |
+| **Robot 1 / 2 Pi** | Robot camera sender | `python -m camstream.sender robot1` (or `robot2`) |
+| **Laptop** | All vision processing: robots, person detection, output | `python -m vision.main --show` |
+
+The Pis only capture and stream. Calibration, testing and processing all happen on the laptop, where you
+have a screen. The network (master Pi WiFi access point, addresses, time sync) is set up separately; see
+[NETWORK.md](NETWORK.md). Until it's ready, part 6 explains how to test over a direct Ethernet cable.
 
 | Part | What you get | Needs markers? | Time |
 |---|---|---|---|
-| 1–3 | Pi running, camera working | no | 30 min |
-| 4–5 | Code installed and self-checked | no | 20 min |
-| 6 | Full pipeline running on the Pi (simulated video) | no | 10 min |
-| 7 | Live camera detecting a printed marker | yes | 10 min |
-| 8 | Range test at 5–20 ft | yes | 30 min |
-| 9–10 | Lens + floor calibration, real positions in meters | yes | 45 min |
-| 11 | Positions arriving on the controller laptop | yes | 10 min |
-| 12 | Start automatically on boot (optional) | — | 5 min |
+| 1–5 | A Pi set up, camera working, code installed and self-checked (repeat for each Pi) | no | 45 min / Pi |
+| 6 | Laptop set up, simulated end-to-end test | no | 20 min |
+| 7 | Master Pi streaming to the laptop | no | 10 min |
+| 8 | Live marker detection | yes | 10 min |
+| 9 | Range test at 5–20 ft | yes | 30 min |
+| 10–11 | Lens + floor calibration, real positions in meters | yes | 45 min |
+| 12 | Person detection check | no | 10 min |
+| 13 | Robot camera streams over WiFi | no | 15 min |
+| 14 | Start automatically on boot | — | 5 min |
 
 ---
 
 ## What you need
 
-- Raspberry Pi 4 (2 GB+), official 5 V / 3 A USB-C power supply, microSD card (16 GB+)
-- Camera Module 3 and its ribbon cable (the standard cable it ships with fits the Pi 4)
-- Laptop on the same network (WiFi or Ethernet)
+- Per Pi: Raspberry Pi 4 (2 GB+), official 5 V / 3 A USB-C power supply, microSD card (16 GB+),
+  Camera Module 3 and its ribbon cable (the standard cable it ships with fits the Pi 4), heatsink or fan
+- Controller laptop with an Ethernet port (or a USB Ethernet adapter)
 - For later parts: printer, tape measure, masking tape, stiff board (foam board or cardboard),
-  and a way to mount the camera about 2 m high (tripod, shelf, or tape to a wall)
+  and a way to mount the birds-eye camera about 2 m high
 
 ---
 
@@ -31,13 +43,12 @@ check, so if something breaks you know which step caused it. Run every command o
 
 1. Install **Raspberry Pi Imager** from raspberrypi.com/software and open it.
 2. Choose **Raspberry Pi 4** → **Raspberry Pi OS (other)** → **Raspberry Pi OS Lite (64-bit)**.
-   - Lite has no desktop. That's fine, because the debug view streams to your laptop's browser.
-     If you'd rather plug in a monitor, the normal 64-bit desktop version works too.
-   - It **must be 64-bit**.
+   It **must be 64-bit**. Lite has no desktop, which is fine because the Pis run headless.
 3. When it asks about OS customisation, choose **Edit settings** and set:
-   - hostname: `vision-pi`
-   - a username and password (remember them)
-   - your WiFi network and country (skip this if you'll use Ethernet)
+   - hostname: `master-pi`, `robot1-pi` or `robot2-pi` (from [NETWORK.md](NETWORK.md))
+   - a username and password (use the same on all Pis to keep things simple)
+   - WiFi: for now, your home network, so the Pi can download packages. The network-setup work moves the
+     robot Pis onto the master Pi's network later.
    - **Services → Enable SSH** (password authentication)
 4. Write the card.
 
@@ -53,15 +64,13 @@ Peel the protective film off the camera lens if it's still on.
 
 ## 3. First boot and camera test
 
-Insert the card, power the Pi, and wait about 2 minutes. Then, from your laptop (Windows PowerShell or
-Terminal):
+Power the Pi and wait about 2 minutes. From the laptop:
 
 ```bash
-ssh <username>@vision-pi.local
+ssh <username>@master-pi.local
 ```
 
-If `vision-pi.local` isn't found, get the Pi's IP address from your router's device list and use
-`ssh <username>@<ip>`.
+If the name isn't found, look up the Pi's IP in your router's device list and use `ssh <username>@<ip>`.
 
 Update the Pi, then reboot:
 
@@ -75,38 +84,23 @@ SSH back in, then test the camera:
 rpicam-hello --list-cameras
 ```
 
-✅ **Check:** the output lists **imx708** (that's Camera Module 3). If it says "No cameras available", see Troubleshooting.
-
-Take a test photo:
-
-```bash
-rpicam-still -o test.jpg
-```
-
-Then, from a second terminal **(laptop)**, copy the photo over and look at it:
-
-```bash
-scp <username>@vision-pi.local:test.jpg .
-```
-
-✅ **Check:** the picture is sharp and correctly exposed.
+✅ **Check:** the output lists **imx708** (Camera Module 3).
 
 ## 4. Copy the code to the Pi
 
-**Option A: GitHub (recommended for a team).** Push this repo to GitHub, then on the Pi:
+**Option A: GitHub (recommended).** Push this repo to GitHub, then on the Pi:
 
 ```bash
-git clone https://github.com/<you>/Capstone_Vision.git
-cd Capstone_Vision
+git clone https://github.com/<you>/Capstone_Vision.git && cd Capstone_Vision
 ```
 
-**Option B: copy straight from your laptop.** In PowerShell on the laptop:
+**Option B: copy from the laptop.** In PowerShell on the laptop:
 
 ```bash
-tar --exclude=.venv --exclude=sim --exclude=results -czf vision.tgz -C C:\Users\Jeffrey\Documents Capstone_Vision
+tar --exclude=.venv --exclude=sim --exclude=results --exclude=*.pt -czf vision.tgz -C C:\Users\Jeffrey\Documents Capstone_Vision
 ```
 ```bash
-scp vision.tgz <username>@vision-pi.local:~
+scp vision.tgz <username>@master-pi.local:~
 ```
 
 Then on the Pi:
@@ -115,8 +109,7 @@ Then on the Pi:
 tar xzf vision.tgz && cd Capstone_Vision
 ```
 
-To update the Pi later: with A, run `git pull`. With B, repeat the copy. Your `calib/` files on the Pi are
-overwritten by B, so back them up first.
+To update later: with A, run `git pull`. With B, repeat the copy.
 
 ## 5. Install and self-check
 
@@ -124,8 +117,8 @@ overwritten by B, so back them up first.
 bash scripts/setup_pi.sh
 ```
 
-This installs Picamera2 from apt, creates a Python virtualenv (`.venv`) that can see it, installs the pip
-packages, and checks the imports. It takes about 5–15 minutes. It should end with `Setup OK`.
+This installs Picamera2 from apt, creates a virtualenv (`.venv`), installs the pip packages and checks the
+imports. It takes about 5–15 minutes and should end with `Setup OK`.
 
 Activate the virtualenv. **Do this every time you log in:**
 
@@ -133,240 +126,269 @@ Activate the virtualenv. **Do this every time you log in:**
 source .venv/bin/activate
 ```
 
-Run the unit tests:
+Then run the tests and the Pi self-check:
+
+```bash
+python -m pytest
+```
+```bash
+python tools/pi_check.py
+```
+
+✅ **Check:**
+- `pytest` passes, with 1 skipped. The skipped one is the YOLO test, which only runs on the laptop.
+- `pi_check` ends with `ALL CHECKS PASSED`. Note the **capture fps** for your report.
+
+**Repeat parts 1–5 for each robot Pi** (hostnames `robot1-pi`, `robot2-pi`).
+
+---
+
+## 6. Laptop setup and simulated test (no Pi needed)
+
+On the laptop, in the `Capstone_Vision` folder:
+
+```bash
+py -3.12 -m venv .venv
+```
+```bash
+.venv\Scripts\activate
+```
+```bash
+pip install -r requirements-laptop.txt
+```
+
+This includes YOLO person detection, which pulls in PyTorch (a large download). If the laptop has an
+NVIDIA GPU, installing the CUDA build of PyTorch makes detection much faster; it works on the CPU otherwise.
 
 ```bash
 python -m pytest
 ```
 
-✅ **Check:** `25 passed`. These test the geometry, robot pose math, tracking and UDP. They also detect
-robots in rendered images at up to 20 ft. No camera is needed.
+✅ **Check:** all tests pass. The first run downloads the YOLO model (`yolo11n.pt`, about 6 MB).
 
-Run the Pi self-check:
-
-```bash
-python tools/pi_check.py
-```
-
-✅ **Check:** `ALL CHECKS PASSED`. Write these numbers down for your report:
-
-- **processing speed (ms/frame):** detection time per frame on the Pi 4. Under 100 ms (10+ fps) is good.
-- **capture fps:** how fast the camera delivers frames.
-- **live pipeline rate:** the real end-to-end rate. This is what you'll actually get.
-
-If the rate is too low, set `width: 1280` and `height: 720` in `config.yaml` and rerun. That is faster, but
-gives shorter range; part 8 tells you whether that's acceptable.
-
-## 6. Full pipeline on a simulated video (no markers needed)
-
-This checks the whole system on the Pi, including the debug stream, before you print anything.
+Rehearse the whole system on one machine. Three senders play the role of the three Pis, and
+`CAMSTREAM_HOST` tells the laptop to find all streams on itself. Each command goes in its own terminal:
 
 ```bash
-python tools/make_sim_video.py --seconds 10
+python tools/make_sim_video.py --person
+```
+```bash
+python -m camstream.sender birdseye --source sim/sim.mp4
+```
+```bash
+python -m camstream.sender robot1 --source test
+```
+```bash
+$env:CAMSTREAM_HOST="127.0.0.1"; python -m vision.main --config sim/config.yaml --source stream://birdseye --show
 ```
 
-Rendering takes a few minutes on the Pi. Then run the pipeline on the result:
+✅ **Check:** the window shows two simulated robots with green marker outlines and a walking person with a
+red box. The top-down map shows both robots (with heading arrows) and the user circle.
+
+**Direct cable, before the real network exists:** plug the master Pi straight into the laptop. Set the
+laptop's Ethernet IPv4 to `192.168.50.10` / `255.255.255.0`. On the Pi:
 
 ```bash
-python -m vision.main --config sim/config.yaml --stream --loop
+sudo nmcli con mod "Wired connection 1" ipv4.method manual ipv4.addresses 192.168.50.1/24 && sudo nmcli con up "Wired connection 1"
 ```
 
-On the laptop, open **http://vision-pi.local:8080/** in a browser.
+That gives the Pi the address [NETWORK.md](NETWORK.md) expects. After that, `ssh <username>@192.168.50.1`
+works, and so does everything below.
+
+## 7. Master Pi → laptop stream
+
+On the **master Pi**:
+
+```bash
+python -m camstream.sender birdseye
+```
+
+It prints fps, Mbps and kB/frame every 5 s. On the **laptop**:
+
+```bash
+python -m camstream.viewer birdseye
+```
 
 ✅ **Check:**
-- Two simulated robots, with green outlines around their markers.
-- The top-down map on the right shows both robots moving, with heading arrows.
-- The SSH terminal prints a status line every second.
+- The live camera image appears in a window.
+- The printed stats show about 15 fps, `dropped` staying near 0, and roughly 20–40 Mbps (this is on Ethernet, so plenty of headroom).
 
-Press `Ctrl+C` to stop.
+If the sender's `encode` time is above about 60 ms, the Pi can't keep up with 15 fps at 1920×1080. Lower
+`streams.birdseye.quality` or `max_fps`.
 
-## 7. Live camera with a printed marker
+## 8. Live marker detection (laptop)
 
-1. Print markers **(laptop or Pi)** with `python tools/generate_markers.py`. This writes
-   `markers/markers_DICT_4X4_50_15cm.pdf`. Print it at **100% / "Actual size"**, not "Fit to page".
-2. **Measure the black square** with a ruler. If it isn't exactly 15.0 cm, put the real value in
-   `config.yaml` → `markers.size_m` (for example `0.148`).
-3. Tape one page to a box or board, keeping the white border around the black square.
+1. Print the markers with `python tools/generate_markers.py`. Print `markers/*.pdf` at **100% / actual size**.
+2. **Measure the black square.** If it isn't exactly 15.0 cm, set `markers.size_m` in `config.yaml`.
+3. Tape one page to a box, keeping the white border.
 
-Start the system:
+With the sender from part 7 still running:
 
 ```bash
-python -m vision.main --stream
+python -m vision.main --show
 ```
 
-Open http://vision-pi.local:8080/ and hold the marker 1–3 m in front of the camera.
+✅ **Check:** holding the marker 1–3 m from the camera draws a green outline with its ID. The overlay says
+`(no floor calibration)` and no robots are reported yet; that's expected until part 11.
 
-✅ **Check:** a green outline appears with the marker's ID and its size in pixels. The overlay says
-`(no floor calibration)` and the robot list stays empty. **That's expected until part 10.**
+If the image is blurry up close, the focus is fixed at 4 m. That's correct for the real setup.
 
-If the picture is blurry, the focus is fixed at 4 m. For close-up testing, set
-`camera.focus_dioptres: null` in `config.yaml` (autofocus), and set it back for the real setup.
+## 9. Range test (laptop)
 
-## 8. Range test (the most important measurement)
-
-This decides the marker size and camera resolution. Mount the camera roughly where it will really go
-(about 2 m high, tilted slightly down). Then mark distances on the floor with tape: **5, 10, 15 and 20 ft**.
+Mount the camera roughly where it will really go: about 2 m high, tilted slightly down. Tape distances on
+the floor: **5, 10, 15, 20 ft**. Then run:
 
 ```bash
-python tools/range_test.py --stream
+python tools/range_test.py
 ```
 
-For each distance:
-1. Put the marker at that distance, facing the camera, at the real mounting height (about 30 cm).
-2. Type a label such as `15ft` and press Enter.
-3. Keep it still for 10 s. Then repeat with the marker turned about 45°.
+At each distance, put the marker there facing the camera at about 30 cm high, type a label such as `15ft`,
+and keep it still for 10 s. Repeat with the marker turned about 45°.
 
-✅ **Check (what good looks like):**
+✅ **Check:**
 
 | Distance | Detection rate | px/cell |
 |---|---|---|
 | 5–15 ft | ~100% | — |
 | 20 ft | ≥ 95% | ≥ 4 |
 
-Results are appended to `results/range_test.csv`.
+Results go to `results/range_test.csv`.
 
 If 20 ft is weak, try these in order:
-1. Raise `width`/`height` to 1920×1080 if you lowered them.
+1. Raise `streams.birdseye.quality` to 90–95. JPEG compression can blur small markers.
 2. Use bigger markers: `python tools/generate_markers.py --size-cm 20`.
 3. Improve the lighting.
 4. Check the focus.
 
-Run the test again after each change.
+## 10. Lens calibration (laptop)
 
-## 9. Lens calibration
-
-Do this once per camera, at the resolution you'll actually run.
-
-1. Make the checkerboard: `python tools/calibrate_camera.py --make-board board.pdf`.
-2. Print it at 100% and tape it **perfectly flat** to stiff board. Measure one square; it should be 25 mm.
-   If it isn't, pass `--square-mm <value>`.
-3. Run the calibration and open http://vision-pi.local:8080/ to watch it:
+1. Print `python tools/calibrate_camera.py --make-board board.pdf` at 100%, tape it **flat** to stiff board,
+   and check one square measures 25 mm (otherwise pass `--square-mm`).
+2. Run:
 
 ```bash
-python tools/calibrate_camera.py --auto --stream
+python tools/calibrate_camera.py --show
 ```
 
-4. Hold the board 1–2 m from the camera. Every 2 s the tool tries to grab a view, and the preview
-   pauses briefly while it does.
-5. Move the board between captures: all corners of the frame, near and far, tilted left, right, up and down.
-6. After 20 good views it calibrates automatically.
+3. Hold the board 1–2 m from the camera and press **SPACE** for each view. Take about 20 views: all corners
+   of the frame, near and far, tilted in different directions.
+4. Press **C** to calibrate.
 
-✅ **Check:** `RMS error` **below 1.0 px** and a horizontal FOV of roughly 60–70°. The result is written to
-`calib/camera_intrinsics.yaml`. The captured images are kept in `calib/images/`, so you can re-run offline
-with `--images "calib/images/*.jpg"`.
+✅ **Check:** `RMS error` below 1.0 px and a horizontal FOV of roughly 60–70°. The result is written to `calib/camera_intrinsics.yaml`.
 
-## 10. Floor calibration
+## 11. Floor calibration (laptop)
 
-Do this every time the camera is moved or re-aimed.
+Do this every time the birds-eye camera is moved.
 
-1. **Fix the camera in its final position.** It must not move after this step.
-2. Choose the coordinate frame. Recommended:
-   - origin = the point on the floor directly below the camera;
-   - x to the right as seen from the camera;
-   - y straight out from the camera.
-3. Put **6–8 tape marks** spread over the whole robot area, near and far, left and right. Measure each mark's
-   (x, y) in meters and write them, **in order**, into `calib/floor_points.yaml`.
-4. Take a snapshot. Stop `vision.main` first if it's running, because only one program can use the camera:
+1. Fix the camera in its final position.
+2. Tape **6–8 marks** over the whole area, near and far. Write their measured (x, y) in meters, in order,
+   into `calib/floor_points.yaml`. Recommended frame: origin on the floor directly below the camera,
+   x to the right, y away from the camera.
+3. Take a snapshot and click the marks:
 
 ```bash
 python tools/record.py --snapshot calib/floor.jpg
 ```
-
-5. Clicking needs a screen, so do it on the laptop. First copy the files over **(laptop)**:
-
-```bash
-scp <username>@vision-pi.local:Capstone_Vision/calib/floor.jpg <username>@vision-pi.local:Capstone_Vision/calib/camera_intrinsics.yaml calib/
-```
-
-   Also make sure the laptop's `calib/floor_points.yaml` matches the Pi's.
-
-6. Click the marks in order **(laptop)**:
-
 ```bash
 python tools/calibrate_floor.py --image calib/floor.jpg
 ```
 
-   Click each tape mark in the order listed in `floor_points.yaml` (U = undo), then press **S** to solve.
+Click each mark in order (U = undo), then press **S**.
 
-   ✅ **Check:**
-   - `Reprojection error` is a few px or less.
-   - `height` is close to the camera's real height (about 2.0 m).
-   - The yellow and green 1 m grid drawn on the image lines up with the real floor.
+✅ **Check:**
+- Reprojection error is a few px or less.
+- The camera height comes out near 2.0 m.
+- The 1 m grid lines up with the real floor.
 
-7. Copy the result back to the Pi **(laptop)**:
+**Accuracy check:** run `python -m vision.main --show`, put a marked box on each tape mark, and compare.
+Aim for ±10–15 cm at 20 ft.
 
-```bash
-scp calib/floor_pose.yaml <username>@vision-pi.local:Capstone_Vision/calib/
-```
-
-**Accuracy check:** run `python -m vision.main --stream` and put a marked box or robot on each tape mark.
-The position on the map (and in the SSH status line) should match the mark. Record the error at each
-mark; aim for ±10–15 cm at 20 ft. `range_test.py` also prints position jitter once the floor is calibrated.
-
-Before testing on the real robots:
-- Mount **one marker per side, upright as printed** (the ID text goes below the marker).
+**Robots:** mount one marker per side, **upright as printed**:
 - Robot 1 uses IDs 0/1/2/3 and robot 2 uses 4/5/6/7, in the order front, left, back, right.
-- Set `markers.center_height_m` (floor to marker center) and `center_offset_m` (marker surface to robot
-  center) in `config.yaml`.
+- Set `markers.center_height_m` and `center_offset_m` in `config.yaml`.
 
-## 11. Send positions to the controller laptop
+## 12. Person detection (laptop)
 
-1. Find the laptop's IP address. On Windows, run `ipconfig` and look for "IPv4 Address".
-2. Start the receiver **(laptop)**:
+With `python -m vision.main --show` running, walk around the area.
+
+✅ **Check:**
+- You get a red box with your foot point marked, and a red user circle on the map that follows you.
+- Your height is shown roughly right (±10 cm).
+- The status line prints `user (x, y)`.
+- Standing on a tape mark gives roughly the right position.
+
+If the robots block your feet, the position comes from your head at `people.head_height_m` instead; set
+that to your real height for best results.
+
+The controller gets everything over UDP. To see exactly what it receives:
 
 ```bash
 python tools/receiver_example.py
 ```
 
-   Windows may show a firewall prompt; **allow Python on Private networks**.
+## 13. Robot camera streams (robot Pis, over WiFi)
 
-3. Start the vision system on the Pi:
+This needs the robot network from [NETWORK.md](NETWORK.md), or temporarily any shared WiFi with
+`streams.robot1.host` set to the Pi's current IP.
 
-```bash
-python -m vision.main --stream --host <laptop-ip>
-```
-
-✅ **Check:** the laptop prints lines such as `R1: (0.52, 3.10) m, 88.0 deg, age 0.03s` about 10 times a second.
-
-To avoid typing the IP each time, set it in `config.yaml` → `output.host`. Or, if the laptop's IP keeps
-changing, use `host: 255.255.255.255` with `broadcast: true`, which sends to everyone on the local network.
-
-The controls team can develop without the Pi by using `python tools/mock_publisher.py`. It sends fake data
-in the same format.
-
-## 12. Start automatically on boot (optional)
+On each **robot Pi**:
 
 ```bash
-sudo tee /etc/systemd/system/vision.service > /dev/null <<EOF
-[Unit]
-Description=Capstone central vision
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-User=$USER
-WorkingDirectory=$PWD
-Environment=PYTHONUNBUFFERED=1
-ExecStart=$PWD/.venv/bin/python -m vision.main --stream
-Restart=on-failure
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-EOF
+python -m camstream.sender robot1
 ```
 
-Then enable it and watch its log:
+(Use `robot2` on the other robot.) Then on the **laptop**:
 
 ```bash
-sudo systemctl daemon-reload && sudo systemctl enable --now vision
-```
-```bash
-journalctl -u vision -f
+python -m camstream.viewer robot1 robot2
 ```
 
-To stop it, which you need to do before running any other tool that uses the camera, run
-`sudo systemctl stop vision`. To keep it from starting on boot, run `sudo systemctl disable vision`.
+For a bandwidth test without windows, run this while the robots drive around the room:
+
+```bash
+python -m camstream.viewer --stats
+```
+
+✅ **Check:**
+- Each robot stream runs at about 10 fps and 2–4 Mbps.
+- `dropped` stays low.
+- `last` stays under about 0.2 s.
+
+**Using the frames in code:** the robot-camera processing (pan/tilt check) belongs to someone else. They get
+frames like this:
+
+```python
+from vision.config import load_config
+from camstream.receiver import FrameReceiver
+rx = FrameReceiver(load_config(), ["robot1", "robot2"])
+f = rx.get_latest("robot1")   # f.image (BGR array), f.seq, f.t_capture, f.meta
+```
+
+To attach pan/tilt angles to each frame, the robot's control program runs the sender itself:
+
+```python
+from camstream.sender import CameraSender
+sender = CameraSender.from_config(load_config(), "robot1").start()
+sender.update_meta(pan_deg=..., tilt_deg=...)
+```
+
+See [camstream/sender.py](../camstream/sender.py) for details.
+
+## 14. Start automatically on boot
+
+On each Pi, run its own stream name:
+
+```bash
+bash scripts/install_sender_service.sh birdseye
+```
+
+Logs: `journalctl -u camstream-birdseye -f`.
+
+To stop it, which you must do before running `pi_check.py` or any other tool that uses that Pi's camera:
+
+```bash
+sudo systemctl stop camstream-birdseye
+```
 
 ---
 
@@ -375,14 +397,15 @@ To stop it, which you need to do before running any other tool that uses the cam
 | Problem | Fix |
 |---|---|
 | `rpicam-hello`: **No cameras available** | Power off and reseat the ribbon at both ends: contacts toward the HDMI ports, latch fully closed. Run `sudo apt full-upgrade` and reboot. |
-| Camera works but `vision.main` says the camera is busy / "Device or resource busy" | Another program has the camera. Stop the other tool, or run `sudo systemctl stop vision`. |
-| `setup_pi.sh` fails with `$'\r': command not found` | The file got Windows line endings. Run `sed -i 's/\r$//' scripts/setup_pi.sh` and rerun. |
-| `import picamera2` fails with a **numpy** error ("dtype size changed", "compiled using NumPy 1.x") | The pip numpy doesn't match the apt-built Picamera2. Run `.venv/bin/pip install "numpy<2" "opencv-python==4.10.0.84"`, then `python tools/pi_check.py` again. |
-| `ImportError: libGL.so.1` | Run `sudo apt install -y libgl1`. |
-| Browser can't open `vision-pi.local:8080` | Use the Pi's IP instead (`hostname -I` on the Pi). Check that `vision.main` was started with `--stream`. |
-| Laptop receives nothing | Check the Windows firewall allows Python (Private), that `--host` is the laptop's current IP, and that both machines are on the same network. University WiFi often blocks device-to-device traffic, so use a phone hotspot, a travel router or Ethernet. |
-| Markers detected, but no robots in the output | Floor calibration is missing (the overlay says so), or the marker IDs aren't listed under `robots:` in `config.yaml`. |
-| Robot position is consistently about 30 cm off, or heading is 180° wrong | That marker is mounted upside down, or `center_offset_m` / face angles are wrong. |
-| Positions are good near the camera but bad far away | Redo the floor calibration with more tape marks in the far area. Check the camera hasn't moved. |
-| Low fps | Lower the resolution to 1280×720. Close other programs. Check `vcgencmd get_throttled` (anything other than `0x0` means power or heat problems). A heatsink or fan helps. |
-| Blurry images | Set `camera.focus_dioptres` to `1 / distance_m` for the middle of your area (0.25 = 4 m), or `null` for autofocus. |
+| Sender: camera busy / "Device or resource busy" | Another program has the camera, often the boot service. Run `sudo systemctl stop camstream-<name>`. |
+| `setup_pi.sh` fails with `$'\r': command not found` | Windows line endings: `sed -i 's/\r$//' scripts/*.sh` |
+| `import picamera2` fails with a **numpy** error | Run `.venv/bin/pip install "numpy<2" "opencv-python==4.10.0.84"`, then rerun `pi_check.py`. |
+| `ImportError: libGL.so.1` | `sudo apt install -y libgl1` |
+| Laptop prints `Waiting for stream 'birdseye' from 192.168.50.1:5600` | The sender isn't running, or the address is wrong. Check `ping 192.168.50.1`, check the sender's terminal, and check `streams:` in `config.yaml`. |
+| Stream works but is slow or `dropped` keeps rising | Not enough bandwidth (WiFi). Lower that stream's `max_fps`, `quality` or resolution in `config.yaml`. |
+| Controller receives no UDP | Windows firewall: allow Python on Private networks. Check `output.host`/`port`. |
+| Markers detected but no robots in the output | The floor calibration is missing, or the IDs aren't listed under `robots:`. |
+| Robot about 30 cm off or heading 180° wrong | That marker is upside down, or `center_offset_m` / face angles are wrong. |
+| No user detected | Check `people.enabled`, and that `ultralytics` is installed on the laptop (the startup log says if it's disabled). The whole body should be in view. |
+| User position jumps when they walk behind a robot | Their feet are hidden. Set `people.head_height_m` to their height, or raise the camera. |
+| Low fps on the Pi | Check `vcgencmd get_throttled` (`0x0` = OK). Add a heatsink or fan, and use the official power supply. |

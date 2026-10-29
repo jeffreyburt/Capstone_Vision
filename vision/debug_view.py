@@ -30,7 +30,12 @@ def draw_overlay(frame, result, geometry=None, fps=None):
             if 0 <= u < img.shape[1] and 0 <= v < img.shape[0]:
                 cv2.drawMarker(img, (int(u), int(v)), YELLOW, cv2.MARKER_CROSS, 30, 3)
                 cv2.putText(img, f"R{o.robot_id}", (int(u) + 10, int(v) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, YELLOW, 2)
-    text = f"markers: {len(result.markers)}"
+    for d in result.people:
+        x1, y1, x2, y2 = (int(v) for v in d.box)
+        cv2.rectangle(img, (x1, y1), (x2, y2), RED, 2)
+        cv2.putText(img, f"person {d.confidence:.2f}", (x1, y1 - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.7, RED, 2)
+        cv2.circle(img, (int((x1 + x2) / 2), y2), 6, RED, -1)  # foot point used for the floor position
+    text = f"markers: {len(result.markers)}  people: {len(result.people)}"
     if fps:
         text = f"{fps:.1f} fps   " + text
     if geometry is None:
@@ -97,7 +102,11 @@ class FloorMap:
                         self.to_px(r["x"] + 0.25, r["y"] + 0.2), cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1)
         user = message.get("user")
         if user:
-            cv2.circle(img, self.to_px(user["x"], user["y"]), 10, RED, 2)
+            color = RED if user["age"] <= lost_after_s else GREY
+            cv2.circle(img, self.to_px(user["x"], user["y"]), 12, color, 2)
+            h = f" {user['height']:.2f}m tall" if user.get("height") else ""
+            cv2.putText(img, f"user ({user['x']:.2f}, {user['y']:.2f}){h}", self.to_px(user["x"] + 0.25, user["y"] - 0.1),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1)
         return img
 
 

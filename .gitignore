@@ -11,3 +11,6 @@ markers/
 calib/images/
 *.mp4
 *.avi
+
+# downloaded YOLO weights
+*.pt

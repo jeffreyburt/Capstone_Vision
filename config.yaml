@@ -1,8 +1,31 @@
 # Central vision system configuration.
 # Units: meters, degrees, seconds. Relative paths are relative to this file.
 
+# ---- Camera streams (docs/NETWORK.md). Each Pi runs `python -m camstream.sender <name>`;
+# the laptop subscribes to host:port. `camera:` entries override the base camera settings below.
+streams:
+  birdseye:
+    host: 192.168.50.1      # master Pi
+    port: 5600
+    quality: 85             # JPEG quality (higher = sharper markers, more bandwidth; Ethernet, so plenty)
+    max_fps: 15             # send at most this many frames/s (the camera itself runs at camera.fps)
+  robot1:
+    host: 192.168.50.11
+    port: 5601
+    quality: 80
+    max_fps: 10
+    camera: {width: 768, height: 432, fps: 10, focus_dioptres: null}   # 16:9 = full field of view; autofocus
+  robot2:
+    host: 192.168.50.12
+    port: 5602
+    quality: 80
+    max_fps: 10
+    camera: {width: 768, height: 432, fps: 10, focus_dioptres: null}
+
+# ---- Birds-eye vision (runs on the laptop) ----
 camera:
-  source: picam             # picam | webcam | path/to/video.mp4 | tcp://host:port (any OpenCV URL)
+  source: stream://birdseye # laptop: the master Pi's stream. Also: picam | webcam | test | video file | URL
+  # The settings below are used wherever a Pi camera is opened (the senders) and for webcams.
   webcam_index: 0
   width: 1920
   height: 1080
@@ -33,7 +56,21 @@ robots:
     center_offset_m: 0.15
   # Optional per-robot overrides: marker_size_m, marker_center_height_m
 
-# (Person detection is planned for a later phase; output currently sends "user": null.)
+people:
+  enabled: true             # needs `ultralytics` (laptop: pip install -r requirements-laptop.txt)
+  model: yolo11n.pt         # downloaded automatically on first use; yolo11s.pt = more accurate, slower
+  imgsz: 640                # YOLO input size
+  conf: 0.4                 # minimum detection confidence
+  device: null              # null = auto (uses an NVIDIA GPU if PyTorch has CUDA), or "cpu", or 0
+  async: true               # detect in a background thread so robot tracking never waits for YOLO
+  head_height_m: 1.70       # assumed head height, used only when the feet are out of view
+
+user_tracking:
+  alpha: 0.4
+  beta: 0.05
+  lost_after_s: 1.5
+  max_jump_m: 1.0
+  forget_after_s: 5.0
 
 tracking:
   alpha: 0.5                # position smoothing: 1.0 = raw measurements, lower = smoother/laggier

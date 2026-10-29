@@ -1,6 +1,6 @@
 # Central Vision System — Project Plan
 
-**Status:** Approved. Phase 1 (robot detection) is implemented. Person detection (§4, step 5) is **deferred** to phase 2 at the user's request, and the output carries `"user": null` until then. See §9 for the Q&A decisions.
+**Status:** Robot detection, person detection and camera streaming are implemented. §10 describes the current architecture: processing on the laptop, the Pis stream. §9 has the original Q&A decisions.
 **Scope:** The central controller camera (Raspberry Pi 4 + Pi Camera). It finds where every robot and the user are on the floor and sends those positions to the control system.
 **Guiding principle:** Keep it simple and easy to develop. Pure Python, well-known libraries, and something working end to end early.
 
@@ -208,3 +208,38 @@ Each step ends with something you can demo or measure.
 | Compute | Stuck with Pi 4 | Offload fallback without code changes: the Pi streams video (`rpicam-vid ... --listen -o tcp://0.0.0.0:8888`) and the laptop runs `python -m vision.main --source tcp://<pi-ip>:8888`. |
 
 **Output conventions:** distances in meters; `heading` in degrees, counter-clockwise from the world +x axis (0° means the robot's "front" face points along +x). The world frame comes from the floor calibration points. Recommended layout: x to the right as seen from the camera, y pointing away from the camera, z up.
+
+## 10. Architecture update (2026-10-29)
+
+The team changed the system layout:
+
+- **Controller laptop:** does location planning **and all vision processing**. That covers birds-eye
+  robots, plus person detection with YOLO. Running YOLO on the laptop removes the Pi 4 speed problem
+  from §4.
+- **Master Pi 4:** connected to the laptop over Ethernet. It runs the birds-eye camera *sender* and is the
+  WiFi access point and bridge for the robot Pis. The network setup is a separate stack; the contract it
+  must meet is in [NETWORK.md](NETWORK.md).
+- **Robot (slave) Pis:** each streams its own camera to the laptop. Robot motion and pan/tilt control are
+  out of scope for vision, and so is processing the robot camera images (pan/tilt check). The vision
+  scope there is the **transport**.
+- **No ROS** for now.
+
+**Camera transport (`camstream/`):**
+- Each Pi publishes JPEG frames with a JSON header (camera, seq, capture time, size, free-form `meta` such
+  as pan/tilt angles) on a ZeroMQ PUB socket.
+- The laptop subscribes with `FrameReceiver`, which keeps only the newest frame per camera. ZeroMQ
+  "conflate" on both ends means no backlog builds up when bandwidth or the consumer is slow.
+- The cameras *bind* and the laptop *connects*, so the Pis never need the laptop's address and several
+  laptop programs can watch the same camera.
+- JPEG was chosen over H.264 for simplicity, per-frame metadata and dropping stale frames. Measured cost:
+  about 2.8 Mbps per 768×432 robot stream at 10 fps (test pattern), well within the Pi 4 access point's
+  capacity.
+
+**Person → floor:**
+- The foot point (bottom-center of the box) is projected to z = 0.
+- Height = where the head pixel's ray passes over that floor point.
+- If the feet are cut off at the image edge, the head is projected at an assumed height instead.
+- With several people in view, the user is the one nearest the current user track (otherwise the most
+  confident detection).
+- In simulation (a real person photo composited into rendered scenes): 3.3 cm mean floor error, 95% of
+  frames within 9.5 cm.

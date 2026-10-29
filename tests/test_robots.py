@@ -11,7 +11,9 @@ from vision.sim import face_corners_world, render_scene
 
 @pytest.fixture
 def cfg():
-    return load_config()
+    c = load_config()
+    c["people"]["enabled"] = False  # robot tests only
+    return c
 
 
 @pytest.fixture
