@@ -14,3 +14,6 @@ calib/images/
 
 # downloaded YOLO weights
 *.pt
+
+# WiFi password for the robot network (network/README.md)
+network/wifi_password.txt

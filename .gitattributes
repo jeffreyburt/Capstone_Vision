@@ -1,3 +1,4 @@
 # Shell scripts must keep Unix line endings or bash on the Pi fails with "$'\r': command not found".
 *.sh text eol=lf
 *.service text eol=lf
+*.ps1 text eol=crlf
