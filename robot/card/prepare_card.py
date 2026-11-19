@@ -111,7 +111,7 @@ def main():
     with open(cmdline_path, "w", newline="\n") as f:
         f.write(cmdline + "\n")
 
-    print(f"\nCard ready. Eject it, put it in the Pi 3B+ and power on. First boot takes a few minutes and reboots.")
+    print(f"\nCard ready. Eject it, put it in the robot Pi (3 or 4) and power on. First boot takes a few minutes and reboots.")
     print(f"Then from the laptop:  ssh {args.username}@{ip}")
     print(f"Setup log on the Pi:   /boot/firmware/robot-setup/firstrun.log")
 

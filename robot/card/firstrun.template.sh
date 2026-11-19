@@ -81,6 +81,15 @@ if raspi-config nonint do_serial_cons 1 2>/dev/null; then
 else
     raspi-config nonint do_serial 2
 fi
+if grep -q "Raspberry Pi 4" /proc/device-tree/model 2>/dev/null; then
+    echo "--- Pi 4: full UART on GPIO14/15 for the servo bus (as tested in head_tracker/README.md)"
+    CFG="$BOOT/config.txt"
+    ADD=""
+    for line in enable_uart=1 dtoverlay=miniuart-bt core_freq=500 core_freq_min=500; do
+        grep -qxF "$line" "$CFG" || ADD="$ADD$line"$'\n'
+    done
+    [ -n "$ADD" ] && printf '\n[all]\n%s' "$ADD" >> "$CFG"
+fi
 echo "--- boot to the console (a robot needs no desktop)"
 raspi-config nonint do_boot_behaviour B1
 
