@@ -5,7 +5,7 @@
 # the laptop subscribes to host:port. `camera:` entries override the base camera settings below.
 streams:
   birdseye:
-    host: 192.168.50.1      # master Pi
+    host: 192.168.1.20      # main camera over Ethernet; no robot-subnet route required
     port: 5600
     quality: 95             # JPEG quality (higher = sharper markers, more bandwidth; Ethernet, so plenty)
     max_fps: 15             # send at most this many frames/s (the camera itself runs at camera.fps)

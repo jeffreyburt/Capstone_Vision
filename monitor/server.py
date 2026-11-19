@@ -41,6 +41,35 @@ from .tunnels import CameraTunnels
 PAGE = Path(__file__).with_name("page.html")
 
 
+def main_camera_view(message, heartbeat_age, now):
+    """Use laptop frame-receipt time, never the unsynchronized Pi capture clock."""
+    vision = assess.heartbeat(message, heartbeat_age)
+    view = {"live": False, "url": None, "status": "Vision not running; start python -m vision.main --gui",
+            "markers": [], "robots": [], "people_count": None, "user": None, "fps": None,
+            "frame_age_s": None, "calibrated": False, "detection_error": None}
+    if vision is None:
+        return view
+    if vision.get("camera") != "stream://birdseye":
+        view["status"] = "Vision is using a different source; select stream://birdseye for the main camera"
+        return view
+    last_frame = vision.get("last_frame_t")
+    age = max(0, now - last_frame) if last_frame is not None else None
+    view["frame_age_s"] = age
+    if age is None or age > 3:
+        view["status"] = "Waiting for main camera frames" if age is None else f"Main camera stalled; last frame {age:.1f} s ago"
+        return view  # do not present old targets or an old JPEG as live
+    if not vision.get("gui_port"):
+        view["status"] = "Camera processing is running; restart vision with --gui to show overlays"
+        return view
+    msg = vision.get("message") or {}
+    view.update(live=True, url="/video/birdseye", status="Live", markers=vision.get("markers", []),
+                robots=[r for r in msg.get("robots", []) if r.get("age", 0) <= 1],
+                user=msg.get("user") if (msg.get("user") or {}).get("age", 0) <= 1 else None,
+                people_count=vision.get("people_count"), fps=vision.get("fps"),
+                calibrated=bool(vision.get("calibrated")), detection_error=vision.get("detection_error"))
+    return view
+
+
 @dataclass
 class Node:
     key: str                     # "master", "robot1", ...
@@ -199,6 +228,7 @@ class SystemMonitor:
         limits = (self.cfg.get("control") or {}).get("limits") or {}
         return {
             "t": now,
+            "main_camera": main_camera_view(vmsg, vage, now),
             "nodes": out_nodes,
             "links": links,
             "vision": None if vision is None else {"message": vision.get("message"), "scene": vision.get("scene"),
@@ -275,6 +305,13 @@ def make_server(monitor, relay, host, port):
                 self._send(200, "text/html; charset=utf-8", PAGE.read_bytes())
             elif path == "/state":
                 self._send(200, "application/json", json.dumps(monitor.snapshot()).encode())
+            elif path == "/video/birdseye":
+                snapshot = monitor.snapshot()
+                vision = snapshot.get("vision") or {}
+                if not snapshot["main_camera"]["live"]:
+                    self.send_error(503, snapshot["main_camera"]["status"])
+                else:
+                    self._proxy_camera(f"http://127.0.0.1:{int(vision['gui_port'])}/video/birdseye", main=True)
             elif path.startswith("/video/") and path[7:] in relay.names():
                 self._mjpeg(path[7:])
             elif path.startswith("/camera/"):
@@ -287,22 +324,31 @@ def make_server(monitor, relay, host, port):
                 self.send_error(404)
 
         def _dashboard_camera(self, node):
-            headers_sent = False
             try:
                 host, port = relay.tunnels.endpoint(node.host, node.dashboard_port)
-                with urllib.request.urlopen(f"http://{host}:{port}/camera.mjpg", timeout=10) as upstream:
+            except OSError:
+                self.send_error(502, "Robot camera SSH connection unavailable")
+                return
+            self._proxy_camera(f"http://{host}:{port}/camera.mjpg")
+
+        def _proxy_camera(self, url, main=False):
+            headers_sent = False
+            try:
+                with urllib.request.urlopen(url, timeout=10) as upstream:
                     self.send_response(200)
                     self.send_header("Content-Type", upstream.headers.get("Content-Type", "application/octet-stream"))
                     self.send_header("Cache-Control", "no-store")
                     self.end_headers()
                     headers_sent = True
                     while chunk := upstream.read1(65536):
+                        if main and not monitor.snapshot()["main_camera"]["live"]:
+                            break
                         self.wfile.write(chunk)
             except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
                 pass
             except OSError:
                 if not headers_sent:
-                    self.send_error(502, "Robot camera unavailable; check its dashboard status")
+                    self.send_error(502, "Camera unavailable; check its dashboard status")
                 else:
                     self.close_connection = True
 

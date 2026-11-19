@@ -31,6 +31,21 @@ master Pi camera ──Ethernet──► laptop: vision.main ──UDP 5005─�
 
 ## 2. Machines
 
+**2026-11-19 camera update (later live checks):** Both robot IMX708 head-tracking cameras now deliver
+fresh changing JPEGs; robot 2 recovered after the owner reseated its ribbon and rebooted. Head tracking
+remains off. Robot 1's servo communication remains unconfirmed while awaiting a replacement BusLinker;
+USB enumerates, but read-only ID requests received no replies even with external power on.
+
+The main `imx708_wide` camera publisher was started in `~/Capstone_Vision` on the main Pi (still manual,
+not a boot service). The laptop vision process was reconnected to Ethernet `192.168.1.20:5600` and
+verified at about 3–4 fps with changing annotated JPEGs and live person detections through the system
+dashboard. No configured robot markers were detected in the observed scene. The dashboard now has a
+main-camera panel showing person/marker overlays, the selected listener's estimated floor position,
+counts and frame freshness; stale feeds and targets are hidden. `control.main` was not started, and no
+motion or torque commands were sent. The SSH gateway probe program is now sent through stdin so the
+health process listing cannot mistake its source text for running camera or motor programs.
+
+
 **2026-11-19 update (Mac, SSH and read-only hardware checks):** Robot 1 has been replaced by the Pi 3
 at `192.168.50.105`, user `robot-pi1`, hostname `raspberrypi`, WiFi MAC `b8:27:eb:35:63:17`. Both robot
 Pis are reachable through the main Pi. Robot 2 remains `.12` / `capstone-pi2` / `raspberrypi`; the main

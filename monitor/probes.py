@@ -10,7 +10,6 @@
 import json
 import os
 from pathlib import Path
-import shlex
 import shutil
 import socket
 import subprocess
@@ -36,13 +35,13 @@ def network_probe(host, ssh_port=22, wifi_host=None, streams=None, drive_port=No
 
 def gateway_probe(ssh, gateway, spec, timeout=15):
     """Run only the fixed read-only probes on the gateway; no Pi installation required."""
-    source = Path(__file__).read_text() + '\nimport sys\nprint(json.dumps(network_probe(**json.load(sys.stdin))))\n'
+    source = Path(__file__).read_text() + '\nprint(json.dumps(network_probe(**json.loads(' + repr(json.dumps(spec)) + '))))\n'
     cmd = [ssh, "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=3", gateway,
-           "python3 -c " + shlex.quote(source)]
+           "python3 -"]
     try:
         if not ssh:
             raise ValueError("no SSH client found on this laptop")
-        p = subprocess.run(cmd, input=json.dumps(spec).encode(), capture_output=True, timeout=timeout)
+        p = subprocess.run(cmd, input=source.encode(), capture_output=True, timeout=timeout)
         if p.returncode:
             raise ValueError(ssh_error_text(p.stderr.decode(errors="replace").strip().splitlines()[-1]
                                            if p.stderr else f"SSH exit {p.returncode}"))

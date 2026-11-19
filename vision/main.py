@@ -95,6 +95,8 @@ def main(argv=None):
             beacon.update({"state": "running", **static_status, "fps": fps, "last_frame_t": now,
                            "frame_size": [frame.shape[1], frame.shape[0]],
                            "markers": sorted({int(m.id) for m in result.markers}), "message": result.message,
+                           "people_count": len(result.people),
+                           "detection_error": str(pipeline.async_people.error) if pipeline.async_people and pipeline.async_people.error else None,
                            "calibrated": pipeline.geometry is not None, "scene": scene})
 
             if now - last_publish >= publish_period:

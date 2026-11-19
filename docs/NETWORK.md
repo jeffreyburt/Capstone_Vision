@@ -127,6 +127,9 @@ hotspot (identical NetworkManager settings) accepts another Pi 3. A reboot and
 
 ## Dashboard access without a laptop route (Mac or Windows)
 
+The main camera stream uses the main Pi's **Ethernet address `192.168.1.20:5600`** directly;
+`vision.main --gui` supplies its overlays to the monitor's local `/video/birdseye` route.
+
 The current `system.probe_via: vision@192.168.1.20` setting makes the **monitor only** run its TCP,
 HTTP and read-only UDP status probes on the main Pi over SSH. Camera streams are forwarded over SSH
 and served from the local dashboard. The laptop keeps its Internet WiFi; no administrator route or

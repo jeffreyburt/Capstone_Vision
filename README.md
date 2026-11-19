@@ -70,6 +70,20 @@ which adds YOLO.
 
 ### System GUI
 
+The top panel shows the **main camera with live detection overlays**: red person boxes, green ArUco
+marker IDs, yellow robot centers, and a cyan floor estimate for the selected listener. The panel lists
+current detections and frame age, and hides the video and targets when frames or vision heartbeats go
+stale. It relays the existing annotated vision stream through the monitor; viewing never starts control
+or sends wheel/servo commands.
+
+Start the main camera publisher on the main Pi (`python -m camstream.sender birdseye` in its configured
+virtual environment), then run `python -m vision.main --gui` and `python -m monitor` on the laptop.
+Open `http://localhost:8090/`. The main feed uses Ethernet `192.168.1.20:5600`; robot monitoring still
+uses the SSH gateway. Robot centers and the listener floor estimate require floor calibration; image
+boxes and marker outlines can be shown without it. No marker detections means no robot locations are
+claimed. Person detection identifies people, not identities, and may choose a different listener in a crowd.
+
+
 `python -m monitor` runs on its own (start it first; it keeps working while the other programs start, stop
 or crash) and shows, for every machine, green / amber / red rows plus a network diagram and a top-down map
 with the robots, the user and the control targets. It only reads; it never starts, stops or commands

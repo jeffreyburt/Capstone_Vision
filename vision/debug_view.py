@@ -35,6 +35,15 @@ def draw_overlay(frame, result, geometry=None, fps=None):
         cv2.rectangle(img, (x1, y1), (x2, y2), RED, 2)
         cv2.putText(img, f"person {d.confidence:.2f}", (x1, y1 - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.7, RED, 2)
         cv2.circle(img, (int((x1 + x2) / 2), y2), 6, RED, -1)  # foot point used for the floor position
+    user = (result.message or {}).get("user")
+    if geometry is not None and user is not None and user.get("age", 0) <= 1:
+        u, v = geometry.world_to_pixels([[user["x"], user["y"], 0.0]])[0]
+        if 0 <= u < img.shape[1] and 0 <= v < img.shape[0]:
+            point = (int(u), int(v))
+            cyan = (255, 255, 0)
+            cv2.circle(img, point, 12, cyan, 3)
+            cv2.putText(img, "Listener floor estimate", (point[0] + 16, point[1] - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, cyan, 2)
     text = f"markers: {len(result.markers)}  people: {len(result.people)}"
     if fps:
         text = f"{fps:.1f} fps   " + text

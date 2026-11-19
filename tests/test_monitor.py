@@ -14,7 +14,7 @@ import pytest
 from monitor import assess
 from monitor.beacon import StatusBeacon, StatusListener
 from monitor.probes import decode_throttled, drive_status, gateway_probe, http_json, parse_health, parse_process, tcp_check
-from monitor.server import CameraRelay, Node, SystemMonitor, build_nodes, make_server
+from monitor.server import CameraRelay, Node, SystemMonitor, build_nodes, main_camera_view, make_server
 from robot.drive_server import DriveParams, DriveServer, PrintMotors
 from vision.config import load_config
 
@@ -372,7 +372,8 @@ def test_gateway_camera_uses_local_proxy_and_preserves_robot_address(monkeypatch
         mon.close()
 
 
-def test_camera_proxy_relays_jpeg_stream_without_control_requests():
+@pytest.mark.parametrize("kind", ["robot", "main"])
+def test_camera_proxy_relays_jpeg_stream_without_control_requests(kind):
     frame = b"--frame\r\nContent-Type: image/jpeg\r\n\r\njpeg-test\r\n"
     requests = []
 
@@ -392,18 +393,63 @@ def test_camera_proxy_relays_jpeg_stream_without_control_requests():
     threading.Thread(target=upstream.serve_forever, daemon=True).start()
     cfg = {"system": {"robots": {1: {"host": "127.0.0.1", "dashboard_port": upstream.server_port}}}}
     mon = SystemMonitor(cfg, listener=False, start=False)
+    if kind == "main":
+        mon.snapshot = lambda: {"main_camera": {"live": True}, "vision": {"gui_port": upstream.server_port}}
     relay = CameraRelay(cfg)
     httpd = make_server(mon, relay, "127.0.0.1", 0)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     try:
-        with urllib.request.urlopen(f"http://127.0.0.1:{httpd.server_port}/camera/robot1", timeout=2) as r:
+        path = "/video/birdseye" if kind == "main" else "/camera/robot1"
+        with urllib.request.urlopen(f"http://127.0.0.1:{httpd.server_port}{path}", timeout=2) as r:
             assert "multipart/x-mixed-replace" in r.headers["Content-Type"]
             assert r.read() == frame
-        assert requests == [("GET", "/camera.mjpg")]
+        assert requests == [("GET", "/video/birdseye" if kind == "main" else "/camera.mjpg")]
     finally:
         httpd.shutdown()
         httpd.server_close()
         upstream.shutdown()
         upstream.server_close()
+        relay.tunnels.close()
+        mon.close()
+
+
+def test_main_camera_tracks_only_fresh_frames_despite_pi_clock_offset():
+    msg = {"state": "running", "camera": "stream://birdseye", "gui_port": 8080,
+           "last_frame_t": 999.8, "people_count": 2, "markers": [1, 5], "calibrated": True,
+           "message": {"t": 1, "robots": [{"id": 1, "age": .1}, {"id": 2, "age": 2}],
+                       "user": {"age": .3, "x": 1, "y": 2}}}
+    view = main_camera_view(msg, .1, 1000)
+    assert view["live"] and view["url"] == "/video/birdseye"
+    assert view["markers"] == [1, 5] and view["people_count"] == 2
+    assert [r["id"] for r in view["robots"]] == [1]
+    assert view["user"] and view["calibrated"]
+    stalled = main_camera_view(msg, .1, 1010)
+    assert not stalled["live"] and stalled["url"] is None
+    assert stalled["robots"] == [] and stalled["user"] is None
+    assert "stalled" in stalled["status"]
+
+
+def test_main_camera_requires_running_birdseye_gui():
+    base = {"state": "running", "camera": "stream://birdseye", "last_frame_t": 1000, "gui_port": 8080}
+    assert not main_camera_view(None, None, 1000)["live"]
+    assert not main_camera_view(base, 30, 1000)["live"]
+    assert not main_camera_view({**base, "state": "exited"}, .1, 1000)["live"]
+    assert not main_camera_view({**base, "camera": "webcam"}, .1, 1000)["live"]
+    assert "--gui" in main_camera_view({**base, "gui_port": None}, .1, 1000)["status"]
+
+
+def test_main_camera_http_refuses_stale_stream():
+    cfg = {}
+    mon = SystemMonitor(cfg, listener=False, start=False)
+    relay = CameraRelay(cfg)
+    httpd = make_server(mon, relay, "127.0.0.1", 0)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        with pytest.raises(urllib.error.HTTPError) as error:
+            urllib.request.urlopen(f"http://127.0.0.1:{httpd.server_port}/video/birdseye", timeout=2)
+        assert error.value.code == 503
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
         relay.tunnels.close()
         mon.close()

@@ -23,6 +23,10 @@
   body.lost #lost { display: block; }
   main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(380px, 46%); gap: 14px; padding: 14px 16px; }
   main > #diagram { grid-column: 1 / -1; }
+  #main-camera { grid-column: 1 / -1; }
+  #main-camera img { display: block; width: 100%; max-height: 520px; object-fit: contain; background: #080b0f; }
+  #main-camera img[hidden] { display: none; }
+  #main-camera-status, #main-camera-targets { margin: 0; padding: 8px 12px; color: var(--muted); }
   .col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
   .col.sticky { position: sticky; top: 60px; align-self: start; }   /* the map stays in view next to long cards */
   .card { scroll-margin-top: 60px; }
@@ -84,6 +88,17 @@
 </header>
 <div id="lost">Lost connection to the system GUI. Is <code>python -m monitor</code> still running?</div>
 <main>
+  <section class="panel" id="main-camera">
+    <h2>Main camera · live tracking <span class="grow"></span><span class="pill" id="main-camera-pill">checking</span></h2>
+    <p id="main-camera-status" role="status">Checking the main camera…</p>
+    <img id="main-camera-image" alt="Main camera with person boxes, ArUco marker IDs and robot center overlays" hidden>
+    <p id="main-camera-targets"></p>
+    <div class="legend"><span><i style="background:#ff5a5a"></i>person box and confidence</span>
+      <span><i style="background:#3fae5a"></i>robot marker outline and ID</span>
+      <span><i style="background:var(--cam)"></i>estimated robot center (R1 / R2)</span>
+      <span><i style="background:#00ffff"></i>selected listener floor estimate</span>
+      <span>Viewing only · no motor or servo commands</span></div>
+  </section>
   <section class="panel" id="diagram">
     <h2>Network <span class="sub">click a machine for its details</span></h2>
     <svg viewBox="0 0 850 250" role="img" aria-label="network diagram"></svg>
@@ -253,7 +268,7 @@ function drawCards(st) {
     setHTML(c, "checks", n.checks.map(k => `<span class="dot ${k.level}" title="${LEVEL_TEXT[k.level]}"></span>` +
       `<span class="lbl">${esc(k.label)}</span><span class="txt">${esc(k.text)}</span>`).join(""));
     setHTML(c, "det", detailsHTML(n, st.t));
-    c.camera = n.camera;
+    c.camera = n.kind === "master" ? null : n.camera; // main feed has its own annotated panel
     updateCamera(c);
   }
 }
@@ -402,6 +417,39 @@ function drawMap(st) {
 }
 
 // ---------------------------------------------------------------- polling
+let mainCameraURL = null, mainCameraRetry = 0;
+$("main-camera-image").onerror = () => {
+  mainCameraURL = null;
+  mainCameraRetry = Date.now() + 2000;
+  $("main-camera-image").hidden = true;
+  $("main-camera-status").textContent = "Camera stream disconnected; retrying…";
+};
+function drawMainCamera(st) {
+  const c = st.main_camera || {}, img = $("main-camera-image"), pill = $("main-camera-pill");
+  pill.className = `pill ${c.live ? "ok" : "warn"}`;
+  pill.textContent = c.live ? "Live" : "Unavailable";
+  if (!c.live || !c.url) {
+    img.hidden = true;
+    if (mainCameraURL) img.removeAttribute("src");
+    mainCameraURL = null;
+    $("main-camera-status").textContent = c.status || "Waiting for vision";
+    $("main-camera-targets").textContent = "No current tracking data";
+    return;
+  }
+  const stats = [c.status, c.fps ? `${c.fps.toFixed(1)} fps` : null,
+    c.frame_age_s != null ? `frame ${c.frame_age_s.toFixed(1)} s ago` : null,
+    c.calibrated ? "Floor calibration loaded" : "No floor calibration: image detections only"];
+  if (c.detection_error) stats.push(`Person detector error: ${c.detection_error}`);
+  $("main-camera-status").textContent = stats.filter(Boolean).join(" · ");
+  const markers = (c.markers || []).join(", ") || "none";
+  const robots = (c.robots || []).map(r => `R${r.id}`).join(", ") || "none located";
+  $("main-camera-targets").textContent = `People detected: ${c.people_count ?? "unknown"} · Marker IDs: ${markers} · Robots: ${robots} · Listener track: ${c.user ? "present" : "none"}`;
+  if (mainCameraURL !== c.url && Date.now() >= mainCameraRetry) {
+    mainCameraURL = c.url;
+    img.src = `${c.url}?t=${Date.now()}`;
+    img.hidden = false;
+  }
+}
 let latest = null;
 async function poll() {
   try {
@@ -409,10 +457,12 @@ async function poll() {
     latest = await r.json();
     document.body.classList.remove("lost");
     drawHeader(latest);
+    drawMainCamera(latest);
     drawDiagram(latest);
     drawCards(latest);
     drawMap(latest);
   } catch (e) {
+    drawMainCamera({ main_camera: { live: false, status: "Dashboard connection lost; waiting to reconnect" } });
     document.body.classList.add("lost");
     $("overall").className = "pill bad";
     $("overall").textContent = "no connection";
