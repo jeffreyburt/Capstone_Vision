@@ -110,12 +110,14 @@ class DriveServer:
     """Receives commands, ramps wheel speeds, enforces the command timeout. One instance owns the motors."""
 
     def __init__(self, motors, params, robot_id, port=5700, host="0.0.0.0", timeout_s=0.5, rate_hz=20.0,
-                 allow_from=None, max_speed_m_s=0.3, max_yaw_rad_s=1.0, clock=time.monotonic, log=print):
+                 allow_from=None, max_speed_m_s=0.3, max_yaw_rad_s=1.0, clock=time.monotonic, log=print,
+                 *, before_motor_tick=None):
         self.motors, self.p, self.robot_id = motors, params, robot_id
         self.timeout_s, self.period = timeout_s, 1.0 / rate_hz
         self.allow_from = allow_from
         self.max_speed_m_s, self.max_yaw_rad_s = max_speed_m_s, max_yaw_rad_s
         self.clock, self.log = clock, log
+        self.before_motor_tick = before_motor_tick
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind((host, port))
         self.port = self.sock.getsockname()[1]
@@ -168,6 +170,8 @@ class DriveServer:
 
     def tick(self, now):
         """One control step: watchdog, ramp toward the commanded wheel speeds, write the motors."""
+        if self.before_motor_tick is not None:
+            self.before_motor_tick()
         dt = self.period if self.last_tick is None else min(max(now - self.last_tick, 0.0), 0.1)
         self.last_tick = now
         if self.last_cmd is not None and now - self.last_cmd > self.timeout_s:
@@ -241,7 +245,7 @@ def _interrupt(signum, frame):
     raise KeyboardInterrupt
 
 
-def main(argv=None):
+def main(argv=None, *, before_motor_tick=None):
     ap = argparse.ArgumentParser(description="UDP velocity commands -> mecanum wheels, with a watchdog")
     ap.add_argument("--robot-id", type=int, required=True, help="only accept commands addressed to this robot")
     ap.add_argument("--hardware", action="store_true", help="drive the real motors (default: simulation)")
@@ -276,7 +280,7 @@ def main(argv=None):
             with HiwonderController(HiwonderConfig(**hw)) as board:
                 board.initialize()
                 DriveServer(board, params, args.robot_id, args.port, timeout_s=args.timeout,
-                            allow_from=args.allow_from).run()
+                            allow_from=args.allow_from, before_motor_tick=before_motor_tick).run()
         else:
             DriveServer(PrintMotors(), params, args.robot_id, args.port, timeout_s=args.timeout,
                         allow_from=args.allow_from).run()
