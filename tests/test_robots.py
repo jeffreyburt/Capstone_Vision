@@ -1,5 +1,7 @@
 import numpy as np
 import pytest
+import cv2
+from pathlib import Path
 
 from vision.config import load_config
 from vision.geometry import CameraModel, FloorPose, Geometry
@@ -80,3 +82,13 @@ def test_rendered_images_end_to_end(cfg, specs, geom, dist):
 def test_unknown_ids_ignored(geom, specs):
     img = render_scene(geom, [(1, 0, 3, -90)], specs, (1280, 720))
     assert MarkerDetector("DICT_4X4_50", allowed_ids=[40]).detect(img) == []
+
+
+def test_rear_marker_next_to_dark_connectors():
+    # Hardware regression: the default threshold merges the top border with the nearby connector.
+    # This fixture contains only the robot's marker and connectors, cropped from a camera frame.
+    image = cv2.imread(str(Path(__file__).parent / "fixtures/rear_marker_6.png"))
+    assert image is not None
+    assert MarkerDetector(allowed_ids=range(8), adaptive_thresh_constant=7).detect(image) == []
+    assert [m.id for m in MarkerDetector(allowed_ids=range(8)).detect(image)] == [6]
+    assert MarkerDetector(allowed_ids=range(4)).detect(image) == []  # never accept another robot's ID set

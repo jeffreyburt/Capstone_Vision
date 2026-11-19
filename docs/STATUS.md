@@ -31,6 +31,17 @@ master Pi camera ──Ethernet──► laptop: vision.main ──UDP 5005─�
 
 ## 2. Machines
 
+**2026-11-19 marker detection update (later live checks):** The main camera now consistently detects
+robot 2 side ID 5 and rear ID 6 and reports robot 2's position. OpenCV's threshold bias of 7 missed rear
+ID 6 beside its dark connectors; `markers.adaptive_thresh_constant: 3` recovers it without changing
+allowed IDs, dictionary error correction or polygon tolerances. Robot 1 rear ID 2 is recovered in some
+frames and produces a pose, but a cable/connector overlaps its top border and it remains intermittent.
+Clear the entire black square and white margin physically; software does not reconstruct covered tags.
+Regression coverage includes a cropped robot-only ID 6 image (no people or surrounding scene). The full
+suite passes 112 tests plus 10 subtests. Only the laptop vision process was restarted; no motion or torque
+commands were sent.
+
+
 **2026-11-19 camera update (later live checks):** Both robot IMX708 head-tracking cameras now deliver
 fresh changing JPEGs; robot 2 recovered after the owner reseated its ribbon and rebooted. Head tracking
 remains off. Robot 1's servo communication remains unconfirmed while awaiting a replacement BusLinker;

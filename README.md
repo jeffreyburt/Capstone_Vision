@@ -68,6 +68,14 @@ The window shows detected markers and people on the left and a top-down map on t
 Pis install with `bash scripts/setup_pi.sh` (`requirements.txt`). The laptop uses `requirements-laptop.txt`,
 which adds YOLO.
 
+### Marker visibility
+
+The current robots use `DICT_4X4_50`: robot 1 IDs 0–3 (rear 2), robot 2 IDs 4–7 (rear 6).
+Keep the whole black square and white margin clear of wires, connectors, brackets and glare.
+`markers.adaptive_thresh_constant` controls OpenCV's threshold bias; 3 is verified on the current rear
+markers, which were missed at the library default of 7. This does not recover covered marker cells or
+change the allowed IDs. Robot 1's rear tag still needs its overlapping connector/cable cleared.
+
 ### System GUI
 
 The top panel shows the **main camera with live detection overlays**: red person boxes, green ArUco

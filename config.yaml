@@ -45,6 +45,7 @@ calibration:
 
 markers:
   dictionary: DICT_4X4_50   # any cv2.aruco dictionary name, e.g. DICT_APRILTAG_36h11
+  adaptive_thresh_constant: 3  # rear tags near dark connectors need a lower threshold bias than OpenCV's 7
   size_m: 0.10              # edge length of the BLACK square, measured on the print
   center_height_m: 0.30     # height of the marker's center above the floor
 

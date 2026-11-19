@@ -105,7 +105,9 @@ def main():
         raise SystemExit(f"no lens calibration at {intr}; calibrate the lens first")
     source = open_source(cfg, args.source)
     try:
-        corners, size = collect_corners(source, MarkerDetector(cfg["markers"]["dictionary"]), args.ids, args.frames)
+        corners, size = collect_corners(source, MarkerDetector(cfg["markers"]["dictionary"],
+                                       adaptive_thresh_constant=cfg["markers"].get("adaptive_thresh_constant", 3)),
+                                       args.ids, args.frames)
     finally:
         source.close()
     camera = CameraModel.load(intr).scaled_to(*size)

@@ -28,7 +28,9 @@ class VisionPipeline:
         self.cfg = cfg
         self.specs = robot_specs_from_config(cfg)
         marker_ids = [mid for s in self.specs for mid in s.faces]
-        self.detector = MarkerDetector(cfg.get("markers", {}).get("dictionary", "DICT_4X4_50"), marker_ids)
+        marker_cfg = cfg.get("markers", {})
+        self.detector = MarkerDetector(marker_cfg.get("dictionary", "DICT_4X4_50"), marker_ids,
+                                       adaptive_thresh_constant=marker_cfg.get("adaptive_thresh_constant", 3))
         self.tracker = RobotTracker([s.id for s in self.specs], cfg.get("tracking"))
         self.user_tracker = UserTracker(cfg.get("user_tracking", cfg.get("tracking")))
         self.geometry = geometry

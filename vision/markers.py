@@ -28,11 +28,14 @@ def get_dictionary(name):
 
 
 class MarkerDetector:
-    def __init__(self, dictionary="DICT_4X4_50", allowed_ids=None):
+    def __init__(self, dictionary="DICT_4X4_50", allowed_ids=None, *, adaptive_thresh_constant=3):
         """allowed_ids: only report these IDs (everything else is treated as a false detection)."""
         params = cv2.aruco.DetectorParameters()
         params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX  # sub-pixel corners -> steadier positions
         params.minMarkerPerimeterRate = 0.02  # allow small (far away) markers
+        # A dark connector close to a marker's border can merge into its contour at OpenCV's default 7.
+        # 3 separates the rear tags in recorded camera frames without relaxing dictionary error checks.
+        params.adaptiveThreshConstant = float(adaptive_thresh_constant)
         self.detector = cv2.aruco.ArucoDetector(get_dictionary(dictionary), params)
         self.allowed_ids = set(allowed_ids) if allowed_ids is not None else None
 
