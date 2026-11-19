@@ -17,6 +17,7 @@ import argparse
 import sys
 import time
 
+from monitor.beacon import StatusBeacon, status_port
 from vision.config import load_config
 
 from .controller import Limits, RobotController
@@ -100,6 +101,18 @@ def _fmt_status(mode, msg, targets, results, link_ages):
     return "  |  ".join(parts)
 
 
+def status_report(mode, msg_age_s, targets, results, link_ages, link_status):
+    """Fields for the system GUI's heartbeat (see monitor/beacon.py). JSON keys must be strings."""
+    robots = {}
+    for rid, (cmd, reason) in results.items():
+        t = targets.get(rid)
+        robots[str(rid)] = {
+            "target": None if t is None else [round(t.x, 3), round(t.y, 3), round(t.heading_deg, 1)],
+            "cmd": [round(v, 3) for v in cmd], "reason": reason,
+            "link_age_s": link_ages.get(rid), "reply": link_status.get(rid)}
+    return {"state": "running", "mode": mode, "vision_age_s": msg_age_s, "robots": robots}
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Robots follow the user (laptop closes the loop)")
     ap.add_argument("--config", help="path to config.yaml (default: repo config.yaml)")
@@ -128,6 +141,7 @@ def main(argv=None):
     vision = VisionListener(int(c.get("vision_port", cfg.get("output", {}).get("port", 5005))))
     link = RobotLink({rid: (robots_cfg[rid]["host"], robots_cfg[rid].get("port", 5700)) for rid in driven})
     keys = Keys()
+    beacon = StatusBeacon("control", status_port(cfg))  # status for the system GUI (python -m monitor)
 
     print(("ARMED: driving robots " if args.arm else "DRY RUN (nothing is sent; add --arm to drive): robots ")
           + ", ".join(f"{rid} @ {robots_cfg[rid]['host']}" for rid in driven))
@@ -146,8 +160,8 @@ def main(argv=None):
                     return 0
             msg, received_at = vision.poll()
             now = time.time()
-            targets, results = compute_commands(msg, None if received_at is None else now - received_at,
-                                                planner, controllers, timing, compensated_ids)
+            msg_age = None if received_at is None else now - received_at
+            targets, results = compute_commands(msg, msg_age, planner, controllers, timing, compensated_ids)
             if args.arm:
                 for rid, (cmd, _) in results.items():
                     if paused or cmd == STOP:
@@ -155,8 +169,9 @@ def main(argv=None):
                     else:
                         link.drive(rid, *cmd, pose_compensated=rid in compensated_ids)
             link_ages = link.poll()
+            mode = "PAUSED" if paused else ("ARMED" if args.arm else "DRY RUN")
+            beacon.update(status_report(mode, msg_age, targets, results, link_ages, link.status))
             if now - last_print >= 1.0:
-                mode = "PAUSED" if paused else ("ARMED" if args.arm else "DRY RUN")
                 print(_fmt_status(mode, msg, targets, results, link_ages))
                 last_print = now
             next_t += period
@@ -169,6 +184,7 @@ def main(argv=None):
         if args.arm:
             link.stop_all()
             print("Sent stop to all robots.")
+        beacon.close()
         vision.close()
         link.close()
     return 0

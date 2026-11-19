@@ -127,6 +127,18 @@ control:
     robot_clearance_m: 0.6  # ...or toward each other when closer than this (center to center)
     allow_strafe: false     # robot 2's strafe turns into rotation: turn-then-drive instead. true = full mecanum
 
+# ---- System GUI (python -m monitor -> http://localhost:8090/): status of every Pi, robot and laptop program ----
+system:
+  gui_port: 8090
+  status_port: 5007         # vision.main and control.main report their status here (UDP, this laptop only)
+  probe_interval_s: 2       # reachability, camera ports, drive server, head tracker
+  ssh_interval_s: 10        # Pi health over SSH with the laptop's key (temperature, power, WiFi, programs); 0 = off
+  ssh: null                 # ssh client; null = Windows OpenSSH, else the one on PATH
+  master: {host: 192.168.1.20, wifi_host: 192.168.50.1, ssh_user: vision}
+  robots:                   # address + drive port from control.robots, camera from streams.robotN
+    1: {ssh_user: user, dashboard_port: 8080}           # robot/card default user; change if robot 1 differs
+    2: {ssh_user: capstone-pi2, dashboard_port: 8080}   # William's image
+
 debug:
   stream_port: 8080         # MJPEG debug stream port when run with --stream
   map_x: [-3.0, 3.0]        # top-down map extent (meters)

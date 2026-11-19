@@ -51,7 +51,9 @@ Master Pi + camera ──Ethernet──► laptop: vision.main ──UDP 5005─
 
 ## Bring-up, in this order
 
-Each step must look right before the next one.
+Each step must look right before the next one. Keep the system GUI open the whole time
+(`python -m monitor`, http://localhost:8090/): it shows every Pi, the drive servers, the head trackers,
+vision and the control loop, and draws the control targets on its map.
 
 1. **Vision** (laptop): `python -m vision.main --gui`, open http://localhost:8080/. Check that the robot dot
    is at the robot and its heading arrow points out of the speaker front.
@@ -112,4 +114,4 @@ still slide sideways around them. Nothing else is avoided (furniture, a second p
 - Straight-line moves only, no path planning. A robot whose path is blocked by the user slides along the
   keep-out circle or stops.
 - Robot 1 always takes the user's left and robot 2 the right (`side` in `control.robots`).
-- The planned targets aren't drawn in the GUI yet; read them from the control loop's status line.
+- The planned targets are drawn in the system GUI (`python -m monitor`), not in the vision GUI.

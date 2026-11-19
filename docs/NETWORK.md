@@ -63,9 +63,11 @@ network is unreliable. With the route in place the laptop can reach the master P
 | **5601** | TCP (ZeroMQ PUB) | Robot 1 Pi | Laptop | Robot 1 camera frames, ~10 fps 768×432 |
 | **5602** | TCP (ZeroMQ PUB) | Robot 2 Pi | Laptop | Robot 2 camera frames, ~10 fps 768×432 |
 | **5005** | UDP | Laptop (receiver) | Vision process (on the laptop, `127.0.0.1`) | Vision output: robot + user positions, 10 Hz JSON |
-| **5700** | UDP | Each robot Pi (`robot/drive_server.py`) | Laptop (`control.main`) | Robot drive commands: body velocity JSON, 10 Hz; status reply to the sender ([MVP_RUNBOOK.md](MVP_RUNBOOK.md)) |
+| **5700** | UDP | Each robot Pi (`robot/drive_server.py`) | Laptop (`control.main`) | Robot drive commands: body velocity JSON, 10 Hz; status reply to the sender ([MVP_RUNBOOK.md](MVP_RUNBOOK.md)). The system GUI also sends a read-only `{"type": "status"}` query every 2 s |
 | 5701–5799 | — | *reserved* | | Future robot commands (e.g. pan/tilt) |
-| 8080 | HTTP | Whichever machine runs `--stream` | Browser | Debug view (development only) |
+| 5007 | UDP | Laptop, `127.0.0.1` (system GUI) | `vision.main`, `control.main` | Status heartbeats, 5 Hz JSON, laptop only (`monitor/beacon.py`) |
+| 8080 | HTTP | Laptop (`vision.main --gui` / `--stream`); robot Pis (head tracker dashboard) | Browser; system GUI reads the robots' `/api/state` | Vision GUI / debug view; head tracker |
+| 8090 | HTTP | Laptop, `127.0.0.1` (`python -m monitor`) | Browser | System GUI: status of every Pi, robot and laptop program |
 | 123 | UDP (NTP) | Master Pi (chrony) | Slave Pis, laptop | Time sync |
 | 22 | TCP | Every Pi | Laptop | SSH |
 

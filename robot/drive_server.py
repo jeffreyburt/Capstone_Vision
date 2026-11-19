@@ -17,6 +17,9 @@ Protocol: UDP JSON on port 5700 (docs/NETWORK.md reserves 5700-5799 for robot co
                       {"type": "stop",  "robot_id": 1}
     robot -> laptop   {"type": "status", "robot_id": 1, "seq": 17, "state": "driving",
                        "motors": [5, -5, -5, 5], "error": null}      (sent back to whoever sent the command)
+    any -> robot      {"type": "status"}     read-only query (the system GUI): changes nothing, accepted from
+                                             any host and for any robot_id; the reply adds "hardware",
+                                             "uptime_s", "last_cmd_age_s", "target", "received", "rejected"
 vx = forward m/s, vy = left m/s, wz = counter-clockwise rad/s, all in the robot's own (body) frame.
 "Forward" is the robot's front, which must be the same face the vision system calls the front.
 
@@ -85,14 +88,17 @@ def to_motors(wheels, p):
 
 
 def parse_command(data, robot_id, *, require_compensated_pose=False):
-    """Decode one datagram. Returns ("drive", (vx, vy, wz), seq) or ("stop", None, seq); raises ValueError."""
+    """Decode one datagram. Returns ("drive", (vx, vy, wz), seq), ("stop", None, seq) or ("status", None, seq);
+    raises ValueError."""
     msg = json.loads(data)
     if not isinstance(msg, dict):
         raise ValueError("expected a JSON object")
-    if msg.get("robot_id") != robot_id:
-        raise ValueError(f"command for robot {msg.get('robot_id')!r}, this is robot {robot_id}")
     kind = msg.get("type")
     seq = msg.get("seq")
+    if kind == "status":  # read-only query: any robot_id (the reply says which robot this is)
+        return "status", None, seq
+    if msg.get("robot_id") != robot_id:
+        raise ValueError(f"command for robot {msg.get('robot_id')!r}, this is robot {robot_id}")
     if kind == "stop":
         return "stop", None, seq
     if kind != "drive":
@@ -132,6 +138,7 @@ class DriveServer:
         self.state = "stopped"
         self.error = None
         self.received = self.rejected = 0
+        self.started = clock()
 
     def _clamp(self, vx, vy, wz):
         speed = math.hypot(vx, vy)
@@ -140,16 +147,38 @@ class DriveServer:
         wz = max(-self.max_yaw_rad_s, min(self.max_yaw_rad_s, wz))
         return vx, vy, wz
 
+    def _status_reply(self, seq, now):
+        """Answer to a read-only status query: the normal reply plus details. Changes nothing."""
+        return {"type": "status", "robot_id": self.robot_id, "seq": seq, "state": self.state,
+                "motors": self.last_motors, "error": self.error,
+                "hardware": not isinstance(self.motors, PrintMotors),
+                "uptime_s": round(now - self.started, 1),
+                "last_cmd_age_s": None if self.last_cmd is None else round(now - self.last_cmd, 2),
+                "target": [round(v, 3) for v in self.target], "received": self.received,
+                "rejected": self.rejected, "timeout_s": self.timeout_s,
+                "require_compensated_pose": self.require_compensated_pose}
+
     def handle(self, data, addr, now):
         """Process one datagram (also used directly by tests)."""
-        self.received += 1
-        seq = None
+        seq = parse_error = None
         try:
-            if self.allow_from and addr[0] != self.allow_from:
-                raise ValueError(f"ignoring commands from {addr[0]}")
             kind, v, seq = parse_command(
                 data, self.robot_id, require_compensated_pose=self.require_compensated_pose
             )
+        except (ValueError, TypeError, UnicodeError) as e:
+            kind, parse_error = None, e
+        if kind == "status":  # read-only: never counted, never touches the target, the error or the watchdog
+            try:
+                self.sock.sendto(json.dumps(self._status_reply(seq, now)).encode(), addr)
+            except OSError:
+                pass
+            return
+        self.received += 1
+        try:
+            if self.allow_from and addr[0] != self.allow_from:
+                raise ValueError(f"ignoring commands from {addr[0]}")
+            if parse_error is not None:
+                raise parse_error
             if kind == "stop":
                 self.stop_now("stopped (stop command)")
             else:

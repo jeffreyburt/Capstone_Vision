@@ -17,8 +17,11 @@ import time
 
 import cv2
 
+from monitor.beacon import StatusBeacon, status_port
+
 from .camera import open_source
 from .config import load_config
+from .gui import scene_info
 from .output import UdpPublisher
 from .pipeline import VisionPipeline
 
@@ -55,11 +58,21 @@ def main(argv=None):
     if args.stream is not None:
         from .debug_view import MjpegServer
         server = MjpegServer(dbg_cfg.get("stream_port", 8080) if args.stream == -1 else args.stream)
-    gui = None
+    gui = gui_port = None
     if args.gui is not None:
         from .gui import GuiServer
-        gui = GuiServer(cfg, dbg_cfg.get("stream_port", 8080) if args.gui == -1 else args.gui)
+        gui_port = dbg_cfg.get("stream_port", 8080) if args.gui == -1 else args.gui
+        gui = GuiServer(cfg, gui_port)
     floor_map = None
+
+    # Status for the system GUI (python -m monitor). The stream statistics are read live by the beacon's
+    # thread, so they keep updating while read() below is still waiting for the first frame.
+    source_label = str(args.source or cfg.get("camera", {}).get("source", "picam"))
+    beacon = StatusBeacon("vision", status_port(cfg),
+                          extra=lambda: {"stream": source.rx.stats(source.name)} if hasattr(source, "rx") else {})
+    static_status = {"camera": source_label, "gui_port": gui_port, "people": pipeline.people is not None}
+    beacon.update({"state": "waiting", **static_status})
+    scene, scene_geometry = None, False  # scene info for the GUI map, recomputed when the geometry changes
 
     print(f"Sending UDP to {publisher.addr[0]}:{publisher.addr[1]} at {1 / publish_period:.0f} Hz. Ctrl+C to stop.")
     last_publish = last_status = last_stream = last_snapshot = last_gui = 0.0
@@ -75,6 +88,14 @@ def main(argv=None):
             result = pipeline.process(frame, ts)
             frames_since_status += 1
             now = time.time()
+
+            if pipeline.geometry is not scene_geometry:  # first frame, or a new lens calibration was loaded
+                scene_geometry = pipeline.geometry
+                scene = scene_info(cfg, pipeline.geometry, (frame.shape[1], frame.shape[0]))
+            beacon.update({"state": "running", **static_status, "fps": fps, "last_frame_t": now,
+                           "frame_size": [frame.shape[1], frame.shape[0]],
+                           "markers": sorted({int(m.id) for m in result.markers}), "message": result.message,
+                           "calibrated": pipeline.geometry is not None, "scene": scene})
 
             if now - last_publish >= publish_period:
                 publisher.send(result.message)
@@ -93,7 +114,6 @@ def main(argv=None):
 
             if gui is not None and now - last_gui >= 0.1:  # ~10 fps is plenty for viewing
                 from .debug_view import draw_overlay
-                from .gui import scene_info
                 if last_gui == 0.0:
                     gui.set_scene(scene_info(cfg, pipeline.geometry, (frame.shape[1], frame.shape[0])))
                 overlay = draw_overlay(frame, result, pipeline.geometry, fps)
@@ -132,6 +152,7 @@ def main(argv=None):
     except KeyboardInterrupt:
         pass
     finally:
+        beacon.close()
         source.close()
         pipeline.close()
         publisher.close()

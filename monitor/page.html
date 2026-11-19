@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>System Status</title>
+<style>
+  :root {
+    --bg: #111418; --panel: #1b1f25; --panel2: #161a1f; --line: #2c323b; --text: #d8dde3; --muted: #8a939e;
+    --ok: #3fae5a; --warn: #e09a2b; --bad: #e5484d; --off: #5a6470;
+    --r1: #2f8cff; --r2: #ff8c00; --user: #ff5a5a; --cam: #ffd84a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, sans-serif; }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 16px;
+           border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); z-index: 5; }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  header .spacer { flex: 1; }
+  header a { color: var(--muted); }
+  #overall { padding: 3px 10px; border-radius: 999px; font-weight: 600; font-size: 13px; background: var(--line); }
+  #updated { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+  #lost { display: none; background: #5c1f22; color: #ffd9da; padding: 8px 16px; }
+  body.lost #lost { display: block; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(380px, 46%); gap: 14px; padding: 14px 16px; }
+  main > #diagram { grid-column: 1 / -1; }
+  .col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .col.sticky { position: sticky; top: 60px; align-self: start; }   /* the map stays in view next to long cards */
+  .card { scroll-margin-top: 60px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .panel > h2 { margin: 0; padding: 8px 12px; font-size: 13px; font-weight: 600; display: flex; gap: 8px;
+                align-items: center; border-bottom: 1px solid var(--line); }
+  .panel > h2 .sub { color: var(--muted); font-weight: 400; }
+  .panel > h2 .grow { flex: 1; }
+  #diagram svg { display: block; width: 100%; max-width: 1050px; height: auto; margin: 0 auto; }
+  #diagram .node { cursor: pointer; }
+  #diagram .node:hover rect { fill: #222831; }
+  #map { display: block; width: 100%; height: 460px; }
+  #map-note { color: var(--warn); font-weight: 400; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; padding: 6px 12px 10px; color: var(--muted); font-size: 12px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  button { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 6px;
+           padding: 4px 10px; cursor: pointer; font: inherit; font-size: 13px; }
+  button:hover { border-color: var(--muted); }
+  #cards { display: grid; grid-template-columns: 1fr; gap: 14px; }
+  .card .addr { color: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums; }
+  .pill { padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--line); }
+  .pill.ok { background: #1d4a2a; color: #c9f5d5; } .pill.warn { background: #5a3d10; color: #ffe4b8; }
+  .pill.bad { background: #5c1f22; color: #ffd9da; } .pill.off, .pill.unknown { color: var(--muted); }
+  .checks { display: grid; grid-template-columns: 10px minmax(90px, max-content) minmax(0, 1fr); gap: 5px 10px;
+            padding: 10px 12px; align-items: baseline; }
+  .checks .lbl { color: var(--muted); white-space: nowrap; }
+  .checks .txt { overflow-wrap: anywhere; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: var(--off); }
+  .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.bad { background: var(--bad); }
+  .dot.unknown { background: transparent; border: 1.5px dashed var(--off); }
+  .cam { padding: 0 12px 10px; display: flex; flex-direction: column; gap: 8px; }
+  .cam[hidden] { display: none; }
+  .cam .row { display: flex; gap: 10px; align-items: center; color: var(--muted); font-size: 12px; }
+  .cam img { display: none; width: 100%; border-radius: 6px; background: #000; }
+  .cam.on img { display: block; }
+  details { border-top: 1px solid var(--line); }
+  summary { padding: 7px 12px; cursor: pointer; color: var(--muted); font-size: 13px; }
+  .det { padding: 0 12px 10px; font-size: 12.5px; display: grid; grid-template-columns: max-content minmax(0, 1fr);
+         gap: 3px 12px; }
+  .det .k { color: var(--muted); }
+  .det .v { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+  .det pre { margin: 0; font: 12px ui-monospace, monospace; white-space: pre-wrap; }
+  @media (min-width: 1500px) { #cards { grid-template-columns: 1fr 1fr; } #cards .card.wide { grid-column: 1 / -1; } }
+  @media (max-width: 900px) {
+    main { grid-template-columns: minmax(0, 1fr); }
+    .col.sticky { position: static; }
+    #map { height: 340px; }
+    .panel > h2 .sub:not(#map-note) { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Capstone system</h1>
+  <span id="overall">connecting…</span>
+  <span class="spacer"></span>
+  <a id="vision-link" href="#" target="_blank" hidden>Vision GUI (3D view, lens calibration) ↗</a>
+  <span id="updated"></span>
+</header>
+<div id="lost">Lost connection to the system GUI. Is <code>python -m monitor</code> still running?</div>
+<main>
+  <section class="panel" id="diagram">
+    <h2>Network <span class="sub">click a machine for its details</span></h2>
+    <svg viewBox="0 0 850 250" role="img" aria-label="network diagram"></svg>
+  </section>
+  <div class="col sticky">
+    <section class="panel">
+      <h2>Floor map <span class="sub">top view, meters</span><span class="sub" id="map-note"></span>
+        <span class="grow"></span><button id="clear-trails">Clear trails</button></h2>
+      <canvas id="map"></canvas>
+      <div class="legend">
+        <span><i style="background:var(--r1)"></i>robot (arrow = front)</span>
+        <span><i style="background:transparent;border:1.5px dashed var(--muted)"></i>control target</span>
+        <span><i style="background:var(--user);border-radius:50%"></i>user (ring = keep-out)</span>
+        <span><i style="background:var(--cam)"></i>camera and its floor view</span>
+        <span><i style="background:#666"></i>not seen for 1 s</span>
+      </div>
+    </section>
+  </div>
+  <div class="col"><div id="cards"></div></div>
+</main>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const LEVEL_TEXT = { ok: "OK", warn: "attention", bad: "problem", off: "off", unknown: "checking" };
+const ROBOT_COLORS = ["#2f8cff", "#ff8c00", "#c800c8", "#00c8c8"];
+const robotColor = id => ROBOT_COLORS[(id - 1) % ROBOT_COLORS.length];
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* private window: fine */ } },
+};
+
+function fmtAge(s) {
+  if (s == null) return "never";
+  if (s < 10) return `${s.toFixed(1)} s`;
+  if (s < 120) return `${Math.round(s)} s`;
+  if (s < 7200) return `${Math.round(s / 60)} min`;
+  return `${(s / 3600).toFixed(1)} h`;
+}
+
+// ---------------------------------------------------------------- network diagram
+const svg = document.querySelector("#diagram svg");
+const COLORS = { ok: "var(--ok)", warn: "var(--warn)", bad: "var(--bad)", off: "var(--off)", unknown: "var(--off)" };
+
+function layout(nodes) {
+  const pos = {}, W = 210, H = 66;
+  const robots = nodes.filter(n => n.kind === "robot");
+  pos.laptop = { x: 10, y: 125 - H / 2 };
+  const master = nodes.find(n => n.kind === "master");
+  if (master) pos[master.key] = { x: 315, y: 125 - H / 2 };
+  const gap = Math.min(90, 230 / Math.max(1, robots.length));
+  robots.forEach((r, i) => { pos[r.key] = { x: 630, y: 125 - H / 2 + (i - (robots.length - 1) / 2) * gap }; });
+  return { pos, W, H };
+}
+
+function drawDiagram(st) {
+  const { pos, W, H } = layout(st.nodes);
+  let s = "";
+  for (const l of st.links) {
+    const a = pos[l.from], b = pos[l.to];
+    if (!a || !b) continue;
+    const x1 = a.x + W, y1 = a.y + H / 2, x2 = b.x, y2 = b.y + H / 2;
+    const dash = l.kind === "WiFi" ? ' stroke-dasharray="7 5"' : "";
+    s += `<path d="M${x1},${y1} C${(x1 + x2) / 2},${y1} ${(x1 + x2) / 2},${y2} ${x2},${y2}" fill="none" stroke="${COLORS[l.level]}" stroke-width="2.5"${dash}/>`;
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2, text = `${l.kind} · ${l.text}`, w = text.length * 6.4 + 14;
+    s += `<rect x="${mx - w / 2}" y="${my - 10}" width="${w}" height="20" rx="10" fill="#111418" stroke="${COLORS[l.level]}" stroke-width="1"/>`;
+    s += `<text x="${mx}" y="${my + 4}" text-anchor="middle" font-size="11.5" fill="#d8dde3">${esc(text)}</text>`;
+  }
+  for (const n of st.nodes) {
+    const p = pos[n.key];
+    if (!p) continue;
+    const dash = n.level === "unknown" ? ' stroke-dasharray="4 3"' : "";
+    let summary = n.summary || LEVEL_TEXT[n.level];
+    if (summary.length > 34) summary = summary.slice(0, 33) + "…";
+    s += `<g class="node" data-key="${esc(n.key)}"><title>${esc(n.name)}: ${esc(n.summary)}</title>
+      <rect x="${p.x}" y="${p.y}" width="${W}" height="${H}" rx="9" fill="#1b1f25" stroke="${COLORS[n.level]}" stroke-width="2"${dash}/>
+      <circle cx="${p.x + 16}" cy="${p.y + 22}" r="5.5" fill="${COLORS[n.level]}"/>
+      <text x="${p.x + 30}" y="${p.y + 27}" font-size="14" font-weight="600" fill="#d8dde3">${esc(n.name)}</text>
+      <text x="${p.x + 30}" y="${p.y + 27}" dx="${n.name.length * 8.4 + 6}" font-size="11.5" fill="#8a939e">${esc(n.kind === "laptop" ? "" : n.address)}</text>
+      <text x="${p.x + 14}" y="${p.y + 51}" font-size="12" fill="#8a939e">${esc(summary)}</text></g>`;
+  }
+  if (svg.dataset.last !== s) {
+    svg.innerHTML = s;
+    svg.dataset.last = s;
+    svg.querySelectorAll(".node").forEach(g => g.addEventListener("click", () =>
+      $(`card-${g.dataset.key}`)?.scrollIntoView({ behavior: "smooth", block: "start" })));
+  }
+}
+
+// ---------------------------------------------------------------- machine cards
+const cards = {};
+const camOn = store.get("cameras", { master: true });
+
+function makeCard(n) {
+  const el = document.createElement("section");
+  el.className = `panel card${n.kind === "laptop" ? " wide" : ""}`;
+  el.id = `card-${n.key}`;
+  el.innerHTML = `<h2><span class="dot"></span><span class="name"></span><span class="addr"></span>
+      <span class="grow"></span><span class="pill"></span></h2>
+    <div class="checks"></div>
+    <div class="cam" hidden><div class="row"><button>Show camera</button><span class="camlabel"></span></div>
+      <img alt="${esc(n.name)} camera"></div>
+    <details><summary>Details</summary><div class="det"></div></details>`;
+  $("cards").appendChild(el);
+  const c = { el, key: n.key, html: {} };
+  for (const k of ["dot", "name", "addr", "pill", "checks", "cam", "camlabel", "det"]) c[k] = el.querySelector(`.${k}`);
+  c.img = el.querySelector("img");
+  c.btn = el.querySelector(".cam button");
+  c.btn.onclick = () => { camOn[n.key] = !camOn[n.key]; store.set("cameras", camOn); updateCamera(c); };
+  cards[n.key] = c;
+  return c;
+}
+
+function setHTML(c, part, html) {  // only touch the DOM when something changed (keeps selections, hover, etc.)
+  if (c.html[part] !== html) { c[part].innerHTML = html; c.html[part] = html; }
+}
+
+function cameraURL(cam) {
+  if (!cam) return null;
+  if (cam.url) return cam.url;
+  if (cam.port) return `${location.protocol}//${location.hostname}:${cam.port}${cam.path}`;
+  return cam.path;
+}
+
+function updateCamera(c) {
+  const url = cameraURL(c.camera);
+  c.cam.hidden = !url;
+  const on = !!url && !!camOn[c.key];
+  c.cam.classList.toggle("on", on);
+  c.btn.textContent = on ? "Hide camera" : "Show camera";
+  c.camlabel.textContent = url ? c.camera.label : "";
+  const want = on ? url : null;
+  if (c.imgURL !== want) {  // changing src closes the old MJPEG connection
+    c.imgURL = want;
+    if (want) c.img.src = want; else c.img.removeAttribute("src");
+  }
+}
+
+function detailsHTML(n, now) {
+  const d = n.details || {}, rows = [];
+  const add = (k, v) => { if (v !== null && v !== undefined && v !== "") rows.push(`<span class="k">${esc(k)}</span><span class="v">${v}</span>`); };
+  add("Model", esc(d.model));
+  add("OS", esc(d.os));
+  add("Hostname", esc(d.hostname));
+  if (d.ips) add("Addresses", esc(Object.entries(d.ips).map(([i, a]) => `${i} ${a}`).join(", ")));
+  if (d.ssh_user !== undefined) add("SSH", esc(`${d.ssh_user || "(no ssh_user)"}@${n.address}`));
+  if (d.processes) add("Programs", d.processes.length ? d.processes.map(p =>
+    `${esc(p.detail)} <span class="k">· up ${fmtAge(p.uptime_s)} · pid ${p.pid}</span>`).join("<br>") : "none of ours running");
+  if (d.stations && d.stations.length) add("WiFi clients", d.stations.map(s =>
+    esc(`${s.ip || "?"} (${s.mac}) ${s.signal_dbm ?? "?"} dBm`)).join("<br>"));
+  if (d.drive) add("Drive server", `<pre>${esc(JSON.stringify(d.drive))}</pre>`);
+  if (d.probe_at) add("Checked", `${fmtAge(now - d.probe_at)} ago` + (d.health_at ? `, health ${fmtAge(now - d.health_at)} ago` : ""));
+  if (n.kind === "laptop") add("Programs", "vision.main and control.main report here while they run");
+  return rows.join("") || `<span class="k">nothing yet</span><span></span>`;
+}
+
+function drawCards(st) {
+  for (const n of st.nodes) {
+    const c = cards[n.key] || makeCard(n);
+    c.dot.className = `dot ${n.level}`;
+    c.name.textContent = n.name;
+    c.addr.textContent = n.kind === "laptop" ? "" : n.address;
+    c.pill.className = `pill ${n.level}`;
+    c.pill.textContent = LEVEL_TEXT[n.level];
+    setHTML(c, "checks", n.checks.map(k => `<span class="dot ${k.level}" title="${LEVEL_TEXT[k.level]}"></span>` +
+      `<span class="lbl">${esc(k.label)}</span><span class="txt">${esc(k.text)}</span>`).join(""));
+    setHTML(c, "det", detailsHTML(n, st.t));
+    c.camera = n.camera;
+    updateCamera(c);
+  }
+}
+
+function drawHeader(st) {
+  let bad = 0, warn = 0;
+  for (const n of st.nodes) for (const k of n.checks) { if (k.level === "bad") bad++; if (k.level === "warn") warn++; }
+  const o = $("overall");
+  o.className = `pill ${bad ? "bad" : warn ? "warn" : "ok"}`;
+  o.textContent = bad || warn ? [bad && `${bad} problem${bad > 1 ? "s" : ""}`, warn && `${warn} to check`].filter(Boolean).join(", ") : "all OK";
+  const port = st.vision && st.vision.gui_port, link = $("vision-link");
+  link.hidden = !port;
+  if (port) link.href = `${location.protocol}//${location.hostname}:${port}/`;
+  $("updated").textContent = new Date(st.t * 1000).toLocaleTimeString();
+}
+
+// ---------------------------------------------------------------- floor map (top view)
+const canvas = $("map"), ctx = canvas.getContext("2d");
+const trails = new Map();
+$("clear-trails").onclick = () => trails.clear();
+
+function drawMap(st) {
+  const dpr = window.devicePixelRatio || 1, cw = canvas.clientWidth, ch = canvas.clientHeight;
+  if (canvas.width !== Math.round(cw * dpr) || canvas.height !== Math.round(ch * dpr)) {
+    canvas.width = Math.round(cw * dpr); canvas.height = Math.round(ch * dpr);
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cw, ch);
+
+  const msg = st.vision && st.vision.message, scene = st.vision && st.vision.scene, m = st.map;
+  const robots = (msg && msg.robots) || [], user = msg && msg.user;
+  const targets = (st.control && st.control.robots) || {};
+  const cam = scene && scene.camera;
+  // extent: config debug.map_x / map_y, grown to include everything we draw
+  let [x0, x1] = m.x, [y0, y1] = m.y;
+  const include = (x, y) => { x0 = Math.min(x0, x - 0.4); x1 = Math.max(x1, x + 0.4); y0 = Math.min(y0, y - 0.4); y1 = Math.max(y1, y + 0.4); };
+  robots.forEach(r => include(r.x, r.y));
+  if (user) include(user.x, user.y);
+  Object.values(targets).forEach(t => t.target && include(t.target[0], t.target[1]));
+  if (cam) include(cam.position[0], cam.position[1]);
+  const pad = 26, s = Math.min((cw - 2 * pad) / (x1 - x0), (ch - 2 * pad) / (y1 - y0));
+  const ox = (cw - s * (x1 - x0)) / 2, oy = (ch - s * (y1 - y0)) / 2;
+  const P = (x, y) => [ox + (x - x0) * s, oy + (y1 - y) * s];   // world (x right, y away from camera) -> screen
+
+  // grid
+  ctx.lineWidth = 1; ctx.font = "11px system-ui"; ctx.fillStyle = "#8a939e";
+  for (let x = Math.ceil(x0); x <= x1; x++) {
+    ctx.strokeStyle = x === 0 ? "#4a525c" : "#242a31";
+    ctx.beginPath(); ctx.moveTo(...P(x, y0)); ctx.lineTo(...P(x, y1)); ctx.stroke();
+    const [px, py] = P(x, y0); ctx.textAlign = "center"; ctx.fillText(`${x}`, px, py + 14);
+  }
+  for (let y = Math.ceil(y0); y <= y1; y++) {
+    ctx.strokeStyle = y === 0 ? "#4a525c" : "#242a31";
+    ctx.beginPath(); ctx.moveTo(...P(x0, y)); ctx.lineTo(...P(x1, y)); ctx.stroke();
+    const [px, py] = P(x0, y); ctx.textAlign = "right"; ctx.fillText(`${y} m`, px - 4, py + 4);
+  }
+
+  // camera and the floor it sees
+  if (cam) {
+    if (cam.floor_footprint.length > 2) {
+      ctx.beginPath();
+      cam.floor_footprint.forEach(([x, y], i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, ...P(x, y)));
+      ctx.closePath();
+      ctx.fillStyle = "rgba(255,216,74,0.05)"; ctx.fill();
+      ctx.setLineDash([5, 4]); ctx.strokeStyle = "rgba(255,216,74,0.6)"; ctx.stroke(); ctx.setLineDash([]);
+    }
+    const [cx, cy] = P(cam.position[0], cam.position[1]);
+    ctx.fillStyle = "#ffd84a";
+    ctx.beginPath(); ctx.moveTo(cx, cy - 8); ctx.lineTo(cx - 7, cy + 6); ctx.lineTo(cx + 7, cy + 6); ctx.closePath(); ctx.fill();
+    ctx.textAlign = "left"; ctx.fillText(`camera ${cam.position[2].toFixed(2)} m`, cx + 10, cy + 4);
+  }
+
+  // user + keep-out ring
+  if (user) {
+    const [ux, uy] = P(user.x, user.y), stale = user.age > 1.0;
+    if (m.keep_out_m) {
+      ctx.beginPath(); ctx.arc(ux, uy, m.keep_out_m * s, 0, 2 * Math.PI);
+      ctx.strokeStyle = "rgba(255,90,90,0.35)"; ctx.setLineDash([3, 4]); ctx.stroke(); ctx.setLineDash([]);
+    }
+    ctx.beginPath(); ctx.arc(ux, uy, Math.max(5, 0.2 * s), 0, 2 * Math.PI);
+    ctx.fillStyle = stale ? "#666" : "#ff5a5a"; ctx.fill();
+    ctx.fillStyle = "#d8dde3"; ctx.textAlign = "left";
+    ctx.fillText(`user${user.height ? ` ${user.height.toFixed(2)} m` : ""}`, ux + Math.max(8, 0.2 * s) + 4, uy + 4);
+  }
+
+  const half = m.robot_size_m / 2;
+  const box = (x, y, headingDeg) => {   // robot square, rotated to its heading, as screen-space path
+    const a = (headingDeg || 0) * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a);
+    ctx.beginPath();
+    [[half, half], [half, -half], [-half, -half], [-half, half]].forEach(([dx, dy], i) => {
+      const p = P(x + dx * c - dy * sn, y + dx * sn + dy * c);
+      i ? ctx.lineTo(...p) : ctx.moveTo(...p);
+    });
+    ctx.closePath();
+  };
+  const arrow = (x, y, headingDeg, len, color) => {
+    const a = headingDeg * Math.PI / 180, [ax, ay] = P(x, y), [bx, by] = P(x + len * Math.cos(a), y + len * Math.sin(a));
+    const ang = Math.atan2(by - ay, bx - ax);
+    ctx.strokeStyle = ctx.fillStyle = color; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx, by);
+    ctx.lineTo(bx - 9 * Math.cos(ang - 0.45), by - 9 * Math.sin(ang - 0.45));
+    ctx.lineTo(bx - 9 * Math.cos(ang + 0.45), by - 9 * Math.sin(ang + 0.45)); ctx.closePath(); ctx.fill();
+    ctx.lineWidth = 1;
+  };
+
+  // control targets (dashed) with a line from the robot
+  const seen = new Map(robots.map(r => [r.id, r]));
+  for (const [rid, t] of Object.entries(targets)) {
+    if (!t.target) continue;
+    const color = robotColor(+rid), [tx, ty, th] = t.target;
+    const r = seen.get(+rid);
+    ctx.setLineDash([6, 5]); ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+    if (r) { ctx.beginPath(); ctx.moveTo(...P(r.x, r.y)); ctx.lineTo(...P(tx, ty)); ctx.stroke(); }
+    box(tx, ty, th); ctx.stroke(); ctx.setLineDash([]);
+    arrow(tx, ty, th, half + 0.12, color);
+  }
+
+  // trails and robots
+  for (const r of robots) {
+    const pts = trails.get(r.id) || [];
+    const last = pts[pts.length - 1];
+    if (r.age <= 1.0 && (!last || Math.hypot(last[0] - r.x, last[1] - r.y) > 0.02)) {
+      pts.push([r.x, r.y]); if (pts.length > 300) pts.shift(); trails.set(r.id, pts);
+    }
+  }
+  for (const [id, pts] of trails) {
+    if (pts.length < 2) continue;
+    ctx.strokeStyle = robotColor(id); ctx.globalAlpha = 0.45; ctx.beginPath();
+    pts.forEach((p, i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, ...P(p[0], p[1]))); ctx.stroke(); ctx.globalAlpha = 1;
+  }
+  for (const r of robots) {
+    const stale = r.age > 1.0, color = stale ? "#666" : robotColor(r.id);
+    box(r.x, r.y, r.heading); ctx.fillStyle = color; ctx.globalAlpha = stale ? 0.5 : 0.85; ctx.fill(); ctx.globalAlpha = 1;
+    if (r.heading !== null) arrow(r.x, r.y, r.heading, half + 0.18, stale ? "#888" : "#ffffff");
+    const [lx, ly] = P(r.x, r.y - half);
+    ctx.fillStyle = "#d8dde3"; ctx.textAlign = "center"; ctx.font = "600 12px system-ui";
+    ctx.fillText(`R${r.id}`, lx, ly + 16); ctx.font = "11px system-ui";
+  }
+
+  const notes = [];
+  if (!st.vision) notes.push("vision.main not running: no positions");
+  else if (!cam) notes.push("no floor calibration from vision.main");
+  if (st.vision && !robots.length && !user) notes.push("no robots or user in view");
+  $("map-note").textContent = notes.join(" · ");
+}
+
+// ---------------------------------------------------------------- polling
+let latest = null;
+async function poll() {
+  try {
+    const r = await fetch("/state", { cache: "no-store" });
+    latest = await r.json();
+    document.body.classList.remove("lost");
+    drawHeader(latest);
+    drawDiagram(latest);
+    drawCards(latest);
+    drawMap(latest);
+  } catch (e) {
+    document.body.classList.add("lost");
+    $("overall").className = "pill bad";
+    $("overall").textContent = "no connection";
+  }
+  setTimeout(poll, 250);
+}
+new ResizeObserver(() => latest && drawMap(latest)).observe(canvas);
+poll();
+</script>
+</body>
+</html>

@@ -61,9 +61,28 @@ The window shows detected markers and people on the left and a top-down map on t
 | Laptop | `python -m camstream.viewer --stats` (stream health / bandwidth) |
 | Robot Pis | `.venv/bin/python ~/drive_server.py --robot-id 1 --hardware` (from `~/capstone-base`; robot control MVP) |
 | Laptop | `python -m control.main --arm` (robots follow the user; see [docs/MVP_RUNBOOK.md](docs/MVP_RUNBOOK.md)) |
+| Laptop | `python -m monitor` (system GUI, http://localhost:8090/: status of every Pi, robot and laptop program) |
 
 Pis install with `bash scripts/setup_pi.sh` (`requirements.txt`). The laptop uses `requirements-laptop.txt`,
 which adds YOLO.
+
+### System GUI
+
+`python -m monitor` runs on its own (start it first; it keeps working while the other programs start, stop
+or crash) and shows, for every machine, green / amber / red rows plus a network diagram and a top-down map
+with the robots, the user and the control targets. It only reads; it never starts, stops or commands
+anything. Nothing needs installing on the Pis:
+
+| Machine | What it shows | Where it comes from |
+|---|---|---|
+| Laptop | vision fps, markers seen, floor calibration, user; control mode and per-robot command | heartbeats from `vision.main` and `control.main` (UDP 127.0.0.1:5007) |
+| Master Pi | reachable on Ethernet and through the robot route, camera sender, frames reaching vision, robot WiFi access point and its clients | TCP connect, SSH health script |
+| Robots | reachable, WiFi signal, drive server (hardware/simulation, state, motors), head tracker (servos, torque, tracking), camera, pose from vision, control command and target | TCP, UDP status query to the drive server, the head tracker's `/api/state`, heartbeats |
+| Every Pi | temperature, under-voltage / throttling, load, memory, disk, uptime, clock offset, which of our programs run | SSH with the laptop's key every 10 s (`BatchMode`, read-only commands) |
+
+Settings (SSH users, intervals, port) are in `config.yaml` `system:`. `--no-ssh` skips the SSH checks. The
+robot cameras are only streamed while a card's camera is shown. Older drive servers still answer the status
+query; copy the new `robot/drive_server.py` to the robots to also see hardware/simulation and command details.
 
 ## Output to the location planner (UDP JSON, 10 Hz, `127.0.0.1:5005` by default)
 
@@ -128,6 +147,8 @@ camstream/   camera streaming: protocol, sender (Pis), receiver + viewer (laptop
 control/     robot control MVP on the laptop: planner (listening triangle), controller, UDP links, main,
              drive_test
 robot/       drive_server.py: runs on each robot Pi, UDP velocity commands -> wheels, with a watchdog
+monitor/     system GUI on the laptop: probes (TCP, SSH health, drive server, head tracker), status rows,
+             heartbeats from vision/control, web page
 tools/       generate_markers, calibrate_camera, calibrate_floor, record, range_test, pi_check,
              mock_publisher, receiver_example, make_sim_video
 scripts/     setup_pi.sh, install_sender_service.sh
