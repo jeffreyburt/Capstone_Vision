@@ -54,7 +54,8 @@ network is unreliable.
 | **5601** | TCP (ZeroMQ PUB) | Robot 1 Pi | Laptop | Robot 1 camera frames, ~10 fps 768×432 |
 | **5602** | TCP (ZeroMQ PUB) | Robot 2 Pi | Laptop | Robot 2 camera frames, ~10 fps 768×432 |
 | **5005** | UDP | Laptop (receiver) | Vision process (on the laptop, `127.0.0.1`) | Vision output: robot + user positions, 10 Hz JSON |
-| 5700–5799 | — | *reserved* | | Robot commands (controls team; protocol is theirs to define) |
+| **5700** | UDP | Each robot Pi (`robot/drive_server.py`) | Laptop (`control.main`) | Robot drive commands: body velocity JSON, 10 Hz; status reply to the sender ([MVP_RUNBOOK.md](MVP_RUNBOOK.md)) |
+| 5701–5799 | — | *reserved* | | Future robot commands (e.g. pan/tilt) |
 | 8080 | HTTP | Whichever machine runs `--stream` | Browser | Debug view (development only) |
 | 123 | UDP (NTP) | Master Pi (chrony) | Slave Pis, laptop | Time sync |
 | 22 | TCP | Every Pi | Laptop | SSH |

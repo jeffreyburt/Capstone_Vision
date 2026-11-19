@@ -24,6 +24,7 @@ Docs:
 - [docs/PI_GUIDE.md](docs/PI_GUIDE.md): step-by-step install and test.
 - [docs/NETWORK.md](docs/NETWORK.md): the network contract (addresses, ports, bandwidth, time).
 - [docs/PLAN.md](docs/PLAN.md): design and rationale.
+- [docs/MVP_RUNBOOK.md](docs/MVP_RUNBOOK.md): robot control MVP (robots follow the user): setup, bring-up, tuning.
 
 ---
 
@@ -58,6 +59,8 @@ The window shows detected markers and people on the left and a top-down map on t
 | Robot Pis | `python -m camstream.sender robot1` / `robot2` |
 | Laptop | `python -m vision.main --show` (birds-eye processing + UDP output) |
 | Laptop | `python -m camstream.viewer --stats` (stream health / bandwidth) |
+| Robot Pis | `.venv/bin/python ~/drive_server.py --robot-id 1 --hardware` (from `~/capstone-base`; robot control MVP) |
+| Laptop | `python -m control.main --arm` (robots follow the user; see [docs/MVP_RUNBOOK.md](docs/MVP_RUNBOOK.md)) |
 
 Pis install with `bash scripts/setup_pi.sh` (`requirements.txt`). The laptop uses `requirements-laptop.txt`,
 which adds YOLO.
@@ -122,6 +125,9 @@ localhost.
 vision/      birds-eye processing: camera sources, markers, robots, people, geometry, tracking, output,
              pipeline, debug view, simulator, main
 camstream/   camera streaming: protocol, sender (Pis), receiver + viewer (laptop)
+control/     robot control MVP on the laptop: planner (listening triangle), controller, UDP links, main,
+             drive_test
+robot/       drive_server.py: runs on each robot Pi, UDP velocity commands -> wheels, with a watchdog
 tools/       generate_markers, calibrate_camera, calibrate_floor, record, range_test, pi_check,
              mock_publisher, receiver_example, make_sim_video
 scripts/     setup_pi.sh, install_sender_service.sh

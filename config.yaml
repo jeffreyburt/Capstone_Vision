@@ -95,6 +95,32 @@ output:
   broadcast: false
   rate_hz: 10
 
+# ---- Robot control MVP (python -m control.main; robot side: robot/drive_server.py) ----
+# The laptop closes the loop: vision pose -> listening-triangle target -> velocity command over UDP.
+control:
+  vision_port: 5005         # where vision.main publishes (output.port above)
+  rate_hz: 10               # command rate; each robot's drive server stops after 0.5 s without one
+  vision_timeout_s: 1.0     # stop every robot if no vision message arrives for this long
+  max_pose_age_s: 0.7       # stop a robot the camera hasn't seen for this long
+  user_lost_s: 2.0          # stop every robot when the user hasn't been seen for this long
+  robots:                   # drive server address per robot. side = which side of the user, seen by the user
+    1: {host: 192.168.50.11, port: 5700, side: left}
+    2: {host: 192.168.50.12, port: 5700, side: right}
+  formation:                # listening triangle: user at one corner, the speakers at the other two
+    distance_m: 1.5         # speaker-to-user distance
+    spread_deg: 60          # angle between the speakers as seen by the user (60 = equilateral)
+    facing_deg: -90         # fixed direction the user is assumed to face, deg CCW from +x (-90 = toward the camera)
+    replan_m: 0.3           # targets only move once the user has moved this far
+  limits:
+    max_speed_m_s: 0.15
+    max_yaw_rad_s: 0.4
+    position_gain: 0.8      # (m/s) per m of position error
+    yaw_gain: 1.0           # (rad/s) per rad of heading error
+    position_tolerance_m: 0.05
+    yaw_tolerance_deg: 5
+    keep_out_m: 0.8         # robots never move toward the user when closer than this
+    robot_clearance_m: 0.6  # ...or toward each other when closer than this (center to center)
+
 debug:
   stream_port: 8080         # MJPEG debug stream port when run with --stream
   map_x: [-3.0, 3.0]        # top-down map extent (meters)

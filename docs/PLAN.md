@@ -245,3 +245,14 @@ The team changed the system layout:
   confident detection).
 - In simulation (a real person photo composited into rendered scenes): 3.3 cm mean floor error, 95% of
   frames within 9.5 cm.
+
+## 11. Robot control MVP (2026-11-19)
+
+The robot-controls teammate is unavailable, so robot control for the first integrated test lives in this
+repo. **The laptop closes the loop**: `control.main` reads the vision output, places the two speakers in a
+listening triangle around the user (each facing the user), and sends each robot a body velocity over UDP
+port 5700 at 10 Hz. `robot/drive_server.py` on each robot Pi turns that into mecanum wheel speeds through
+Nate's Hiwonder driver and stops on its own after 0.5 s without commands. The markers sit on the pan/tilt
+speaker head, so for the MVP the pan/tilt stays at neutral and the whole robot turns to aim. Pan aiming
+(subtracting the reported pan angle from the marker heading) is the next step. Details:
+[MVP_RUNBOOK.md](MVP_RUNBOOK.md).
