@@ -41,7 +41,7 @@ camera:
 
 calibration:
   intrinsics: calib/camera_intrinsics.yaml   # written by tools/calibrate_camera.py
-  floor_pose: calib/floor_pose.yaml          # written by tools/calibrate_floor.py
+  floor_pose: calib/floor_pose_36cm.yaml     # pending calibration after camera move; old 1 m pose is preserved
 
 markers:
   dictionary: DICT_4X4_50   # any cv2.aruco dictionary name, e.g. DICT_APRILTAG_36h11
@@ -113,7 +113,7 @@ control:
     1: {host: 192.168.50.105, port: 5700, side: left}
     2: {host: 192.168.50.12, port: 5700, side: right}
   formation:                # listening triangle: user at one corner, the speakers at the other two
-    distance_m: 1.5         # speaker-to-user distance
+    distance_m: 2.0         # requested speaker-to-user distance; validate current floor pose before arming
     spread_deg: 60          # angle between the speakers as seen by the user (60 = equilateral)
     facing_deg: -90         # fixed direction the user is assumed to face, deg CCW from +x (-90 = toward the camera)
     replan_m: 0.3           # targets only move once the user has moved this far

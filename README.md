@@ -68,6 +68,22 @@ The window shows detected markers and people on the left and a top-down map on t
 Pis install with `bash scripts/setup_pi.sh` (`requirements.txt`). The laptop uses `requirements-laptop.txt`,
 which adds YOLO.
 
+### Current 2-meter following setup
+
+`control.formation.distance_m` is 2.0 m. Only robot 2 is selected in the current **unarmed** controller
+preview (`python -m control.main --robots 2`); it sends no wheel commands. The main camera was moved to
+about 0.36 m high, so its previous 1.006 m floor pose is no longer used. The configured replacement
+`calib/floor_pose_36cm.yaml` must be measured before metric positions or follow targets are available.
+Marker and person image detections continue while calibration is pending.
+
+For floor calibration, generate two sheets with
+`python tools/generate_markers.py --ids 40-41 --size-cm 15 --out markers/floor-36cm`, print at 100%,
+measure the 15 cm black squares, place both flat and separated on the visible floor, then run
+`python tools/floor_from_markers.py --ids 40 41 --forward-id 40 --size-cm 15`. Check the reported distances
+with a tape measure and restart vision. Camera height alone does not establish a floor pose. For head
+tracking while following, also measure the moving-marker geometry described in
+[docs/HEAD_TRACKER.md](docs/HEAD_TRACKER.md), or mount the tracking markers rigidly on the chassis.
+
 ### Marker visibility
 
 The current robots use `DICT_4X4_50`: robot 1 IDs 0–3 (rear 2), robot 2 IDs 4–7 (rear 6).

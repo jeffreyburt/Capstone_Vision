@@ -31,6 +31,25 @@ master Pi camera ──Ethernet──► laptop: vision.main ──UDP 5005─�
 
 ## 2. Machines
 
+**2026-11-19 follow-distance preparation (current camera position):** The owner moved the main camera
+to approximately 0.36 m above the floor and requested robot 2 follow the listener at 2 m. Formation distance
+is now 2.0 m. `calibration.floor_pose` points to `calib/floor_pose_36cm.yaml`, which does not exist yet;
+the old `calib/floor_pose.yaml` assumes a 1.006 m lens height and is preserved only as a historical pose.
+Vision therefore reports image markers/person boxes but no metric positions. Robot 2's controller runs
+without `--arm` (DRY RUN); no wheel commands were sent. Do not arm it until the new floor pose is measured
+and validated. Simultaneous head tracking and metric following also need the documented moving-marker
+geometry and clock synchronization, or chassis-mounted fixed markers.
+
+Robot 2 head camera and both servos respond; the requested stationary head-tracking test was started
+with saved limits/signs, torque on and a reduced 60 units/s speed limit. It is holding while no face target
+is confirmed. The dashboard is reachable on this Mac at `http://localhost:18082/` via SSH forwarding;
+browser face detection requires that tab to remain visible. Printable 15 cm floor markers 40/41 can be
+regenerated with `python tools/generate_markers.py --ids 40-41 --size-cm 15 --out markers/floor-36cm`.
+Print at actual size, measure the black square, and place the sheets flat on the floor before running
+`tools/floor_from_markers.py --ids 40 41 --forward-id 40 --size-cm 15`; validate its distance output with
+a tape measure and restart vision after saving. Do not substitute the height alone for camera pose.
+
+
 **2026-11-19 marker detection update (later live checks):** The main camera now consistently detects
 robot 2 side ID 5 and rear ID 6 and reports robot 2's position. OpenCV's threshold bias of 7 missed rear
 ID 6 beside its dark connectors; `markers.adaptive_thresh_constant: 3` recovers it without changing
