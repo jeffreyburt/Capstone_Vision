@@ -31,6 +31,12 @@ Master Pi + camera ──Ethernet──► laptop: vision.main ──UDP 5005─
    and gateway `192.168.50.1`; these match `config.yaml` `control.robots`. The laptop needs a route
    once (admin PowerShell): `route -p add 192.168.50.0 mask 255.255.255.0 192.168.1.20`. Check with
    `ping 192.168.50.11`.
+   **New robot SD card** (Raspberry Pi OS Bookworm already on it, e.g. robot 2's Pi 3B+): with the card in
+   the laptop, `python robot/card/prepare_card.py --boot D:\ --robot 2 --bundle <dir>` (see its docstring for
+   `<dir>`). It asks for the WiFi and login passwords. On first boot the Pi sets hostname `robot2-pi`, user
+   `user` with the laptop's SSH key, the `capstone-robots` WiFi at `192.168.50.12`, I2C and the servo UART,
+   installs Nate's code + the drive server under `~`, and reboots. A `robot-drive` service is installed but
+   not enabled. Then skip step 2 for that robot.
 2. **Copy the drive server to each robot Pi** (it reuses Nate's Hiwonder driver from `~/capstone-base`):
    ```bash
    scp robot/drive_server.py user@192.168.50.11:~/
