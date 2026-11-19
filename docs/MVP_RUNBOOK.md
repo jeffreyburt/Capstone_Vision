@@ -26,13 +26,14 @@ Master Pi + camera ──Ethernet──► laptop: vision.main ──UDP 5005─
 
 ## One-time setup
 
-1. **Network.** The laptop must reach each robot Pi over UDP. Put the robot IPs in `config.yaml`
-   `control.robots`. Today robot 1 runs its own hotspot (`Capstone-Pi`, Pi at `10.42.0.1`): for a
-   one-robot test the laptop can join that WiFi while the birds-eye camera stays on Ethernet. Two robots
-   need one shared WiFi network (`docs/NETWORK.md`).
+1. **Network** (`docs/NETWORK.md`). The master Pi runs the robot WiFi `capstone-robots`
+   (`scripts/setup_robot_ap.sh`, done 2026-11-19). The robot Pis join it with static `192.168.50.11` / `.12`
+   and gateway `192.168.50.1`; these match `config.yaml` `control.robots`. The laptop needs a route
+   once (admin PowerShell): `route -p add 192.168.50.0 mask 255.255.255.0 192.168.1.20`. Check with
+   `ping 192.168.50.11`.
 2. **Copy the drive server to each robot Pi** (it reuses Nate's Hiwonder driver from `~/capstone-base`):
    ```bash
-   scp robot/drive_server.py user@10.42.0.1:~/
+   scp robot/drive_server.py user@192.168.50.11:~/
    ```
 3. **Marker geometry on the speaker head.** With pan/tilt at neutral, measure and set `robots:` in
    `config.yaml`:

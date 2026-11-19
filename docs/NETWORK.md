@@ -9,42 +9,51 @@ If anything changes, update this file first and then `config.yaml` (the `streams
 
 ---
 
-## 1. Topology
+## 1. Topology (as built, 2026-11-19)
 
 ```
-                Ethernet (gigabit)                      WiFi (access point on the master Pi)
- Controller laptop ─────────────── Master Pi 4 ~~~~~~~~~~~~~~~~~~~~~~~~ Robot 1 Pi (slave)
- (planning, vision processing,     (birds-eye camera,     ~~~~~~~~~~~~~~ Robot 2 Pi (slave)
-  person detection)                 WiFi AP, bridge eth0<->wlan0)
+            Ethernet, 192.168.1.0/24                 WiFi "capstone-robots", 192.168.50.0/24
+ Controller laptop ──────────────── Master Pi 4 ~~~~~~~~~~~~~~~~~~~~~~~~ Robot 1 Pi  .11
+ 192.168.1.10                       eth0 192.168.1.20  ~~~~~~~~~~~~~~~~~~ Robot 2 Pi  .12
+ route: 192.168.50.0/24             wlan0 192.168.50.1 (access point)
+        via 192.168.1.20            forwards between eth0 and wlan0
 ```
 
-- **One flat subnet.** The master Pi **bridges** `eth0` and `wlan0`, so the laptop and the slave Pis reach
-  each other directly. Nothing at the application level relays traffic through the master Pi.
+- **Two subnets, routed by the master Pi** (no bridge, no NAT). The laptop and the robot Pis still reach
+  each other directly by IP; the master Pi just forwards the packets. Set up by
+  `sudo bash scripts/setup_robot_ap.sh` on the master Pi (`--undo` removes it).
+- Why routed instead of the originally planned bridge: the laptop's only link to the master Pi is eth0,
+  and re-plumbing eth0 into a bridge risks cutting that link mid-setup. Routing leaves eth0 untouched.
+- The laptop needs **one persistent route** (admin PowerShell, once):
+  `route -p add 192.168.50.0 mask 255.255.255.0 192.168.1.20`
+- The robots use `192.168.50.1` as their **gateway**, so their replies reach the laptop's 192.168.1.10.
 - The laptop stays **on Ethernet only**. It must not also join the robot WiFi, because that would use
   airtime the robots need. The laptop's own WiFi stays free for internet.
 - No internet is required on the robot network.
 
 ## 2. Addresses
 
-| Device | Hostname | IP (static) | Interface |
-|---|---|---|---|
-| Master Pi (bridge + AP) | `master-pi` | `192.168.50.1` | `br0` (eth0 + wlan0) |
-| Controller laptop | — | `192.168.50.10` | Ethernet (static, no gateway) |
-| Robot 1 Pi | `robot1-pi` | `192.168.50.11` | wlan0 |
-| Robot 2 Pi | `robot2-pi` | `192.168.50.12` | wlan0 |
-| Spare / dev devices | — | `192.168.50.100`–`.199` | DHCP pool from the master Pi |
+| Device | IP (static) | Interface |
+|---|---|---|
+| Controller laptop | `192.168.1.10` | Ethernet (static, no gateway) + route to 192.168.50.0/24 via `.1.20` |
+| Master Pi | `192.168.1.20` | eth0 (laptop side) |
+| Master Pi | `192.168.50.1` | wlan0 (access point, robot side) |
+| Robot 1 Pi | `192.168.50.11` | wlan0, gateway `192.168.50.1` |
+| Robot 2 Pi | `192.168.50.12` | wlan0, gateway `192.168.50.1` |
+| Spare / dev devices | `192.168.50.100`–`.199` | DHCP pool from the master Pi |
 
 Code and config use **IP addresses**, not hostnames, because hostname lookup (mDNS) on an isolated
-network is unreliable.
+network is unreliable. With the route in place the laptop can reach the master Pi at either address.
 
 ## 3. WiFi
 
 | Setting | Value |
 |---|---|
 | SSID | `capstone-robots` (hidden: no) |
-| Security | WPA2-PSK. The password is kept outside the repo. |
-| Band / channel | 5 GHz, channel 36 (fallback: 2.4 GHz, channel 1, 6 or 11, whichever is least crowded) |
-| Country code | `US` (required for 5 GHz) |
+| Security | WPA2-PSK (CCMP). The password is kept outside the repo. |
+| Band / channel | 2.4 GHz, channel 6. The robot Pis are Pi 3s, which have no 5 GHz radio. |
+| Country code | `US` (kernel command line `cfg80211.ieee80211_regdom=US`) |
+| NetworkManager profile | `robot-ap` on the master Pi, starts on boot |
 
 ## 4. Ports and data flows
 
@@ -90,13 +99,17 @@ changing anything else.
   the master Pi's capture times.
 - Target: all Pis within about 5 ms of each other.
 
-## 7. Requirements for the network-setup session
+## 7. Network checklist
 
-1. The master Pi runs the AP from §3 and bridges eth0 and wlan0 into `br0` with `192.168.50.1/24`. It
-   serves DHCP for `.100`–`.199` only, and must **not** hand out a default gateway or DNS that breaks the
-   laptop's internet over its own WiFi.
-2. The slave Pis connect to the AP automatically on boot, with the static IPs from §2.
-3. chrony is set up as in §6.
+1. Done 2026-11-19: the master Pi runs the AP from §3 on wlan0 (`192.168.50.1/24`), serves DHCP for
+   `.100`–`.199`, and forwards between eth0 and wlan0. The laptop never touches its DHCP or DNS (the
+   laptop isn't on the robot WiFi), so the laptop's internet is unaffected.
+2. Laptop: add the route from §1.
+3. The robot Pis join `capstone-robots` automatically on boot, with the static IPs and gateway from §2.
+   (On a Pi 3 the single radio can't also run its bench hotspot; give the client profile the higher
+   NetworkManager `autoconnect-priority` so the hotspot only comes up when `capstone-robots` is out of range.)
+4. Not done: chrony as in §6. The master Pi's clock currently drifts (it was 33 days behind on 2026-11-19).
+   The MVP doesn't depend on it.
 4. Verify:
    - from the laptop, `ping 192.168.50.11` and `ping 192.168.50.12` work;
    - `ssh` works to all three Pis;
