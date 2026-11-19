@@ -17,3 +17,6 @@ calib/images/
 
 # generated marker archive (tools/generate_markers.py)
 markers.zip
+
+# handoff bundles (rebuilt from the repo; see handoff/ROBOT_SETUP_HANDOFF.md)
+handoff/*.zip

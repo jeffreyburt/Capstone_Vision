@@ -1,0 +1,130 @@
+# System status: read this first
+
+**As of 2026-11-19.** Where the integrated speaker-robot system stands, what is verified on hardware, what is
+known to be broken, and how to work on it. Update this file whenever a fact here changes; put dates on
+results and say whether they came from hardware, simulation or reasoning.
+
+**Repo:** `github.com/jeffreyburt/Capstone_Vision`, branch `main`. Several people *and* AI agents commit to
+it, sometimes from the same checkout: **always `git fetch` and rebase before pushing, and never commit or
+discard someone else's uncommitted files without asking.**
+
+## 1. What the system does
+
+The birds-eye camera on the master Pi streams to the laptop. `vision.main` finds the robots (ArUco markers
+on the speaker heads) and the listener (YOLO). `control.main` plans a listening triangle around the listener
+and drives each robot there by sending body velocities to `robot/drive_server.py` on the robot. **The laptop
+closes the position loop**; the robots only execute velocities, with a 0.5 s watchdog.
+
+```
+master Pi camera ──Ethernet──► laptop: vision.main ──UDP 5005──► control.main ──UDP 5700──► robot drive_server ──I2C──► wheels
+                               (GUI :8080)                       (dry run unless --arm)       (via master Pi's WiFi AP)
+                               python -m monitor (:8090) watches everything, read-only
+```
+
+| Doc | For |
+|---|---|
+| [MVP_RUNBOOK.md](MVP_RUNBOOK.md) | Bring-up order, commands, what stops a robot, tuning |
+| [NETWORK.md](NETWORK.md) | Addresses, ports, WiFi, known robot 1 WiFi issue |
+| [HEAD_TRACKER.md](HEAD_TRACKER.md) | William's face tracking and pan/tilt-compensated driving |
+| [PLAN.md](PLAN.md) | Vision design (§1–10) and the MVP architecture decision (§11) |
+| [README](../README.md) | Vision output format, system GUI, repo layout |
+
+## 2. Machines
+
+| Machine | Address | Login | State (2026-11-19) |
+|---|---|---|---|
+| Laptop (Windows) | Ethernet `192.168.1.10`; route `192.168.50.0/24 via 192.168.1.20` | — | Runs vision, control, the system GUI. Its only Ethernet port is shared: plug it into the **master Pi** for normal operation |
+| Master Pi 4 | `192.168.1.20` (eth0), `192.168.50.1` (WiFi AP) | `vision`, laptop SSH key; sudo needs the password | Camera sender running (started by hand with `nohup`, **not a service**: restart after a reboot, §6). Runs WiFi AP `capstone-robots` (channel 1). **Clock ~33 days behind** (no RTC/internet) |
+| Robot 2: Pi 4 | `192.168.50.12` (WiFi); wired DHCP | `capstone-pi2`, laptop SSH key; sudo needs the password | William's Debian 13 image. On the robot WiFi. `~/capstone-base` (+ `.venv`), `~/Capstone_Vision`, `~/drive_server.py`. William's head-tracker dashboard service on :8080. **Drives** (§3) |
+| Robot 1: Pi 3 (Nate's) | should be `192.168.50.11`; falls back to its bench hotspot `Capstone-Pi` `10.42.0.1` | `user`, laptop SSH key; sudo needs the password | **Cannot join `capstone-robots`** (§4). Code added, nothing driven. To be replaced by a backup Pi 3 |
+| Backup Pi 3 | was seen at `192.168.50.105` (MAC `b8:27:eb:35:63:17`) | ? | Joined `capstone-robots` fine on 2026-11-19, so a Pi 3 *can* use this AP |
+
+SSH from the laptop: use **Windows OpenSSH** (`C:\Windows\System32\OpenSSH\ssh.exe`); Git Bash's ssh lacks
+the host keys. In Git Bash set `MSYS_NO_PATHCONV=1` or remote paths like `/tmp/x` get rewritten.
+
+## 3. Robot 2: verified on hardware (2026-11-19)
+
+| Item | Result |
+|---|---|
+| Wheel board | Hiwonder at I2C `0x34`, 12.7 V supply |
+| Wheel map | Measured one motor at a time: FL=M3, FR=M1, RL=M4, RR=M2; signs `[1, -1, -1, 1]`. **Differs from the GitHub default `teleop.json`.** Saved as [robot/config/robot2_wheels.json](../robot/config/robot2_wheels.json) and on the Pi as `~/capstone-base/config/robot2_wheels.json` |
+| Lifted tests | Forward, strafe-left and rotate-CCW all turn every wheel the right way |
+| Forward on the floor | Camera-measured **0.400 m for 0.400 m** commanded at 0.10 m/s, dead straight. `--counts-per-meter 13000` is within ~4% at 0.05–0.15 m/s (at 0.05 m/s the counts round down, so it goes ~8% short) |
+| Turn in place | 0.3 rad/s for 4 s: ~85° measured vs 69° commanded, ~6 cm drift. Turn radius **~0.16 m (tentative**: start and end were measured on different marker faces) |
+| **Strafe** | **Broken on the floor:** a 0.20 m strafe-left command rotated it **−71° (CW) with ~5 cm of motion**, although every wheel turns the right way. Not a mirrored wheel pair (the turn test would have slid ~20 cm). Most likely the front rollers don't roll sideways (stiff, or too little weight on the front). **Check the rollers by hand.** Until fixed: **`control.limits.allow_strafe: false`** (no-strafe mode, §5) |
+| Follow test | Dry runs OK (correct targets, turn-first commands). **Not yet run armed** |
+
+Run its drive server like this (hardware mode, robot 2's map, commands only from the laptop):
+
+```bash
+cd ~/capstone-base && .venv/bin/python ~/drive_server.py --robot-id 2 --hardware \
+    --hiwonder-config config/robot2_wheels.json --allow-from 192.168.1.10
+```
+
+**Camera findings for robot 2:**
+- **No front marker** on either robot. Robot 2 is seen by its back (6) and left (5) markers only, because
+- **the right-side marker (7) is covered by the robot's own camera module** on its white bracket: it is never
+  detected. Move the camera or the tag.
+- The heading read from the **back marker is ~9–10° off** its true direction of travel. Recheck per face.
+- Below ~1.5 m from the camera the robot sits at the image's bottom edge and is detected in ~1 frame in 4.
+  Keep robots 2–5 m out.
+
+## 4. Robot 1 (Pi 3): WiFi problem
+
+Its onboard WiFi (BCM43430/1, firmware 7.45.98) **joins an iPhone hotspot fine but never reaches the
+master Pi's access point** (`ASSOC-REJECT status_code=16`; nothing in the AP's log), on channel 6 and 1.
+Robot 2 (Pi 4), an iPhone and the backup Pi 3 join it fine, and robot 1's own hotspot has identical settings.
+A reboot and `options brcmfmac feature_disable=0x82000` did not help. That option is still in
+**`/etc/modprobe.d/brcmfmac-capstone.conf` on robot 1: delete it** (sudo) if the Pi is kept. Fixes: a USB
+WiFi adapter, or the backup Pi 3.
+
+Also on robot 1: Nate's `~/capstone-base` (a plain copy with his local `teleop.json`, `pan-tilt.local.json`,
+`servo.local.json`) is untouched; `~/Capstone_Vision` and `~/drive_server.py` were added; the wheel board
+answers at `0x34`. Its `capstone-robots` profile (static `.11`, priority 200 over the hotspot's 100) is saved.
+**Its wheel map was never measured**: do the one-motor-at-a-time test (§6) before driving it.
+
+## 5. Control software state
+
+- `control/controller.py` **no-strafe mode** (`allow_strafe: false`, on now, applies to both robots): turn
+  toward the target (or back up if that's the smaller turn), drive straight once within 25°, then turn to
+  face the user; never sends sideways speed. Parks until the error exceeds 15 cm. Tested in simulation
+  including a base whose strafe turns into rotation. Set `allow_strafe: true` once a robot strafes properly.
+- The listener is assumed to **face the camera** (`facing_deg: -90`), so the robots go between the listener
+  and the camera. **Stand about 3–4 m from the camera**, otherwise the targets land outside the camera's view.
+- **Person tracking locks onto whoever it saw first** and keeps them while they stay visible. With other
+  people in the lab it can follow the wrong person (it did, 6 m away). Check the user position in the dry
+  run; restart `vision.main` to re-lock onto the most confident detection.
+- Vision runs at **~2.5 fps** (12 MP frames + YOLO on the laptop): fine for slow following.
+
+## 6. How-to snippets
+
+| Task | How |
+|---|---|
+| Pi on a direct Ethernet cable gets no address | `python tools/one_lease_dhcp.py --listen`, then `python tools/one_lease_dhcp.py <mac> 192.168.1.50` |
+| Put the laptop's SSH key on a Pi | the user types the password once: `ssh <user>@<ip> "umask 077; mkdir -p ~/.ssh; echo '<laptop .pub key>' >> ~/.ssh/authorized_keys"` |
+| Restart the camera sender | on the master Pi: `cd ~/Capstone_Vision && nohup .venv/bin/python -u -m camstream.sender birdseye > ~/sender.log 2>&1 < /dev/null &` |
+| Map a robot's wheels | wheels lifted, on the robot: `.venv/bin/capstone-motor-test --motor-type 3 --channel N --speed 5 --duration 1` for N=1..4; note which wheel turns which way |
+| Watch wheels turn | `python tools/drive_once.py --robot 2 --vy 0.05 --seconds 20` (lifted first) |
+| Camera-measured floor test | `python -m control.drive_test --robot 2 --vx 0.10 --seconds 4` (robot 2–3 m out, visible) |
+| Join a robot to the robot WiFi | on the robot: `sudo bash join_robot_wifi.sh <1\|2>` (from `robot/`) |
+| Can a Pi join WiFi as a client at all? | on the robot: `sudo bash wifi_client_test.sh iphone` (from `robot/`) |
+| Change the AP channel | on the master Pi: `sudo bash scripts/set_robot_ap_channel.sh 1` |
+| Prepare a fresh Bookworm SD card for a robot | `python robot/card/prepare_card.py --boot D:\ --robot N --bundle <dir>` (not used yet on a robot) |
+
+## 7. Rules for working on the hardware
+
+- **Ask the people at the robot before every move**, say what it will do, and start with wheels lifted.
+- Never type passwords for people: they type `sudo`, WiFi and login passwords themselves in a terminal.
+- Only one program may drive a robot's wheels (drive server *or* teleop *or* motor test). The head tracker
+  owns the servo serial port; don't run other servo tools beside it.
+- Robot drive servers started from a laptop session die with that session; the watchdog then stops the wheels.
+
+## 8. Next steps, in order
+
+1. Robot 2: check the front rollers (spin by hand; press down on the front while strafing). Uncover the
+   right-side marker. Recheck the heading offset per face.
+2. Robot 2: first armed follow test (`python -m control.main --robots 2 --arm`), listener 3–4 m out, nobody
+   else in view.
+3. Robot 1: swap in the backup Pi 3 (or a USB WiFi adapter), join `capstone-robots`, map its wheels, repeat §3.
+4. Make the camera sender a service on the master Pi (`scripts/install_sender_service.sh birdseye`, needs sudo).
+5. Time sync (chrony on the master Pi): needed for William's pan/tilt compensation, not for the MVP loop.

@@ -1,5 +1,7 @@
 # Robot MVP runbook: robots follow the user
 
+> Current state of each robot, verified results and known problems: **[STATUS.md](STATUS.md)**.
+
 **Goal:** the user walks around; the two speaker robots keep a listening triangle around them and turn to
 face them.
 
@@ -65,9 +67,15 @@ vision and the control loop, and draws the control targets on its map.
    user, the robot pose, its target and the command it *would* send.
 4. **Armed against the simulated drive server:** `python -m control.main --robots 1 --arm`. The status line
    should say `link ok`, and the robot Pi should print changing motor counts. Nothing moves yet.
-5. **Hardware, wheels lifted** (robot Pi): add `--hardware`. On the laptop,
-   `python -m control.drive_test --robot 1 --vx 0.1 --seconds 2` should spin every wheel the "forward" way.
-   Ctrl+C on either side stops it.
+5. **Hardware, wheels lifted.** First **map the wheels** on a new robot, one motor at a time (the GitHub
+   default `teleop.json` was wrong for robot 2): on the robot,
+   `.venv/bin/capstone-motor-test --motor-type 3 --channel N --speed 5 --duration 1` for N = 1..4, noting
+   which wheel turns and which way. Write the result as a robot-specific file like
+   [robot/config/robot2_wheels.json](../robot/config/robot2_wheels.json) (`wheel_channels` in FL, FR, RL, RR
+   order; a sign of -1 where a positive command turns the wheel backward) and pass it with
+   `--hiwonder-config`. Then start the drive server with `--hardware --allow-from 192.168.1.10` and, still
+   lifted, check forward / strafe / rotate with `python tools/drive_once.py --robot N --vx 0.05 --seconds 20`
+   (and `--vy`, `--wz 0.25`). Ctrl+C on either side stops it.
 6. **Drive tests on the floor** (about 1 m clear around the robot). These check directions and calibrate
    speed; the tool prints what to change:
    ```bash
@@ -77,10 +85,19 @@ vision and the control loop, and draws the control targets on its map.
    ```
    Apply the suggested factors to the drive server's `--counts-per-meter` (straight tests) and then
    `--turn-radius` (turn test), restart it and repeat until the ratios are near 1.0. A "PROBLEM" line means a
-   wheel direction or the front face is wrong: fix `motor_signs` in the robot's `config/teleop.json` or the
-   `faces` in `config.yaml`.
-7. **Follow test, one robot:** `python -m control.main --robots 1 --arm`. Keep a hand near the robot's power
-   switch. **Space** pauses (robots stop), **q** or **Ctrl+C** quits (sends stop).
+   wheel direction or the front face is wrong: fix the robot's wheel config or the `faces` in `config.yaml`.
+   Notes from robot 2:
+   - Put the robot 2–5 m from the camera; closer than ~1.5 m it is at the image edge and often not detected.
+   - Use 0.10 m/s for the speed calibration: at 0.05 m/s the wheel counts round down (6.5 -> 6).
+   - The suggested factor assumes the commanded counts; when start and end are seen on different marker
+     faces, heading-based numbers (turns, "left"/"forward" split) can be off by ~10°.
+   - **If the strafe test turns the robot instead of moving it sideways**, set `control.limits.allow_strafe:
+     false` (no-strafe mode: turn, drive straight, turn to face the user) and check the rollers.
+7. **Follow test, one robot:** stand **3–4 m out from the camera**, with nobody else in view if possible.
+   Dry run first (`python -m control.main --robots 2`): check that the printed **user** position is you (the
+   person tracker keeps whoever it locked onto first; restart `vision.main` to re-lock) and that the target
+   is inside the camera's view. Then `python -m control.main --robots 2 --arm`. Keep a hand near the robot's
+   power switch. **Space** pauses (robots stop), **q** or **Ctrl+C** quits (sends stop).
 8. **Both robots:** start a drive server with `--robot-id 2` on robot 2, then `python -m control.main --arm`.
 
 ## What stops a robot
@@ -90,7 +107,7 @@ vision and the control loop, and draws the control targets on its map.
 | No command for 0.5 s (laptop quit or crashed, WiFi dropped) | drive server watchdog |
 | Camera hasn't seen the robot for 0.7 s (`max_pose_age_s`) | control loop |
 | User not seen for 2 s (`user_lost_s`), or no vision messages for 1 s | control loop |
-| Within 0.05 m and 5 deg of its target (restarts at 2x that) | control loop |
+| Within 0.05 m and 5 deg of its target (restarts at 2x that; 0.15 m in no-strafe mode) | control loop |
 | Space (pause), q, Ctrl+C | control loop |
 
 Speed is capped twice: `control.limits.max_speed_m_s` (0.15 m/s) on the laptop and the drive server's
@@ -112,6 +129,7 @@ still slide sideways around them. Nothing else is avoided (furniture, a second p
 - Pan/tilt must stay at neutral (see above). Pan aiming comes next. It needs the robot to report its pan
   angle so vision can subtract it.
 - Straight-line moves only, no path planning. A robot whose path is blocked by the user slides along the
-  keep-out circle or stops.
+  keep-out circle or stops (in no-strafe mode it stops).
+- No-strafe mode (`allow_strafe: false`) is a global setting for now: both robots turn-then-drive.
 - Robot 1 always takes the user's left and robot 2 the right (`side` in `control.robots`).
 - The planned targets are drawn in the system GUI (`python -m monitor`), not in the vision GUI.

@@ -21,6 +21,8 @@ Robot 1 / 2 Pi + camera  ~~WiFi via master Pi~~►  camstream.receiver.FrameRece
   a backlog.
 
 Docs:
+- **[docs/STATUS.md](docs/STATUS.md): start here.** Current state of every machine and robot, verified
+  results, known problems, how-to snippets and rules for working on the hardware.
 - [docs/PI_GUIDE.md](docs/PI_GUIDE.md): step-by-step install and test.
 - [docs/NETWORK.md](docs/NETWORK.md): the network contract (addresses, ports, bandwidth, time).
 - [docs/PLAN.md](docs/PLAN.md): design and rationale.
@@ -146,12 +148,14 @@ vision/      birds-eye processing: camera sources, markers, robots, people, geom
 camstream/   camera streaming: protocol, sender (Pis), receiver + viewer (laptop)
 control/     robot control MVP on the laptop: planner (listening triangle), controller, UDP links, main,
              drive_test
-robot/       drive_server.py: runs on each robot Pi, UDP velocity commands -> wheels, with a watchdog
+robot/       drive_server.py: runs on each robot Pi, UDP velocity commands -> wheels, with a watchdog;
+             config/ measured per-robot wheel maps; join_robot_wifi.sh, wifi_client_test.sh; card/ SD-card prep
 monitor/     system GUI on the laptop: probes (TCP, SSH health, drive server, head tracker), status rows,
              heartbeats from vision/control, web page
 tools/       generate_markers, calibrate_camera, calibrate_floor, record, range_test, pi_check,
-             mock_publisher, receiver_example, make_sim_video
-scripts/     setup_pi.sh, install_sender_service.sh
+             mock_publisher, receiver_example, make_sim_video, floor_from_markers, rough_floor_pose,
+             drive_once (one short robot move), one_lease_dhcp (find/address a Pi on a direct cable)
+scripts/     setup_pi.sh, install_sender_service.sh, setup_robot_ap.sh, set_robot_ap_channel.sh
 calib/       calibration files (floor_points.yaml is an example to edit)
 tests/       pytest suite
 ```
