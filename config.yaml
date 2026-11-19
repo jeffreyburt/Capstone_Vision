@@ -125,6 +125,7 @@ control:
     yaw_tolerance_deg: 5
     keep_out_m: 0.8         # robots never move toward the user when closer than this
     robot_clearance_m: 0.6  # ...or toward each other when closer than this (center to center)
+    allow_strafe: false     # robot 2's strafe turns into rotation: turn-then-drive instead. true = full mecanum
 
 debug:
   stream_port: 8080         # MJPEG debug stream port when run with --stream

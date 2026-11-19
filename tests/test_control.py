@@ -95,11 +95,14 @@ def test_compute_commands_stops_when_anything_is_missing():
     assert reason == "moving" and cmd != STOP and 1 in targets
 
 
-def simulate(start, user, seconds=40.0, delay_s=0.5, camera_hz=4.0, actuator_scale=1.3, rate_hz=10.0):
+def simulate(start, user, seconds=40.0, delay_s=0.5, camera_hz=4.0, actuator_scale=1.3, rate_hz=10.0,
+             limits=None, strafe_turns_m=None):
     """Closed loop: controller at rate_hz, camera frames at camera_hz delivered delay_s late, and wheels
-    that move actuator_scale times as far as commanded (badly calibrated counts-per-meter)."""
+    that move actuator_scale times as far as commanded (badly calibrated counts-per-meter).
+    strafe_turns_m: model robot 2, whose sideways command turns into clockwise rotation instead of
+    sideways motion (yaw rate = -vy / strafe_turns_m)."""
     p = planner(sides={1: "left"})
-    ctl = {1: RobotController()}
+    ctl = {1: RobotController(limits)}
     x, y, h = start
     dt = 1.0 / rate_hz
     frames = []  # (deliver_time, x, y, heading)
@@ -118,6 +121,8 @@ def simulate(start, user, seconds=40.0, delay_s=0.5, camera_hz=4.0, actuator_sca
                        {"x": user[0], "y": user[1], "age": 0.1}, frame=len(ready))
         _, out = compute_commands(msg, 0.0 if msg else None, p, ctl)
         vx, vy, wz = (actuator_scale * v for v in out[1][0])
+        if strafe_turns_m is not None:
+            wz, vy = wz - vy / strafe_turns_m, 0.0
         x += (math.cos(h) * vx - math.sin(h) * vy) * dt
         y += (math.sin(h) * vx + math.cos(h) * vy) * dt
         h += wz * dt
@@ -131,6 +136,52 @@ def test_closed_loop_reaches_target_despite_delay_and_scale_error():
     assert math.hypot(x - target.x, y - target.y) < 0.1
     assert abs((math.degrees(h) - target.heading_deg + 180) % 360 - 180) < 10
     # Settled: the last 5 s barely move
+    tail = path[-50:]
+    assert max(math.hypot(a[0] - tail[0][0], a[1] - tail[0][1]) for a in tail) < 0.03
+
+
+NO_STRAFE = Limits(allow_strafe=False)
+
+
+def test_no_strafe_turns_first_and_never_strafes():
+    c = RobotController(NO_STRAFE)
+    pose = {"x": 0.0, "y": 0.0, "heading": 0.0}
+    vx, vy, wz = c.command(pose, Target(0.0, 1.0, 0.0))  # target 90 deg to the left: turn, don't drive yet
+    assert vy == 0.0 and vx == pytest.approx(0.0) and wz > 0
+    vx, vy, wz = c.command(pose, Target(1.0, 0.05, 0.0))  # nearly straight ahead: drive forward
+    assert vy == 0.0 and vx > 0.1
+    vx, vy, wz = c.command(pose, Target(-1.0, 0.0, 0.0))  # straight behind: back up instead of turning around
+    assert vy == 0.0 and vx < -0.1 and abs(wz) < 1e-9
+
+
+def test_no_strafe_parks_then_turns_to_face_user():
+    c = RobotController(NO_STRAFE)
+    pose = {"x": 0.0, "y": 0.0, "heading": 0.0}
+    vx, vy, wz = c.command(pose, Target(0.02, 0.0, 90.0))  # at the target: only turn toward the user
+    assert (vx, vy) == (0.0, 0.0) and wz > 0
+    # A small error after parking (under no_strafe_restart_m) does not restart driving
+    vx, vy, wz = c.command(pose, Target(0.12, 0.0, 0.0))
+    assert vx == 0.0
+
+
+def test_no_strafe_keep_out():
+    c = RobotController(NO_STRAFE)
+    pose = {"x": 0.0, "y": 0.5, "heading": -90.0}  # facing the user at the origin, target beyond them
+    vx, _, _ = c.command(pose, Target(0.0, -1.0, 0.0), obstacles=[(0.0, 0.0, 0.8)])
+    assert vx <= 1e-9
+
+
+def test_limits_from_config_reads_booleans():
+    L = Limits.from_config({"allow_strafe": False, "max_speed_m_s": 0.1})
+    assert L.allow_strafe is False and L.allow_reverse is True and L.max_speed_m_s == 0.1
+
+
+def test_no_strafe_closed_loop_on_a_base_that_cannot_strafe():
+    target, path = simulate(start=(1.5, 1.5, 0.0), user=(0.0, 4.0), seconds=60.0, limits=NO_STRAFE,
+                            strafe_turns_m=0.15)
+    x, y, h = path[-1]
+    assert math.hypot(x - target.x, y - target.y) < 0.1
+    assert abs((math.degrees(h) - target.heading_deg + 180) % 360 - 180) < 10
     tail = path[-50:]
     assert max(math.hypot(a[0] - tail[0][0], a[1] - tail[0][1]) for a in tail) < 0.03
 

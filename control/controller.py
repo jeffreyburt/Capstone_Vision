@@ -12,6 +12,11 @@ Each control step:
 Deadbands with hysteresis: once a robot is within tolerance it stops, and only starts again when the error
 grows to twice the tolerance. That stops it twitching on camera noise.
 
+No-strafe mode (`allow_strafe: false`): for a base that can drive straight and turn but can't move sideways
+reliably (robot 2's strafe turns into rotation). The robot turns toward the target (or away from it and
+drives in reverse, whichever is the smaller turn), drives straight once roughly aligned, and only at the
+target turns to face the user. It never sends a sideways speed.
+
 The camera pose arrives a few hundred ms late (frame rate, smoothing, YOLO), so the gains are deliberately
 low. A proportional loop with gain k and delay T stays well behaved while k*T is well under 1.
 """
@@ -30,10 +35,18 @@ class Limits:
     yaw_tolerance_deg: float = 5.0
     keep_out_m: float = 0.8         # never move toward the user when closer than this
     robot_clearance_m: float = 0.6  # ...or toward another robot when closer than this (center to center)
+    allow_strafe: bool = True       # False: turn-then-drive, never sideways (no-strafe mode)
+    allow_reverse: bool = True      # no-strafe mode may drive backward instead of turning around
+    drive_align_deg: float = 25.0   # no-strafe mode: only drive while pointing within this of the travel line
+    no_strafe_restart_m: float = 0.15  # no-strafe mode: once parked, only move again past this error
 
     @classmethod
     def from_config(cls, d):
-        return cls(**{k: float(v) for k, v in (d or {}).items() if k in cls.__dataclass_fields__})
+        out = {}
+        for k, v in (d or {}).items():
+            if k in cls.__dataclass_fields__:
+                out[k] = bool(v) if isinstance(cls.__dataclass_fields__[k].default, bool) else float(v)
+        return cls(**out)
 
 
 def wrap_rad(a):
@@ -72,10 +85,54 @@ class RobotController:
     def reset(self):
         self.position_settled = self.heading_settled = False
 
+    def _turn_toward(self, error_rad):
+        L = self.limits
+        return max(-L.max_yaw_rad_s, min(L.max_yaw_rad_s, L.yaw_gain * error_rad))
+
+    def _face_target_heading(self, pose, target):
+        """Turn in place to the target heading, with the heading deadband. Returns wz."""
+        L = self.limits
+        eh = wrap_rad(math.radians(target.heading_deg - pose["heading"]))
+        tol = math.radians(L.yaw_tolerance_deg)
+        if self.heading_settled and abs(eh) > 2 * tol:
+            self.heading_settled = False
+        elif not self.heading_settled and abs(eh) <= tol:
+            self.heading_settled = True
+        return 0.0 if self.heading_settled else self._turn_toward(eh)
+
+    def _command_no_strafe(self, pose, target, obstacles):
+        L = self.limits
+        ex, ey = target.x - pose["x"], target.y - pose["y"]
+        dist = math.hypot(ex, ey)
+        restart = max(2 * L.position_tolerance_m, L.no_strafe_restart_m)
+        if self.position_settled and dist > restart:
+            self.position_settled = False
+        elif not self.position_settled and dist <= L.position_tolerance_m:
+            self.position_settled = True
+        if self.position_settled:  # parked: only turn to face the user
+            return 0.0, 0.0, self._face_target_heading(pose, target)
+
+        self.heading_settled = False  # face the user again after this leg
+        h = math.radians(pose["heading"])
+        bearing = math.atan2(ey, ex)
+        ahead, behind = wrap_rad(bearing - h), wrap_rad(bearing + math.pi - h)
+        reverse = L.allow_reverse and abs(behind) < abs(ahead)
+        err = behind if reverse else ahead
+        speed = 0.0
+        if abs(err) < math.radians(L.drive_align_deg):
+            speed = min(L.max_speed_m_s, L.position_gain * dist) * math.cos(err)
+        v = -speed if reverse else speed
+        # Keep-out: remove motion toward the user/robots, then keep only what a straight drive can do.
+        wvx, wvy = remove_approach(v * math.cos(h), v * math.sin(h), pose["x"], pose["y"], obstacles)
+        vx = wvx * math.cos(h) + wvy * math.sin(h)
+        return vx, 0.0, self._turn_toward(err)
+
     def command(self, pose, target, obstacles=()):
         """pose: dict with x, y, heading (deg), as in the vision message. target: planner.Target.
         obstacles: [(x, y, radius)] to keep out of. Returns body (vx forward, vy left, wz CCW)."""
         L = self.limits
+        if not L.allow_strafe:
+            return self._command_no_strafe(pose, target, obstacles)
         ex, ey = target.x - pose["x"], target.y - pose["y"]
         dist = math.hypot(ex, ey)
         if self.position_settled and dist > 2 * L.position_tolerance_m:
@@ -88,14 +145,6 @@ class RobotController:
             speed = min(L.max_speed_m_s, L.position_gain * dist)
             wvx, wvy = ex / dist * speed, ey / dist * speed
         wvx, wvy = remove_approach(wvx, wvy, pose["x"], pose["y"], obstacles)
-
-        eh = wrap_rad(math.radians(target.heading_deg - pose["heading"]))
-        tol = math.radians(L.yaw_tolerance_deg)
-        if self.heading_settled and abs(eh) > 2 * tol:
-            self.heading_settled = False
-        elif not self.heading_settled and abs(eh) <= tol:
-            self.heading_settled = True
-        wz = 0.0 if self.heading_settled else max(-L.max_yaw_rad_s, min(L.max_yaw_rad_s, L.yaw_gain * eh))
-
+        wz = self._face_target_heading(pose, target)
         vx, vy = world_to_body(wvx, wvy, pose["heading"])
         return vx, vy, wz
