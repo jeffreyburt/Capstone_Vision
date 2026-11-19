@@ -219,7 +219,7 @@ If the sender's `encode` time is above about 60 ms, the Pi can't keep up with 15
 ## 8. Live marker detection (laptop)
 
 1. Print the markers with `python tools/generate_markers.py`. Print `markers/*.pdf` at **100% / actual size**.
-2. **Measure the black square.** If it isn't exactly 15.0 cm, set `markers.size_m` in `config.yaml`.
+2. **Measure the black square.** If it isn't exactly 10.0 cm, set `markers.size_m` in `config.yaml`.
 3. Tape one page to a box, keeping the white border.
 
 With the sender from part 7 still running:

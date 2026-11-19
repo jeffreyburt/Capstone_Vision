@@ -6,6 +6,7 @@ Normally runs on the controller laptop, processing the master Pi's birds-eye str
 Examples:
     python -m vision.main --show                   # birds-eye stream (config camera.source), debug window
     python -m vision.main --stream                 # ...or debug view in a browser at http://localhost:8080/
+    python -m vision.main --gui                    # live GUI: all camera streams + 3D view, http://localhost:8080/
     python -m vision.main --source webcam --show   # laptop webcam
     python -m vision.main --source clip.mp4 --show # replay a recording
     python -m vision.main --source picam           # run directly on a Pi with its own camera
@@ -29,6 +30,8 @@ def main(argv=None):
     ap.add_argument("--show", action="store_true", help="show a debug window (needs a display)")
     ap.add_argument("--stream", nargs="?", const=-1, type=int, metavar="PORT",
                     help="serve the debug view over HTTP (default port from config)")
+    ap.add_argument("--gui", nargs="?", const=-1, type=int, metavar="PORT",
+                    help="live browser GUI with camera streams and a 3D view (default port from config)")
     ap.add_argument("--host", help="UDP destination host (overrides config)")
     ap.add_argument("--port", type=int, help="UDP destination port (overrides config)")
     ap.add_argument("--loop", action="store_true", help="loop video files")
@@ -52,10 +55,14 @@ def main(argv=None):
     if args.stream is not None:
         from .debug_view import MjpegServer
         server = MjpegServer(dbg_cfg.get("stream_port", 8080) if args.stream == -1 else args.stream)
+    gui = None
+    if args.gui is not None:
+        from .gui import GuiServer
+        gui = GuiServer(cfg, dbg_cfg.get("stream_port", 8080) if args.gui == -1 else args.gui)
     floor_map = None
 
     print(f"Sending UDP to {publisher.addr[0]}:{publisher.addr[1]} at {1 / publish_period:.0f} Hz. Ctrl+C to stop.")
-    last_publish = last_status = last_stream = last_snapshot = 0.0
+    last_publish = last_status = last_stream = last_snapshot = last_gui = 0.0
     frames_since_status = 0
     fps = None
     try:
@@ -83,6 +90,22 @@ def main(argv=None):
                 user = f"user ({u['x']:.2f}, {u['y']:.2f}) age {u['age']:.1f}s" if u else "no user"
                 print(f"[{fps or 0:5.1f} fps] markers {[m.id for m in result.markers]}  {robots}  {user}")
                 last_status, frames_since_status = now, 0
+
+            if gui is not None and now - last_gui >= 0.1:  # ~10 fps is plenty for viewing
+                from .debug_view import draw_overlay
+                from .gui import scene_info
+                if last_gui == 0.0:
+                    gui.set_scene(scene_info(cfg, pipeline.geometry, (frame.shape[1], frame.shape[0])))
+                overlay = draw_overlay(frame, result, pipeline.geometry, fps)
+                if gui.calib.active:  # lens calibration mode: live checkerboard detection + coverage
+                    gui.calib.preview(frame)
+                    gui.calib.draw(overlay)
+                gui.update(overlay, result.message, fps, raw=frame)
+                last_gui = now
+                if gui.intrinsics_changed:  # new lens calibration saved: use it from the next frame
+                    gui.intrinsics_changed = False
+                    pipeline.reload_geometry()
+                    last_gui = 0.0  # ...and resend the scene info (camera view cone) after the reload
 
             want_stream = server is not None and now - last_stream >= 0.1  # ~10 fps is plenty for viewing
             if args.show or want_stream:
@@ -114,6 +137,8 @@ def main(argv=None):
         publisher.close()
         if server:
             server.close()
+        if gui:
+            gui.close()
         if args.show:
             cv2.destroyAllWindows()
 

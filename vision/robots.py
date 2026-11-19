@@ -46,7 +46,7 @@ def robot_specs_from_config(cfg):
             id=int(r["id"]),
             faces={int(k): float(v) for k, v in r["faces"].items()},
             center_offset_m=float(r.get("center_offset_m", 0.15)),
-            marker_size_m=float(r.get("marker_size_m", m.get("size_m", 0.15))),
+            marker_size_m=float(r.get("marker_size_m", m.get("size_m", 0.10))),
             marker_center_height_m=float(r.get("marker_center_height_m", m.get("center_height_m", 0.30))),
         ))
     return specs

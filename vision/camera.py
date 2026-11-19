@@ -56,7 +56,7 @@ class _LiveSource:
 
 
 class PiCameraSource(_LiveSource):
-    def __init__(self, width, height, fps=30, sensor_mode=None, focus_dioptres=None, controls=None):
+    def __init__(self, width, height, fps=30, sensor_mode=None, focus_dioptres=None, controls=None, rotation=0):
         from picamera2 import Picamera2  # only available on the Pi (apt install python3-picamera2)
 
         self.cam = Picamera2()
@@ -67,6 +67,11 @@ class PiCameraSource(_LiveSource):
         }
         if sensor_mode:
             kwargs["raw"] = {"size": tuple(sensor_mode)}
+        if int(rotation) % 360 == 180:  # camera mounted upside down: flip in the sensor, so it costs nothing
+            from libcamera import Transform
+            kwargs["transform"] = Transform(hflip=1, vflip=1)
+        elif int(rotation) % 360:
+            raise ValueError("camera.rotation must be 0 or 180")
         self.cam.configure(self.cam.create_video_configuration(**kwargs))
 
         ctrl = dict(controls or {})
@@ -213,7 +218,8 @@ def open_source(cfg, source=None, loop=False):
     if source == "test":
         return TestPatternSource(w, h, fps)
     if source == "picam":
-        return PiCameraSource(w, h, fps, cam.get("sensor_mode"), cam.get("focus_dioptres"), cam.get("controls"))
+        return PiCameraSource(w, h, fps, cam.get("sensor_mode"), cam.get("focus_dioptres"), cam.get("controls"),
+                              cam.get("rotation", 0))
     if source == "webcam":
         return OpenCVSource(int(cam.get("webcam_index", 0)), w, h, fps)
     if source.isdigit():

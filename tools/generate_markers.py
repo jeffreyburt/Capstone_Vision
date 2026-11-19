@@ -1,7 +1,7 @@
 """Generate print-ready marker pages (one marker per page) as a PDF plus individual PNGs.
 
     python tools/generate_markers.py                  # all robot markers from config.yaml
-    python tools/generate_markers.py --ids 0-7 --size-cm 20
+    python tools/generate_markers.py --ids 0-7 --size-cm 15
     python tools/generate_markers.py --ids 40-45 --out markers/floor
 
 Print the PDF at 100% / "actual size" (NOT "fit to page"), then MEASURE the black square and put
@@ -76,7 +76,7 @@ def main():
     default_ids = ",".join(str(i) for r in cfg.get("robots", []) for i in r["faces"])
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--ids", default=default_ids, help="e.g. 0-7 or 0,1,5 (default: all robot faces in config)")
-    ap.add_argument("--size-cm", type=float, default=m.get("size_m", 0.15) * 100)
+    ap.add_argument("--size-cm", type=float, default=m.get("size_m", 0.10) * 100)
     ap.add_argument("--dictionary", default=m.get("dictionary", "DICT_4X4_50"))
     ap.add_argument("--page", choices=PAGES, default="letter")
     ap.add_argument("--dpi", type=int, default=300)

@@ -98,6 +98,10 @@ class VisionPipeline:
         self.frame_index += 1
         return result
 
+    def reload_geometry(self):
+        """Re-read the calibration files on the next frame (e.g. after a new lens calibration)."""
+        self._geometry_loaded = False
+
     def close(self):
         if self.async_people is not None:
             self.async_people.close()

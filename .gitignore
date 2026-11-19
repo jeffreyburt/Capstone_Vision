@@ -14,3 +14,6 @@ calib/images/
 
 # downloaded YOLO weights
 *.pt
+
+# generated marker archive (tools/generate_markers.py)
+markers.zip

@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vision Live</title>
+<style>
+  :root { --bg: #111418; --panel: #1b1f25; --line: #2c323b; --text: #d8dde3; --muted: #8a939e; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px system-ui, sans-serif; height: 100vh;
+         display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 38%); grid-template-rows: 100vh; }
+  #scene { position: relative; min-width: 0; overflow: hidden; }
+  #scene canvas { display: block; }
+  #toolbar { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; flex-wrap: wrap; gap: 6px; z-index: 2; }
+  button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px;
+           padding: 6px 10px; cursor: pointer; font: inherit; }
+  button:hover { border-color: var(--muted); }
+  #status { position: absolute; bottom: 10px; left: 10px; z-index: 2; background: rgba(17,20,24,.85);
+            border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font: 13px ui-monospace, monospace;
+            white-space: pre; }
+  #side { overflow-y: auto; border-left: 1px solid var(--line); padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+  .cam { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .cam h2 { margin: 0; padding: 6px 10px; font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; }
+  .cam h2 span { color: var(--muted); font-weight: 400; }
+  .cam img { display: block; width: 100%; background: #000; min-height: 60px; }
+  .cam img:not([src]) { visibility: hidden; }   /* no broken-image icon before the stream starts */
+  body.calibrating .labels { display: none; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  #bigcam { position: absolute; inset: 0; background: #000; display: none; z-index: 1; }
+  #bigcam img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  body.calibrating #bigcam { display: block; }
+  body.calibrating #toolbar { display: none; }
+  .calib { padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 8px; }
+  .btns { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .btns label { display: flex; gap: 4px; align-items: center; color: var(--muted); }
+  button.primary { background: #1f4f8a; border-color: #2f6cb8; }
+  button:disabled { opacity: .45; cursor: default; }
+  .bar { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+  .bar div { height: 100%; width: 0; background: #e09a2b; transition: width .3s; }
+  .bar div.done { background: #3fae5a; }
+  #calib-msg { min-height: 1.2em; }
+  #calib-result { font: 13px ui-monospace, monospace; white-space: pre; }
+  .hint { color: var(--muted); font-size: 13px; margin: 0; padding-left: 18px; }
+  .badge { padding: 1px 6px; border-radius: 4px; background: var(--line); color: var(--muted); }
+  .badge.on { background: #1d5e33; color: #d6ffe2; }
+  .label { color: #fff; font: 12px system-ui, sans-serif; background: rgba(0,0,0,.55); padding: 1px 5px;
+           border-radius: 4px; white-space: nowrap; }
+  @media (max-width: 800px) {
+    body { grid-template-columns: minmax(0, 1fr); grid-template-rows: 60vh auto; height: auto; overflow-x: hidden; }
+    button { padding: 4px 8px; font-size: 13px; }
+  }
+</style>
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+</head>
+<body>
+<div id="scene">
+  <div id="toolbar">
+    <button id="view-orbit">3D view</button>
+    <button id="view-top">Top view</button>
+    <button id="view-cam">Camera view</button>
+    <button id="clear-trails">Clear trails</button>
+  </div>
+  <div id="bigcam"></div>
+  <div id="status">connecting...</div>
+</div>
+<div id="side">
+  <div class="cam"><h2>Birds-eye <span id="fps-birdseye"></span></h2><div id="birdseye-slot"><img id="img-birdseye" src="/video/birdseye" alt="birds-eye camera"></div></div>
+  <div class="cam">
+    <h2>Lens calibration <span id="calib-board" class="badge">off</span></h2>
+    <div class="calib">
+      <div class="btns">
+        <button id="calib-toggle" class="primary">Start</button>
+        <button id="calib-capture" disabled>Capture (Space)</button>
+        <label><input type="checkbox" id="calib-auto" checked> Auto-capture</label>
+      </div>
+      <div class="bar"><div id="calib-bar"></div></div>
+      <div id="calib-count">0 views</div>
+      <div class="btns">
+        <button id="calib-undo" disabled>Undo last</button>
+        <button id="calib-reset" disabled>Reset</button>
+        <button id="calib-solve" disabled>Calibrate</button>
+      </div>
+      <div id="calib-msg"></div>
+      <div id="calib-result"></div>
+      <ul class="hint">
+        <li>Hold the board 0.5–2 m away, whole board in view, flat and still.</li>
+        <li>With auto-capture, hold it still for a moment in each new spot.</li>
+        <li>Cover the whole frame, corners and edges especially (the orange outlines show what's done), tilted different ways.</li>
+        <li>About 20 views, then Calibrate. RMS under 1 px is good.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="row">
+    <div class="cam"><h2>Robot 1 <span id="fps-robot1">waiting</span></h2><img id="img-robot1" alt="robot 1 camera"></div>
+    <div class="cam"><h2>Robot 2 <span id="fps-robot2">waiting</span></h2><img id="img-robot2" alt="robot 2 camera"></div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
+
+// World frame from the vision system: meters, x right, y away from the camera, z up.
+// three.js is y-up, so world (x, y, z) -> three (x, z, -y).
+const W = (x, y, z = 0) => new THREE.Vector3(x, z, -y);
+const ROBOT_COLORS = [0x2f8cff, 0xff8c00, 0xc800c8, 0x00c8c8];
+const LOST_AFTER_S = 1.0, TRAIL_LEN = 300;
+
+const host = document.getElementById("scene");
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+host.appendChild(renderer.domElement);
+const labels = new CSS2DRenderer();
+labels.domElement.className = "labels";
+labels.domElement.style.position = "absolute";
+labels.domElement.style.top = "0";
+labels.domElement.style.pointerEvents = "none";
+host.appendChild(labels.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x111418);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x334455, 2.2));
+const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+sun.position.set(3, 8, 4);
+scene.add(sun);
+
+const view = new THREE.PerspectiveCamera(50, 1, 0.05, 100);
+const controls = new OrbitControls(view, renderer.domElement);
+controls.enableDamping = true;
+
+function label(text) {
+  const el = document.createElement("div");
+  el.className = "label";
+  el.textContent = text;
+  return new CSS2DObject(el);
+}
+
+function line(points, color, opacity = 1) {
+  const mat = new THREE.LineBasicMaterial({ color, transparent: opacity < 1, opacity });
+  return new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), mat);
+}
+
+// ---- static scene: floor grid + axes (rebuilt when the scene info arrives) ----
+const staticGroup = new THREE.Group();
+scene.add(staticGroup);
+
+function buildStatic(info) {
+  staticGroup.clear();
+  const area = info.area || { x: [-5, 5], y: [-1, 10] };
+  const [x0, x1] = area.x, [y0, y1] = area.y;
+  for (let x = Math.ceil(x0); x <= Math.floor(x1); x++)
+    staticGroup.add(line([W(x, y0), W(x, y1)], x === 0 ? 0x5a6470 : 0x2c323b));
+  for (let y = Math.ceil(y0); y <= Math.floor(y1); y++) {
+    staticGroup.add(line([W(x0, y), W(x1, y)], y === 0 ? 0x5a6470 : 0x2c323b));
+    const l = label(`${y} m`); l.position.copy(W(x0 - 0.3, y)); staticGroup.add(l);
+  }
+  staticGroup.add(new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), W(0, 0, 0.001), 1, 0xff5555, 0.15, 0.08));
+  staticGroup.add(new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), W(0, 0, 0.001), 1, 0x55dd55, 0.15, 0.08));
+  const lx = label("x"); lx.position.copy(W(1.1, 0)); staticGroup.add(lx);
+  const ly = label("y"); ly.position.copy(W(0, 1.1)); staticGroup.add(ly);
+
+  const cam = info.camera;
+  if (!cam) return;
+  const p = W(...cam.position);
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 0.08), new THREE.MeshStandardMaterial({ color: 0xeeeeee }));
+  body.position.copy(p);
+  staticGroup.add(body);
+  const far = cam.frustum_dirs.map(d => p.clone().add(W(d[0], d[1], d[2]).multiplyScalar(0.7)));
+  for (const f of far) staticGroup.add(line([p, f], 0xffd84a));
+  staticGroup.add(line([...far, far[0]], 0xffd84a));
+  if (cam.floor_footprint.length > 2) {
+    const pts = cam.floor_footprint.map(([x, y]) => W(x, y, 0.003));
+    staticGroup.add(line([...pts, pts[0]], 0xffd84a, 0.5));
+  }
+  const cl = label(`camera ${cam.position[2].toFixed(2)} m`); cl.position.copy(p).add(new THREE.Vector3(0, 0.15, 0));
+  staticGroup.add(cl);
+}
+
+// ---- dynamic objects: robots and user ----
+const robots = new Map();   // id -> {group, mat, arrow, label, trail, trailPts}
+let robotSize = 0.3, robotHeight = 0.4;
+
+function getRobot(id) {
+  if (robots.has(id)) return robots.get(id);
+  const color = ROBOT_COLORS[(id - 1) % ROBOT_COLORS.length];
+  const group = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.85 });
+  const box = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat);
+  group.add(box);
+  const arrow = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), 0.4, color, 0.12, 0.08);
+  group.add(arrow);
+  const lab = label(`R${id}`);
+  group.add(lab);
+  scene.add(group);
+  const trailPts = [];
+  const trail = line([], color, 0.6);
+  scene.add(trail);
+  const r = { group, box, mat, arrow, label: lab, trail, trailPts, color };
+  robots.set(id, r);
+  return r;
+}
+
+const userMat = new THREE.MeshStandardMaterial({ color: 0xff4040, transparent: true, opacity: 0.8 });
+const user = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1, 24), userMat);
+const userLabel = label("user");
+user.add(userLabel);
+user.visible = userLabel.visible = false;
+scene.add(user);
+
+function updateObjects(msg) {
+  const seen = new Set();
+  for (const r of msg.robots || []) {
+    seen.add(r.id);
+    const o = getRobot(r.id);
+    o.group.visible = true;
+    o.box.scale.set(robotSize, robotHeight, robotSize);
+    o.box.position.set(0, robotHeight / 2, 0);
+    o.arrow.position.set(0, robotHeight + 0.02, 0);
+    o.arrow.visible = r.heading !== null;
+    o.group.position.copy(W(r.x, r.y));
+    o.group.rotation.y = THREE.MathUtils.degToRad(r.heading || 0);  // CCW from +x, about the up axis
+    o.label.position.set(0, robotHeight + 0.25, 0);
+    o.label.element.textContent = `R${r.id}  (${r.x.toFixed(2)}, ${r.y.toFixed(2)})  ${(r.heading ?? 0).toFixed(0)}°`;
+    const stale = r.age > LOST_AFTER_S;
+    o.mat.color.setHex(stale ? 0x666666 : o.color);
+    o.mat.opacity = stale ? 0.35 : 0.85;
+    const last = o.trailPts[o.trailPts.length - 1];
+    const here = W(r.x, r.y, 0.01);
+    if (!stale && (!last || last.distanceTo(here) > 0.01)) {
+      o.trailPts.push(here);
+      if (o.trailPts.length > TRAIL_LEN) o.trailPts.shift();
+      o.trail.geometry.setFromPoints(o.trailPts);
+    }
+  }
+  // CSS labels don't inherit their parent's visibility, so hide them explicitly.
+  for (const [id, o] of robots) o.group.visible = o.label.visible = seen.has(id);
+
+  const u = msg.user;
+  user.visible = userLabel.visible = !!u;
+  if (u) {
+    const h = u.height || 1.7;
+    user.scale.set(1, h, 1);
+    user.position.copy(W(u.x, u.y, h / 2));
+    userLabel.position.set(0, 0.6, 0);   // in the cylinder's (scaled) frame: just above the top
+    userLabel.element.textContent = `user (${u.x.toFixed(2)}, ${u.y.toFixed(2)})  ${h.toFixed(2)} m`;
+    userMat.opacity = u.age > LOST_AFTER_S ? 0.3 : 0.8;
+  }
+}
+
+// ---- views ----
+let sceneInfo = null;
+function setView(kind) {
+  const cam = sceneInfo && sceneInfo.camera;
+  if (kind === "cam" && cam) {
+    const p = W(...cam.position), f = W(...cam.forward);
+    view.position.copy(p);
+    controls.target.copy(p.clone().add(f.multiplyScalar(3)));
+  } else if (kind === "top") {
+    view.position.set(0, 12, -3.5);
+    controls.target.set(0, 0, -3.5);
+  } else {
+    view.position.set(4, 4.5, 2.5);
+    controls.target.set(0, 0.3, -2.5);
+  }
+  controls.update();
+}
+document.getElementById("view-orbit").onclick = () => setView("orbit");
+document.getElementById("view-top").onclick = () => setView("top");
+document.getElementById("view-cam").onclick = () => setView("cam");
+document.getElementById("clear-trails").onclick = () => {
+  for (const o of robots.values()) { o.trailPts.length = 0; o.trail.geometry.setFromPoints([]); }
+};
+setView("orbit");
+
+// ---- lens calibration ----
+const $ = id => document.getElementById(id);
+let calib = { active: false };
+
+async function calibCmd(cmd) {
+  try {
+    const st = await (await fetch(`/calib/${cmd}`, { method: "POST" })).json();
+    updateCalib(st);
+  } catch (e) { $("calib-msg").textContent = "request failed: is vision.main still running?"; }
+}
+
+function updateCalib(c) {
+  if (!c) return;
+  const wasActive = calib.active;
+  calib = c;
+  // While calibrating, the camera image moves into the big left area (moving the <img> keeps its stream).
+  if (c.active !== wasActive) {
+    document.body.classList.toggle("calibrating", c.active);
+    (c.active ? $("bigcam") : $("birdseye-slot")).appendChild($("img-birdseye"));
+  }
+  $("calib-toggle").textContent = c.active ? "Stop" : "Start";
+  $("calib-capture").disabled = !c.active;
+  $("calib-auto").checked = c.auto;
+  $("calib-undo").disabled = $("calib-reset").disabled = c.views === 0;
+  $("calib-solve").disabled = c.views < c.min_views;
+  const badge = $("calib-board");
+  badge.textContent = !c.active ? "off" : c.board_visible ? "board found" : "no board";
+  badge.classList.toggle("on", c.active && c.board_visible);
+  const bar = $("calib-bar");
+  bar.style.width = `${Math.min(100, 100 * c.views / c.good_views)}%`;
+  bar.classList.toggle("done", c.views >= c.good_views);
+  $("calib-count").textContent = `${c.views} view${c.views === 1 ? "" : "s"} (${c.good_views} recommended, minimum ${c.min_views})`;
+  $("calib-msg").textContent = c.message || "";
+  const r = c.result;
+  $("calib-result").textContent = r ?
+    `RMS error   ${r.rms_px} px  ${r.good ? "(good)" : "(too high: recapture)"}\n` +
+    `field of view  ${r.hfov_deg}° horizontal, ${r.vfov_deg}° vertical\n` +
+    `focal length   fx ${r.fx}  fy ${r.fy} px at ${r.size[0]}x${r.size[1]}\n` +
+    `from ${r.views} views, saved to calib/camera_intrinsics.yaml` : "";
+}
+
+$("calib-toggle").onclick = () => calibCmd(calib.active ? "stop" : "start");
+$("calib-capture").onclick = () => calibCmd("capture");
+$("calib-auto").onchange = e => calibCmd(e.target.checked ? "auto_on" : "auto_off");
+$("calib-undo").onclick = () => calibCmd("undo");
+$("calib-reset").onclick = () => { if (confirm("Clear all captured views?")) calibCmd("reset"); };
+$("calib-solve").onclick = () => { $("calib-msg").textContent = "calibrating..."; calibCmd("solve"); };
+window.addEventListener("keydown", e => {
+  if (e.code === "Space" && calib.active && e.target.tagName !== "INPUT") { e.preventDefault(); calibCmd("capture"); }
+});
+
+// ---- polling ----
+const statusEl = document.getElementById("status");
+async function poll() {
+  try {
+    const st = await (await fetch("/state", { cache: "no-store" })).json();
+    if (st.scene && JSON.stringify(st.scene) !== JSON.stringify(sceneInfo)) {
+      const first = !sceneInfo;
+      sceneInfo = st.scene;
+      robotSize = sceneInfo.robot_size_m;
+      robotHeight = sceneInfo.robot_height_m;
+      buildStatic(sceneInfo);
+      if (first) setView("orbit");
+    }
+    const msg = st.message;
+    if (msg) updateObjects(msg);
+    updateCalib(st.calib);
+    document.getElementById("fps-birdseye").textContent = st.fps ? `${st.fps.toFixed(1)} fps` : "";
+    for (const [name, s] of Object.entries(st.streams || {})) {
+      const el = document.getElementById(`fps-${name}`);
+      if (el) el.textContent = s.since_last_s === null ? "waiting" : s.since_last_s > 3 ? "stalled" : `${s.fps.toFixed(1)} fps`;
+      // Only open a video connection once the stream has frames: browsers allow ~6 connections per
+      // server, and idle MJPEG connections would otherwise block the /state polling.
+      const img = document.getElementById(`img-${name}`);
+      if (img && !img.src && s.since_last_s !== null) img.src = `/video/${name}`;
+    }
+    let text = "";
+    if (!sceneInfo || !sceneInfo.camera) text += "no floor calibration: positions unavailable\n";
+    for (const r of (msg && msg.robots) || [])
+      text += `R${r.id}  x ${r.x.toFixed(2)}  y ${r.y.toFixed(2)} m  heading ${(r.heading ?? 0).toFixed(0)}°  age ${r.age.toFixed(1)} s\n`;
+    if (msg && msg.user) text += `user  x ${msg.user.x.toFixed(2)}  y ${msg.user.y.toFixed(2)} m  age ${msg.user.age.toFixed(1)} s\n`;
+    if (msg && !msg.robots.length && !msg.user) text += "no robots or user in view\n";
+    statusEl.textContent = text.trim() || "waiting for frames...";
+  } catch (e) {
+    statusEl.textContent = "lost connection to vision.main";
+  }
+  setTimeout(poll, 100);
+}
+poll();
+
+function resize() {
+  const w = host.clientWidth, h = host.clientHeight;
+  renderer.setSize(w, h);
+  labels.setSize(w, h);
+  view.aspect = w / h;
+  view.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(host);
+resize();
+
+renderer.setAnimationLoop(() => {
+  controls.update();
+  renderer.render(scene, view);
+  labels.render(scene, view);
+});
+</script>
+</body>
+</html>

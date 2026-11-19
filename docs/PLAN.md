@@ -51,7 +51,7 @@
 
 ## 3. Robot markers
 
-### Recommendation: ArUco 4x4 (`DICT_4X4_50`), printed 15–20 cm (6–8 in) black-square size, mounted **vertically** on the robot
+### Recommendation: ArUco 4x4 (`DICT_4X4_50`), printed 10 cm (4 in) black-square size, mounted **vertically** on the robot
 
 **Why 4x4 instead of AprilTag 36h11?** Detection range depends on how many pixels each marker "cell" covers. A 4x4 marker is 6 cells across (including the black border). A 36h11 AprilTag is 8 cells across. At the same printed size, 4x4 cells are about 33% bigger, which gives noticeably more range. The drawback of 4x4 is a higher false-positive rate. We avoid that by **only accepting the few IDs assigned to our robots** and by tracking across frames. If false positives still show up, switching to AprilTag (`DICT_APRILTAG_36h11`, also in `cv2.aruco`) is a one-line config change.
 
@@ -59,12 +59,14 @@
 
 | Marker size | Resolution | Marker width in image | px/cell (4x4) | px/cell (36h11) |
 |---|---|---|---|---|
+| 10 cm | 1280×720 | ~16 px | ~2.7 | ~2.0 |
+| 10 cm | 1920×1080 | ~24 px | ~4.0 | ~3.0 |
 | 15 cm | 1280×720 | ~24 px | ~4.0 | ~3.0 |
 | 15 cm | 1920×1080 | ~36 px | ~6.0 | ~4.5 |
 | 20 cm | 1280×720 | ~32 px | ~5.4 | ~4.0 |
 | 20 cm | 1920×1080 | ~48 px | ~8.1 | ~6.1 |
 
-A common rule of thumb is that detection becomes reliable at about **4–5 px per cell** (motion blur and focus also matter). So **4x4 at 15–20 cm and 1280×720 should be just good enough, with 1920×1080 as the safety margin.** Step 2 of the plan is a real range test to check these numbers before we build anything else on top of them.
+A common rule of thumb is that detection becomes reliable at about **4–5 px per cell** (motion blur and focus also matter). So **10 cm markers need 1920×1080** (about the same pixels as 15 cm at 1280×720). In simulation (blur + noise, 2 m camera), 10 cm at 1920×1080 was detected in 100% of frames out to 7 m with about 1 cm position error and 1–4° heading error; at 1280×720 detection fell to 65–75% beyond 6 m. Larger markers buy range margin if the real-camera range test comes up short. Step 2 of the plan is a real range test to check these numbers before we build anything else on top of them.
 
 **Why vertical and not on top of the robot?** A camera at about 1.5–2 m height looks at the floor 6 m away at a shallow angle. A marker lying flat on top of a robot would be squashed to about a third of its height in the image, and range would collapse. Vertical markers that face the camera avoid this. The robots will turn, though, so the likely design is **a marker on each side of the robot** (a box or a short "mast" with 4 faces). Each face gets its own ID, mapped in config, for example:
 

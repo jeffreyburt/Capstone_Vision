@@ -7,8 +7,10 @@ streams:
   birdseye:
     host: 192.168.50.1      # master Pi
     port: 5600
-    quality: 85             # JPEG quality (higher = sharper markers, more bandwidth; Ethernet, so plenty)
+    quality: 95             # JPEG quality (higher = sharper markers, more bandwidth; Ethernet, so plenty)
     max_fps: 15             # send at most this many frames/s (the camera itself runs at camera.fps)
+    # Full 12 MP sensor: best accuracy and range, lower frame rate. For speed use 1920x1080 / [2304, 1296].
+    camera: {width: 4608, height: 2592, fps: 10, sensor_mode: [4608, 2592], rotation: 180}
   robot1:
     host: 192.168.50.11
     port: 5601
@@ -32,7 +34,9 @@ camera:
   fps: 30
   sensor_mode: [2304, 1296] # Camera Module 3 full-FOV binned mode (smaller modes crop the view)
   focus_dioptres: 0.25      # fixed lens position = 1 / distance_m (0.25 = 4 m). null = continuous autofocus
-  hfov_deg: 66              # used for rough intrinsics until calibrate_camera.py has been run
+  hfov_deg: 102             # used for rough intrinsics until calibrate_camera.py has been run
+                            # (Camera Module 3: standard 66, Wide 102 horizontal / 120 diagonal)
+  rotation: 0               # 180 if the camera is mounted upside down (flipped on the Pi, before streaming)
   controls: {}              # extra Picamera2 controls, e.g. {ExposureTime: 8000, AnalogueGain: 4.0}
 
 calibration:
@@ -41,7 +45,7 @@ calibration:
 
 markers:
   dictionary: DICT_4X4_50   # any cv2.aruco dictionary name, e.g. DICT_APRILTAG_36h11
-  size_m: 0.15              # edge length of the BLACK square, measured on the print
+  size_m: 0.10              # edge length of the BLACK square, measured on the print
   center_height_m: 0.30     # height of the marker's center above the floor
 
 robots:

@@ -78,7 +78,7 @@ def test_stream_source_for_vision(stream_cfg):
     try:
         img, t = src.read()
         img2, t2 = src.read()
-        assert img.shape == (240, 320, 3) and t2 > t
+        assert img.shape == (240, 320, 3) and t2 >= t  # >=: Windows time.time() ticks every ~15 ms
     finally:
         src.close()
         sender.stop()
