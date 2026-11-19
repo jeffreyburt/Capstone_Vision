@@ -100,6 +100,11 @@ Run only one instance at a time; the server and standalone servo scripts must no
 
 ## Dashboard workflow
 
+Capture requires stopped tracking/sweeps and fresh valid readings from both servos. The message above
+the capture buttons explains any block. Freshness uses the Pi's `serverTime` and `position_time`, so a
+Mac/Pi clock difference does not disable capture or hide live positions. Deploy both `dashboard.py`
+and `index.html` together, restart the stopped dashboard service, and refresh the browser after updating.
+
 1. Support the mechanism and **Disengage torque**.
 2. Move the camera by hand to one allowed endpoint; **Capture current position as A** records both servos.
 3. Move to the other endpoint and capture B.

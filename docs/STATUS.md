@@ -31,6 +31,18 @@ master Pi camera ──Ethernet──► laptop: vision.main ──UDP 5005─�
 
 ## 2. Machines
 
+**2026-11-19 servo capture fix:** Robot 2's capture buttons incorrectly treated fresh feedback as stale
+because the browser used the Mac's clock (~3.4 hours ahead of the Pi). The integrated head dashboard now
+returns `serverTime` and compares feedback against that same clock. Capture buttons also explain why
+they are disabled (motion, torque-control operation, stale/missing readings, or disconnection). Applied
+only the targeted backend change and updated HTML on robot 2, preserving unrelated code and backups;
+restarted its already-stopped dashboard service with torque off. Verified `/api/capture` HTTP 200,
+readings around pan 770 / tilt 657–658, both rendered capture buttons enabled, and JavaScript checks for
+clock skew, stale data, missing readings and active motion. Existing A/B limits were not overwritten.
+The full repository suite passes 112 tests plus 10 subtests. Tracking was already stopped by the owner
+before this fix and was not restarted; torque remains off. No motion commands were sent.
+
+
 **2026-11-19 follow-distance preparation (current camera position):** The owner moved the main camera
 to approximately 0.36 m above the floor and requested robot 2 follow the listener at 2 m. Formation distance
 is now 2.0 m. `calibration.floor_pose` points to `calib/floor_pose_36cm.yaml`, which does not exist yet;

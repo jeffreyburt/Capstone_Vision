@@ -221,7 +221,7 @@ class Handler(BaseHTTPRequestHandler):
  def do_GET(self):
   self.path=self.path.split('?',1)[0]
   if self.path=='/api/state':
-   with lock:body=json.dumps({**state,'samples':list(history),'camera':camera_feed.info()}).encode()
+   with lock:body=json.dumps({**state,'samples':list(history),'camera':camera_feed.info(),'serverTime':time.time()}).encode()
    kind='application/json'
   elif self.path.startswith('/assets/'):
    root=Path(__file__).with_name('assets').resolve()
