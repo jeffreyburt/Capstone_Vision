@@ -27,7 +27,7 @@ STOP = (0.0, 0.0, 0.0)
 TIMING_DEFAULTS = {"vision_timeout_s": 1.0, "max_pose_age_s": 0.7, "user_lost_s": 2.0}
 
 
-def compute_commands(msg, msg_age_s, planner, controllers, timing=None):
+def compute_commands(msg, msg_age_s, planner, controllers, timing=None, compensated_ids=()):
     """One control step, without any I/O.
 
     msg: newest vision message (or None); msg_age_s: seconds since it arrived on this laptop.
@@ -51,6 +51,10 @@ def compute_commands(msg, msg_age_s, planner, controllers, timing=None):
         if not targets:
             ctrl.reset()
             out[rid] = (STOP, "no user")
+            continue
+        if rid in compensated_ids and ((pose or {}).get("pose_compensated") is not True or msg_age_s > 0.25):
+            ctrl.reset()
+            out[rid] = (STOP, "compensated pose unavailable")
             continue
         if pose is None or pose.get("heading") is None or pose["age"] > timing["max_pose_age_s"]:
             ctrl.reset()
@@ -105,6 +109,7 @@ def main(argv=None):
 
     cfg = load_config(args.config)
     c = cfg.get("control", {})
+    compensated_ids = {int(r["id"]) for r in cfg.get("robots", []) if r.get("head_pose") is not None}
     robots_cfg = {int(k): v for k, v in c.get("robots", {}).items()}
     driven = [int(x) for x in args.robots.split(",")] if args.robots else sorted(robots_cfg)
     unknown = [rid for rid in driven if rid not in robots_cfg]
@@ -142,13 +147,13 @@ def main(argv=None):
             msg, received_at = vision.poll()
             now = time.time()
             targets, results = compute_commands(msg, None if received_at is None else now - received_at,
-                                                planner, controllers, timing)
+                                                planner, controllers, timing, compensated_ids)
             if args.arm:
                 for rid, (cmd, _) in results.items():
                     if paused or cmd == STOP:
                         link.stop(rid)
                     else:
-                        link.drive(rid, *cmd)
+                        link.drive(rid, *cmd, pose_compensated=rid in compensated_ids)
             link_ages = link.poll()
             if now - last_print >= 1.0:
                 mode = "PAUSED" if paused else ("ARMED" if args.arm else "DRY RUN")

@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 
 from .geometry import load_geometry
+from .joint_pose import JointFeedback
 from .markers import MarkerDetector
 from .output import make_message
 from .robots import estimate_robots, robot_specs_from_config
@@ -44,6 +45,11 @@ class VisionPipeline:
             from .people import AsyncDetector
             self.async_people = AsyncDetector(self.people.detect)
         self.last_people = []
+        endpoints = {int(rid): item["host"] for rid, item in cfg.get("control", {}).get("robots", {}).items()}
+        sources = {spec.id: endpoints[spec.id]
+                   for spec in self.specs if spec.head is not None}
+        self.joints = JointFeedback(cfg.get("joint_feedback_port", 5006), sources) if sources else None
+        self.compensated_ids = set(sources)
 
     @staticmethod
     def _make_person_detector(p):
@@ -80,7 +86,9 @@ class VisionPipeline:
         markers = self.detector.detect(frame)
         observations = []
         if self.geometry is not None:
-            observations = [o for o in estimate_robots(markers, self.specs, self.geometry) if self._in_area(o.x, o.y)]
+            joints = self.joints.positions_at(t) if self.joints is not None else None
+            observations = [o for o in estimate_robots(markers, self.specs, self.geometry, joints)
+                            if self._in_area(o.x, o.y)]
         self.tracker.update(t, observations)
 
         user_obs = None
@@ -94,6 +102,11 @@ class VisionPipeline:
                 user_obs = self.user_tracker.update(t_det, cands)
 
         message = make_message(t, self.frame_index, self.tracker.state(t), self.user_tracker.state(t))
+        if self.compensated_ids:
+            observed = {o.robot_id for o in observations}
+            for robot in message["robots"]:
+                if robot["id"] in self.compensated_ids:
+                    robot["pose_compensated"] = robot["id"] in observed and robot["age"] == 0
         result = FrameResult(t, self.frame_index, markers, observations, self.last_people, user_obs, message)
         self.frame_index += 1
         return result
@@ -103,5 +116,7 @@ class VisionPipeline:
         self._geometry_loaded = False
 
     def close(self):
+        if self.joints is not None:
+            self.joints.close()
         if self.async_people is not None:
             self.async_people.close()

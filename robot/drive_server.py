@@ -84,7 +84,7 @@ def to_motors(wheels, p):
     return motors
 
 
-def parse_command(data, robot_id):
+def parse_command(data, robot_id, *, require_compensated_pose=False):
     """Decode one datagram. Returns ("drive", (vx, vy, wz), seq) or ("stop", None, seq); raises ValueError."""
     msg = json.loads(data)
     if not isinstance(msg, dict):
@@ -97,6 +97,8 @@ def parse_command(data, robot_id):
         return "stop", None, seq
     if kind != "drive":
         raise ValueError(f"unknown command type {kind!r}")
+    if require_compensated_pose and msg.get("pose_compensated") is not True:
+        raise ValueError("drive command requires a compensated pose")
     v = []
     for name in ("vx", "vy", "wz"):
         x = msg.get(name)
@@ -111,13 +113,14 @@ class DriveServer:
 
     def __init__(self, motors, params, robot_id, port=5700, host="0.0.0.0", timeout_s=0.5, rate_hz=20.0,
                  allow_from=None, max_speed_m_s=0.3, max_yaw_rad_s=1.0, clock=time.monotonic, log=print,
-                 *, before_motor_tick=None):
+                 *, before_motor_tick=None, require_compensated_pose=False):
         self.motors, self.p, self.robot_id = motors, params, robot_id
         self.timeout_s, self.period = timeout_s, 1.0 / rate_hz
         self.allow_from = allow_from
         self.max_speed_m_s, self.max_yaw_rad_s = max_speed_m_s, max_yaw_rad_s
         self.clock, self.log = clock, log
         self.before_motor_tick = before_motor_tick
+        self.require_compensated_pose = require_compensated_pose
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind((host, port))
         self.port = self.sock.getsockname()[1]
@@ -144,7 +147,9 @@ class DriveServer:
         try:
             if self.allow_from and addr[0] != self.allow_from:
                 raise ValueError(f"ignoring commands from {addr[0]}")
-            kind, v, seq = parse_command(data, self.robot_id)
+            kind, v, seq = parse_command(
+                data, self.robot_id, require_compensated_pose=self.require_compensated_pose
+            )
             if kind == "stop":
                 self.stop_now("stopped (stop command)")
             else:
@@ -251,6 +256,8 @@ def main(argv=None, *, before_motor_tick=None):
     ap.add_argument("--hardware", action="store_true", help="drive the real motors (default: simulation)")
     ap.add_argument("--hiwonder-config", default=os.path.expanduser("~/capstone-base/config/teleop.json"),
                     help="Nate's board/wheel-mapping JSON (the one keyboard teleop drives with)")
+    ap.add_argument("--require-compensated-pose", action="store_true",
+                    help="accept drive commands only from compensated vision; dashboard owns UART")
     ap.add_argument("--port", type=int, default=5700)
     ap.add_argument("--allow-from", help="only accept commands from this IP (the laptop)")
     ap.add_argument("--counts-per-meter", type=float, default=13000.0,
@@ -260,6 +267,9 @@ def main(argv=None, *, before_motor_tick=None):
     ap.add_argument("--accel", type=float, default=40.0, help="wheel acceleration in counts/10ms per second")
     ap.add_argument("--timeout", type=float, default=0.5, help="stop if no command for this many seconds")
     args = ap.parse_args(argv)
+
+    if args.require_compensated_pose and (not args.allow_from or before_motor_tick is not None):
+        ap.error("--require-compensated-pose needs --allow-from and the standalone drive server")
 
     hw = load_hiwonder_json(args.hiwonder_config)
     if hw.get("wheel_channels") is None or hw.get("motor_signs") is None:
@@ -280,10 +290,12 @@ def main(argv=None, *, before_motor_tick=None):
             with HiwonderController(HiwonderConfig(**hw)) as board:
                 board.initialize()
                 DriveServer(board, params, args.robot_id, args.port, timeout_s=args.timeout,
-                            allow_from=args.allow_from, before_motor_tick=before_motor_tick).run()
+                            allow_from=args.allow_from, before_motor_tick=before_motor_tick,
+                            require_compensated_pose=args.require_compensated_pose).run()
         else:
             DriveServer(PrintMotors(), params, args.robot_id, args.port, timeout_s=args.timeout,
-                        allow_from=args.allow_from).run()
+                        allow_from=args.allow_from,
+                        require_compensated_pose=args.require_compensated_pose).run()
     except KeyboardInterrupt:
         print("\nStopped.")
     except (OSError, RuntimeError, ValueError) as e:  # e.g. I2C failure: the driver has already tried to stop

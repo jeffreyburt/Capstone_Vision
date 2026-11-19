@@ -58,8 +58,11 @@ class RobotLink:
         except OSError as e:  # network down / unreachable: keep going, the robot's watchdog stops it
             self.status[rid] = {"state": "send failed", "error": str(e)}
 
-    def drive(self, rid, vx, vy, wz):
-        self._send(rid, {"type": "drive", "vx": round(vx, 4), "vy": round(vy, 4), "wz": round(wz, 4)})
+    def drive(self, rid, vx, vy, wz, *, pose_compensated=False):
+        msg = {"type": "drive", "vx": round(vx, 4), "vy": round(vy, 4), "wz": round(wz, 4)}
+        if pose_compensated:
+            msg["pose_compensated"] = True
+        self._send(rid, msg)
 
     def stop(self, rid):
         self._send(rid, {"type": "stop"})

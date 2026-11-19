@@ -9,10 +9,14 @@ Each robot carries one marker per face. For every detected marker:
 If several faces of one robot are visible, their estimates are averaged.
 """
 
+from __future__ import annotations
+
 import math
 from dataclasses import dataclass
 
 import numpy as np
+
+from .joint_pose import HeadGeometry, fit_chassis
 
 
 @dataclass
@@ -22,6 +26,7 @@ class RobotSpec:
     center_offset_m: float
     marker_size_m: float
     marker_center_height_m: float
+    head: HeadGeometry | None = None
 
 
 @dataclass
@@ -42,13 +47,16 @@ def robot_specs_from_config(cfg):
     m = cfg.get("markers", {})
     specs = []
     for r in cfg.get("robots", []):
-        specs.append(RobotSpec(
+        spec = RobotSpec(
             id=int(r["id"]),
             faces={int(k): float(v) for k, v in r["faces"].items()},
             center_offset_m=float(r.get("center_offset_m", 0.15)),
             marker_size_m=float(r.get("marker_size_m", m.get("size_m", 0.10))),
             marker_center_height_m=float(r.get("marker_center_height_m", m.get("center_height_m", 0.30))),
-        ))
+        )
+        if r.get("head_pose") is not None:
+            spec.head = HeadGeometry.from_config(r["head_pose"], spec)
+        specs.append(spec)
     return specs
 
 
@@ -74,21 +82,30 @@ def face_on_floor(marker, spec, geometry):
     return center, normal
 
 
-def estimate_robots(markers, specs, geometry):
+def estimate_robots(markers, specs, geometry, joint_positions=None):
     """Detected markers -> one RobotObservation per robot that has at least one usable marker."""
+    joint_positions = joint_positions or {}
     by_marker = {mid: spec for spec in specs for mid in spec.faces}
     groups = {}
     for m in markers:
         spec = by_marker.get(m.id)
         if spec is None:
             continue
-        face = face_on_floor(m, spec, geometry)
-        if face is None:
-            continue
-        center, normal = face
-        robot_center = center - normal * spec.center_offset_m
-        face_dir = math.degrees(math.atan2(normal[1], normal[0]))
-        heading = math.radians(face_dir - spec.faces[m.id])
+        if spec.head is not None:
+            units = joint_positions.get(spec.id)
+            corners = None if units is None else spec.head.corners(m.id, units)
+            pose = None if corners is None else fit_chassis(m, corners, geometry)
+            if pose is None:
+                continue
+            robot_center, heading = pose
+        else:
+            face = face_on_floor(m, spec, geometry)
+            if face is None:
+                continue
+            center, normal = face
+            robot_center = center - normal * spec.center_offset_m
+            face_dir = math.degrees(math.atan2(normal[1], normal[0]))
+            heading = math.radians(face_dir - spec.faces[m.id])
         weight = m.side_px  # bigger (closer / more head-on) markers are more trustworthy
         groups.setdefault(spec.id, []).append((robot_center, heading, weight, m.id))
 

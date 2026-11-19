@@ -4,6 +4,8 @@ from pathlib import Path
 import serial
 import mimetypes
 import math
+import argparse
+import socket
 if __package__:
  from .tracking_control import validate as validate_tracking, correction, TargetMemory
  from .camera_feed import CameraFeed
@@ -11,6 +13,9 @@ else:
  from tracking_control import validate as validate_tracking, correction, TargetMemory
  from camera_feed import CameraFeed
 camera_feed=None
+feedback_socket=None
+feedback_target=None
+feedback_robot_id=None
 
 lock=threading.Lock()
 stop=threading.Event()
@@ -40,8 +45,14 @@ def read(p,s,command=28):
 def publish_positions(values, error=None):
  with lock:
   state['positions']=values
-  state['position_time']=time.time()
+  stamp=time.time()
+  state['position_time']=stamp
   state['position_error']=error or ('No response from servo' if None in values else None)
+
+ if feedback_socket is not None and all(type(v) is int and 0<=v<=1000 for v in values):
+  packet=json.dumps({'robot_id':feedback_robot_id,'t':stamp,'units':values}).encode()
+  try:feedback_socket.sendto(packet,feedback_target)
+  except OSError:pass
 
 def monitor():
  while True:
@@ -57,7 +68,7 @@ def monitor():
        with lock:state['torque']=torque
      except Exception as error:publish_positions([None,None],str(error))
    finally:bus_lock.release()
-  time.sleep(.2)
+  time.sleep(.07 if feedback_socket is not None else .2)
 
 def ease(f):
  f=max(0.0,min(1.0,f))
@@ -182,7 +193,7 @@ def track_head(config):
     else:message='Following head'
     if mode=='predicted':message=f'Predicting offscreen head · {max(0,config.get("prediction",1.2)-age):.1f}s remaining'
     elif mode=='braking':message='Prediction expired — slowing to hold'
-   if now-last_feedback>=.18:
+   if now-last_feedback>=(.07 if feedback_socket is not None else .18):
     positions=[read(p,sid) for sid in (1,2)];publish_positions(positions);last_feedback=time.monotonic()
     misses=misses+1 if None in positions else 0
     if misses>=2:raise RuntimeError('Servo feedback lost; tracking stopped')
@@ -364,6 +375,22 @@ class Handler(BaseHTTPRequestHandler):
   self.send_response(204);self.end_headers()
 
 if __name__=='__main__':
+ parser=argparse.ArgumentParser(description="Camera and servo dashboard")
+ parser.add_argument('--pose-host',help='laptop IPv4 address for joint feedback')
+ parser.add_argument('--pose-port',type=int,default=5006)
+ parser.add_argument('--robot-id',type=int)
+ args=parser.parse_args()
+ if (args.pose_host is None)!=(args.robot_id is None):
+  parser.error('--pose-host and --robot-id must be supplied together')
+ if args.pose_host is not None:
+  if not 1<=args.pose_port<=65535:
+   parser.error('--pose-port must be in 1–65535')
+  try:socket.inet_pton(socket.AF_INET,args.pose_host)
+  except OSError:parser.error('--pose-host must be an IPv4 address')
+  feedback_target=(args.pose_host,args.pose_port)
+  feedback_robot_id=args.robot_id
+  feedback_socket=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+  feedback_socket.setblocking(False)
  camera_feed=CameraFeed()
  threading.Thread(target=monitor,daemon=True).start()
  print('Servo dashboard: http://0.0.0.0:8080',flush=True)

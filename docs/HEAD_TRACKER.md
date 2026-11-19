@@ -14,7 +14,9 @@ The robot has two operating modes. In parked mode, the robot-mounted camera and 
 2. From the repository root on the robot, run `/usr/bin/python3 head_tracker/dashboard.py`, or start the installed service for this copy. Open `http://ROBOT_IP:8080/`.
 3. Engage torque and start head tracking as described in the tracker README. Keep the browser tab visible. In this mode, the moving markers should not be used for chassis navigation.
 
-## Vision-guided driving
+## Vision-guided driving with the head at neutral
+
+For this procedure, leave `head_pose` unset in the laptop configuration. Use the simultaneous tracking procedure below for calibrated moving markers.
 
 1. Stop tracking on all robots visible to the overhead camera. Put each speaker in its calibrated neutral pose, level and facing the chassis front, and engage both servos to hold it there. Use the dashboard's position capture to record that robot's neutral pan and tilt in servo units. Keep the mount supported if you disengage torque for manual positioning.
 2. Stop the dashboard process or service, and close other servo and wheel controllers. With the wheels lifted for the first run, start the integrated drive server from the repository root. Replace the uppercase placeholders with measured or configured values.
@@ -38,3 +40,48 @@ python3 -m unittest discover -s tests -p 'test_tracking_control.py' -v
 python3 -m unittest discover -s tests -p 'test_head_lock.py' -v
 python3 -m pytest -o pythonpath=. tests/test_drive_server.py
 ```
+
+## Face tracking while driving
+
+Use this mode after measuring the marker and servo geometry of each robot. The dashboard owns the servo UART and sends encoder readings to laptop UDP port 5006. Vision uses the readings that match the overhead frame's capture time and projects each marker corner at its corrected height. The wheel server requires a compensated pose on each drive command.
+
+### Measure and configure each robot
+
+Use a level chassis with the speaker level and facing forward. Define the chassis origin on the floor directly under the point used as the robot's drive center. Positive X is forward, positive Y is left, and positive Z is up. Measure each marker's center and the two pivot locations from that origin. Update `faces` with each marker's neutral outward yaw. Mount each calibrated marker vertically and upright at neutral.
+
+Add a `head_pose` block inside each corresponding `robots:` entry in the laptop's `config.yaml`. The numbers below illustrate the format. Replace every neutral reading, angle scale and dimension with the corresponding measurements. Use that robot's actual marker IDs.
+
+```yaml
+head_pose:
+  neutral_units: [500, 500]          # pan, tilt encoder readings at neutral
+  degrees_per_unit: [0.24, -0.24]   # signed angles per encoder unit, measured at the mount
+  pan_pivot_m: [0.02, 0.0, 0.30]
+  tilt_pivot_m: [0.04, 0.0, 0.34]
+  markers:
+    1: {mount: pan, center_m: [0.02, 0.15, 0.30]}
+    3: {mount: pan, center_m: [0.02, -0.15, 0.30]}
+    2: {mount: tilt, center_m: [-0.13, 0.0, 0.34]}
+```
+
+- Positive pan rotates the speaker from forward toward chassis left. Positive tilt rotates about neutral chassis +Y, taking the forward direction down. Compare actual angle changes with changes in encoder readings to establish each sign and scale.
+- `pan` follows the pan joint only. `tilt` follows the tilt joint and its parent pan joint. If the rear tilt assembly is attached directly to the chassis and does not follow pan, use `tilt_only`. Use `fixed` for a calibrated chassis-mounted marker. Markers omitted from the block, such as an unmeasured front marker, are ignored for this robot.
+- Compensation assumes a vertical pan axis, a lateral tilt axis, and a chassis that stays level. Check the setup with the chassis stationary and the head moving through both axes separately before testing combined motion.
+
+### Start and verify
+
+1. Synchronize the laptop, the master Pi and both robot Pis to a common time reference. The network runbook describes local chrony setup for the Pis. Check clock offsets before enabling this mode because overhead frame capture and encoder feedback come from different machines. Allow robot traffic to UDP 5006 on the laptop.
+2. On each robot Pi, from the repo root, start the dashboard with its own ID. Stop any existing dashboard service first. Use the existing dashboard to engage torque and start tracking.
+
+   ```sh
+   /usr/bin/python3 head_tracker/dashboard.py --pose-host 192.168.1.10 --robot-id 1
+   ```
+
+3. On the laptop, restart `vision.main --gui` with the measured configuration. Keep the chassis stationary and pan and tilt while checking the GUI. The reported chassis center and heading should hold steady as different markers come into view. Run `python -m control.main --robots 1` and check that poses are usable. If it reports `compensated pose unavailable`, check clock offsets, source IPs, UDP 5006, servo feedback and marker calibration.
+4. With wheels lifted, start the drive server in simulation using the command below without `--hardware` and verify that `control.main --robots 1 --arm` produces commands. Confirm that blocking feedback or hiding all calibrated markers stops the commands. Then repeat with `--hardware`, one robot at a time. Keep the wheel and servo controllers in separate processes.
+
+   ```sh
+   ~/capstone-base/.venv/bin/python -m robot.drive_server \
+     --robot-id 1 --allow-from 192.168.1.10 --require-compensated-pose --hardware
+   ```
+
+   Use ID 2 for Robot 2. This mode uses the standalone wheel server with the compensation flag. The neutral-only wrapper reserves the UART for its own checks and is used for the neutral drive procedure above.
