@@ -44,6 +44,7 @@ class RobotLink:
         """robots: {robot_id: (host, port)}"""
         self.addrs = {int(rid): (h, int(p)) for rid, (h, p) in robots.items()}
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.bind(("0.0.0.0", 0))  # Windows can't recvfrom() an unbound socket (dry run never sends)
         self.sock.setblocking(False)
         self.seq = 0
         self.status = {}       # robot_id -> last status reply

@@ -126,6 +126,14 @@ def test_udp_round_trip_with_robot_link():
         srv.sock.close()
 
 
+def test_link_poll_before_any_send():
+    link = RobotLink({1: ("127.0.0.1", 9)})  # dry run: control.main polls without ever sending
+    try:
+        assert link.poll() == {1: None}
+    finally:
+        link.close()
+
+
 def test_rejects_commands_from_other_hosts():
     srv, motors, clock = make_server(allow_from="192.168.50.10")
     try:
