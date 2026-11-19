@@ -20,7 +20,9 @@ nmcli con delete "$CON" >/dev/null 2>&1 || true
 nmcli con add type wifi ifname wlan0 con-name "$CON" ssid "$CON" \
     wifi-sec.key-mgmt wpa-psk 802-11-wireless.powersave 2 \
     ipv4.method manual ipv4.addresses "$IP/24" ipv4.gateway 192.168.50.1 ipv4.route-metric 600 \
-    ipv6.method disabled connection.autoconnect yes connection.autoconnect-priority 20 >/dev/null
+    ipv6.method disabled connection.autoconnect yes connection.autoconnect-priority 200 >/dev/null
+# 200 beats the robot's own bench hotspot profile (Capstone-Pi, priority 100), which stays as a fallback
+# when capstone-robots is out of range.
 nmcli con modify "$CON" wifi-sec.psk "$PSK"
 nmcli con up "$CON"
 sleep 2
