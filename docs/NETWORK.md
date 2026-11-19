@@ -13,7 +13,7 @@ If anything changes, update this file first and then `config.yaml` (the `streams
 
 ```
             Ethernet, 192.168.1.0/24                 WiFi "capstone-robots", 192.168.50.0/24
- Controller laptop ──────────────── Master Pi 4 ~~~~~~~~~~~~~~~~~~~~~~~~ Robot 1 Pi  .11
+ Controller laptop ──────────────── Master Pi 4 ~~~~~~~~~~~~~~~~~~~~~~~~ Robot 1 Pi  .105
  192.168.1.10                       eth0 192.168.1.20  ~~~~~~~~~~~~~~~~~~ Robot 2 Pi  .12
  route: 192.168.50.0/24             wlan0 192.168.50.1 (access point)
         via 192.168.1.20            forwards between eth0 and wlan0
@@ -33,12 +33,12 @@ If anything changes, update this file first and then `config.yaml` (the `streams
 
 ## 2. Addresses
 
-| Device | IP (static) | Interface |
+| Device | IP | Interface |
 |---|---|---|
 | Controller laptop | `192.168.1.10` | Ethernet (static, no gateway) + route to 192.168.50.0/24 via `.1.20` |
 | Master Pi | `192.168.1.20` | eth0 (laptop side) |
 | Master Pi | `192.168.50.1` | wlan0 (access point, robot side) |
-| Robot 1 Pi | `192.168.50.11` | wlan0, gateway `192.168.50.1` |
+| Robot 1 Pi (replacement) | `192.168.50.105` | wlan0, DHCP; username `robot-pi1`, hostname `raspberrypi`; reserve this lease for MAC `b8:27:eb:35:63:17` |
 | Robot 2 Pi | `192.168.50.12` | wlan0, gateway `192.168.50.1` |
 | Spare / dev devices | `192.168.50.100`–`.199` | DHCP pool from the master Pi |
 
@@ -124,3 +124,45 @@ firmware 7.45.98) sends association requests the master Pi 4's access point (BCM
 an iPhone hotspot fine, a Pi 4 (robot 2) and an iPhone join `capstone-robots` fine, and robot 1's own
 hotspot (identical NetworkManager settings) accepts another Pi 3. A reboot and
 `brcmfmac feature_disable=0x82000` did not help. Planned fix: a USB WiFi adapter on robot 1.
+
+## Dashboard access without a laptop route (Mac or Windows)
+
+The current `system.probe_via: vision@192.168.1.20` setting makes the **monitor only** run its TCP,
+HTTP and read-only UDP status probes on the main Pi over SSH. Camera streams are forwarded over SSH
+and served from the local dashboard. The laptop keeps its Internet WiFi; no administrator route or
+network switch is needed for monitoring. Python 3 must be available on the main Pi (already verified).
+
+Set up SSH public-key login to all three Pis using the team's normal process. Keep credentials and private
+keys outside the repository. Add these entries to the laptop's `~/.ssh/config`, using the actual private
+key filenames on that laptop:
+
+```sshconfig
+Match host 192.168.1.20 user vision
+    IdentityFile ~/.ssh/MAIN_PI_KEY
+    IdentitiesOnly yes
+Match host 192.168.50.105 user robot-pi1
+    IdentityFile ~/.ssh/ROBOT1_KEY
+    IdentitiesOnly yes
+    ProxyJump vision@192.168.1.20
+Match host 192.168.50.12 user capstone-pi2
+    IdentityFile ~/.ssh/ROBOT2_KEY
+    IdentitiesOnly yes
+    ProxyJump vision@192.168.1.20
+Match all
+```
+
+Verify `ssh -o BatchMode=yes USER@IP hostname` for each entry, then run `python -m monitor` and open
+`http://localhost:8090/`. A laptop that previously connected to another Pi at `192.168.1.20` must verify
+the main Pi's host identity before updating its SSH trust settings. This Mac uses the verified
+`HostKeyAlias 192.168.50.1` for `vision@192.168.1.20` to preserve both devices' known identities.
+
+Set `system.probe_via: null` to retain direct routed monitoring. `--no-ssh` skips the detailed health
+scripts; gateway-mode network checks still require SSH. Gateway reachability is explicitly labeled and
+does **not** prove the laptop's UDP driving route works. Vision and control still need the routed network
+above; this feature does not forward control commands or synchronize clocks. Old wheel servers may
+report an allow-list error because gateway status probes originate at `192.168.50.1`; that warning is
+shown rather than hidden. No wheel/servo services need restarting to use this dashboard.
+
+Robot 1's `.105` address is a verified DHCP lease, not a static reservation. If it changes, update
+`streams.robot1.host` and `control.robots.1.host` together in `config.yaml`. The former `.11`/`user`
+entry refers to the retired Pi, not this replacement.

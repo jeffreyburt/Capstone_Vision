@@ -231,6 +231,7 @@ function detailsHTML(n, now) {
   add("Hostname", esc(d.hostname));
   if (d.ips) add("Addresses", esc(Object.entries(d.ips).map(([i, a]) => `${i} ${a}`).join(", ")));
   if (d.ssh_user !== undefined) add("SSH", esc(`${d.ssh_user || "(no ssh_user)"}@${n.address}`));
+  if (d.probe_via) add("Status path", esc(`SSH via ${d.probe_via}`));
   if (d.processes) add("Programs", d.processes.length ? d.processes.map(p =>
     `${esc(p.detail)} <span class="k">· up ${fmtAge(p.uptime_s)} · pid ${p.pid}</span>`).join("<br>") : "none of ours running");
   if (d.stations && d.stations.length) add("WiFi clients", d.stations.map(s =>

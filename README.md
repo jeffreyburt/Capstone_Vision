@@ -82,7 +82,10 @@ anything. Nothing needs installing on the Pis:
 | Robots | reachable, WiFi signal, drive server (hardware/simulation, state, motors), head tracker (servos, torque, tracking), camera, pose from vision, control command and target | TCP, UDP status query to the drive server, the head tracker's `/api/state`, heartbeats |
 | Every Pi | temperature, under-voltage / throttling, load, memory, disk, uptime, clock offset, which of our programs run | SSH with the laptop's key every 10 s (`BatchMode`, read-only commands) |
 
-Settings (SSH users, intervals, port) are in `config.yaml` `system:`. `--no-ssh` skips the SSH checks. The
+Settings (SSH users, intervals, port) are in `config.yaml` `system:`. The current configuration uses
+SSH through the main Pi for monitoring and camera forwarding, so the Mac can keep its Internet WiFi
+and monitor the robots without a direct subnet route. See [dashboard SSH setup](docs/NETWORK.md#dashboard-access-without-a-laptop-route-mac-or-windows).
+This does not establish the network route required for driving. `--no-ssh` skips the SSH checks. The
 robot cameras are only streamed while a card's camera is shown. Older drive servers still answer the status
 query; copy the new `robot/drive_server.py` to the robots to also see hardware/simulation and command details.
 

@@ -21,10 +21,12 @@ HTTP:
 """
 
 import argparse
+import copy
 import json
 import os
 import threading
 import time
+import urllib.request
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -33,7 +35,8 @@ from vision.config import load_config
 
 from . import assess
 from .beacon import StatusListener, status_port
-from .probes import drive_status, find_ssh, http_json, parse_health, run_ssh, tcp_check
+from .probes import find_ssh, gateway_probe, network_probe, parse_health, run_ssh, tcp_check
+from .tunnels import CameraTunnels
 
 PAGE = Path(__file__).with_name("page.html")
 
@@ -98,6 +101,7 @@ class SystemMonitor:
         self.probe_interval = float(sysc.get("probe_interval_s", 2.0))
         self.ssh_interval = float(sysc.get("ssh_interval_s", 10.0)) if ssh else 0.0
         self.ssh = find_ssh(sysc.get("ssh"))
+        self.probe_via = sysc.get("probe_via")
         self.ssh_runner = ssh_runner
         self.raw = {n.key: {"ssh_enabled": self.ssh_interval > 0 and bool(n.ssh_user)} for n in self.nodes}
         self.lock = threading.Lock()
@@ -117,17 +121,13 @@ class SystemMonitor:
 
     # ---- probes ----
     def probe_once(self, node):
-        r = {"at": time.time(), "ping": tcp_check(node.host, node.ssh_port)}
-        if node.wifi_host:
-            r["ping_wifi"] = tcp_check(node.wifi_host, node.ssh_port)
-        if r["ping"]["up"]:
-            r["ports"] = {name: tcp_check(node.stream_hosts[name], port) for name, port in node.streams.items()}
-            if node.drive_port:
-                r["drive"] = drive_status(node.host, node.drive_port)
-            if node.dashboard_port:
-                r["dashboard"] = http_json(f"http://{node.host}:{node.dashboard_port}/api/state")
-        else:  # offline: forget the last results instead of showing them as current
-            r.update({"ports": None, "drive": None, "dashboard": None, "health": None, "health_error": None})
+        spec = dict(host=node.host, ssh_port=node.ssh_port, wifi_host=node.wifi_host,
+                    streams={name: {"host": node.stream_hosts[name], "port": port}
+                             for name, port in node.streams.items()},
+                    drive_port=node.drive_port, dashboard_port=node.dashboard_port)
+        r = gateway_probe(self.ssh, self.probe_via, spec) if self.probe_via else network_probe(**spec)
+        if self.probe_via and node.kind == "master":
+            r["ping"] = tcp_check(node.host, node.ssh_port)  # actual laptop-to-master Ethernet check
         with self.lock:
             self.raw[node.key].update(r)
 
@@ -174,6 +174,11 @@ class SystemMonitor:
                 out_nodes.append(assess.assess_master(n, raw[n.key], vmsg, vage, robot_names))
             else:
                 out_nodes.append(assess.assess_robot(n, raw[n.key], master_raw, vmsg, vage, cmsg, cage))
+        if self.probe_via:
+            for item in out_nodes:
+                camera = item.get("camera")
+                if item["kind"] == "robot" and camera and camera.get("url"):
+                    camera["url"] = f"/camera/{item['key']}"
 
         links = []
         master = next((n for n in self.nodes if n.kind == "master"), None)
@@ -226,6 +231,8 @@ class CameraRelay:
         self.cfg = cfg
         self.lock = threading.Lock()
         self.rx, self.viewers = {}, {}
+        sysc = cfg.get("system") or {}
+        self.tunnels = CameraTunnels(find_ssh(sysc.get("ssh")), sysc.get("probe_via"))
 
     def names(self):
         return [n for n in (self.cfg.get("streams") or {}) if n != "birdseye"]  # birds-eye: 12 MP, use vision's GUI
@@ -234,7 +241,10 @@ class CameraRelay:
         with self.lock:
             if name not in self.rx:
                 from camstream.receiver import FrameReceiver
-                self.rx[name] = FrameReceiver(self.cfg, [name])
+                cfg = copy.deepcopy(self.cfg)
+                stream = cfg["streams"][name]
+                stream["host"], stream["port"] = self.tunnels.endpoint(stream["host"], stream["port"])
+                self.rx[name] = FrameReceiver(cfg, [name])
             self.viewers[name] = self.viewers.get(name, 0) + 1
             return self.rx[name]
 
@@ -267,11 +277,41 @@ def make_server(monitor, relay, host, port):
                 self._send(200, "application/json", json.dumps(monitor.snapshot()).encode())
             elif path.startswith("/video/") and path[7:] in relay.names():
                 self._mjpeg(path[7:])
+            elif path.startswith("/camera/"):
+                node = next((n for n in monitor.nodes if n.key == path[8:] and n.kind == "robot"), None)
+                if node and node.dashboard_port:
+                    self._dashboard_camera(node)
+                else:
+                    self.send_error(404)
             else:
                 self.send_error(404)
 
+        def _dashboard_camera(self, node):
+            headers_sent = False
+            try:
+                host, port = relay.tunnels.endpoint(node.host, node.dashboard_port)
+                with urllib.request.urlopen(f"http://{host}:{port}/camera.mjpg", timeout=10) as upstream:
+                    self.send_response(200)
+                    self.send_header("Content-Type", upstream.headers.get("Content-Type", "application/octet-stream"))
+                    self.send_header("Cache-Control", "no-store")
+                    self.end_headers()
+                    headers_sent = True
+                    while chunk := upstream.read1(65536):
+                        self.wfile.write(chunk)
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                pass
+            except OSError:
+                if not headers_sent:
+                    self.send_error(502, "Robot camera unavailable; check its dashboard status")
+                else:
+                    self.close_connection = True
+
         def _mjpeg(self, name):
-            rx = relay.open(name)
+            try:
+                rx = relay.open(name)
+            except OSError:
+                self.send_error(502, "Camera SSH connection unavailable")
+                return
             try:
                 self.send_response(200)
                 self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
@@ -310,7 +350,8 @@ def main(argv=None):
     except OSError as e:
         ap.exit(1, f"Can't listen for status heartbeats on UDP {status_port(cfg)} ({e}). "
                    "Is another system GUI already running?\n")
-    httpd = make_server(monitor, CameraRelay(cfg), args.bind, port)
+    relay = CameraRelay(cfg)
+    httpd = make_server(monitor, relay, args.bind, port)
     for n in monitor.nodes:
         ssh = f"ssh {n.ssh_user}@{n.host}" if n.ssh_user and monitor.ssh_interval > 0 else "no ssh checks"
         print(f"  {n.name:10s} {n.host:15s} {ssh}")
@@ -324,4 +365,5 @@ def main(argv=None):
     finally:
         httpd.server_close()
         monitor.close()
+        relay.tunnels.close()
     return 0

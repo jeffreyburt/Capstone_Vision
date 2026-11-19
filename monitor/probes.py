@@ -9,11 +9,53 @@
 
 import json
 import os
+from pathlib import Path
+import shlex
 import shutil
 import socket
 import subprocess
 import time
 import urllib.request
+
+
+def network_probe(host, ssh_port=22, wifi_host=None, streams=None, drive_port=None, dashboard_port=None):
+    """Read-only network checks; also runs unchanged on an SSH gateway."""
+    result = {"at": time.time(), "ping": tcp_check(host, ssh_port)}
+    if wifi_host:
+        result["ping_wifi"] = tcp_check(wifi_host, 22)
+    if result["ping"]["up"]:
+        result["ports"] = {name: tcp_check(s["host"], s["port"]) for name, s in (streams or {}).items()}
+        if drive_port:
+            result["drive"] = drive_status(host, drive_port)
+        if dashboard_port:
+            result["dashboard"] = http_json(f"http://{host}:{dashboard_port}/api/state")
+    else:
+        result.update(ports=None, drive=None, dashboard=None, health=None, health_error=None)
+    return result
+
+
+def gateway_probe(ssh, gateway, spec, timeout=15):
+    """Run only the fixed read-only probes on the gateway; no Pi installation required."""
+    source = Path(__file__).read_text() + '\nimport sys\nprint(json.dumps(network_probe(**json.load(sys.stdin))))\n'
+    cmd = [ssh, "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=3", gateway,
+           "python3 -c " + shlex.quote(source)]
+    try:
+        if not ssh:
+            raise ValueError("no SSH client found on this laptop")
+        p = subprocess.run(cmd, input=json.dumps(spec).encode(), capture_output=True, timeout=timeout)
+        if p.returncode:
+            raise ValueError(ssh_error_text(p.stderr.decode(errors="replace").strip().splitlines()[-1]
+                                           if p.stderr else f"SSH exit {p.returncode}"))
+        result = json.loads(p.stdout)
+        result["at"] = time.time()  # gateway clocks may be days behind the laptop
+        result["probe_via"] = gateway
+        return result
+    except (OSError, ValueError, subprocess.TimeoutExpired) as e:
+        error = f"gateway {gateway}: {_short_error(e)}"
+        failed = {"up": False, "open": False, "ms": None, "error": error}
+        return {"at": time.time(), "probe_via": gateway, "ping_wifi": failed,
+                "ping": failed,
+                "ports": None, "drive": None, "dashboard": None, "health": None, "health_error": error}
 
 
 def tcp_check(host, port, timeout=1.0):

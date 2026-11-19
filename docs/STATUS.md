@@ -31,15 +31,31 @@ master Pi camera ──Ethernet──► laptop: vision.main ──UDP 5005─�
 
 ## 2. Machines
 
+**2026-11-19 update (Mac, SSH and read-only hardware checks):** Robot 1 has been replaced by the Pi 3
+at `192.168.50.105`, user `robot-pi1`, hostname `raspberrypi`, WiFi MAC `b8:27:eb:35:63:17`. Both robot
+Pis are reachable through the main Pi. Robot 2 remains `.12` / `capstone-pi2` / `raspberrypi`; the main
+Pi is `.1.20` Ethernet / `.50.1` WiFi, user and hostname `vision`. Passwords remain outside the repo.
+The Mac's public key was installed on the main Pi with explicit owner approval; existing robot keys
+work through ProxyJump. The dashboard uses SSH gateway probes and camera forwarding, with no Mac
+WiFi changes or motor commands. `.105` is DHCP: reserve the lease or update both config hosts if it changes.
+
+Latest observed status: Robot 1 dashboard runs but neither servo replies and no camera is detected.
+Robot 2 dashboard reports pan 408 / tilt 759, torque off, tracking off, and camera frames stopped.
+Its existing wheel server reports stopped. The main camera sender and laptop vision/control are not
+running. Clocks differ (main ~33 days behind, robot 1 ~7 minutes, robot 2 ~3.3 hours); Robot 1 has historical
+undervoltage/throttling flags. These are displayed as real warnings, not fixed by monitoring. No motion
+or service restarts on the Pis were performed. Older hardware observations below remain historical.
+
+
 | Machine | Address | Login | State (2026-11-19) |
 |---|---|---|---|
-| Laptop (Windows) | Ethernet `192.168.1.10`; route `192.168.50.0/24 via 192.168.1.20` | — | Runs vision, control, the system GUI. Its only Ethernet port is shared: plug it into the **master Pi** for normal operation |
+| Laptop (Windows / Mac) | Ethernet `192.168.1.10`; route `192.168.50.0/24 via 192.168.1.20` | — | Runs vision, control, the system GUI. Its only Ethernet port is shared: plug it into the **master Pi** for normal operation |
 | Master Pi 4 | `192.168.1.20` (eth0), `192.168.50.1` (WiFi AP) | `vision`, laptop SSH key; sudo needs the password | Camera sender running (started by hand with `nohup`, **not a service**: restart after a reboot, §6). Runs WiFi AP `capstone-robots` (channel 1). **Clock ~33 days behind** (no RTC/internet) |
 | Robot 2: Pi 4 | `192.168.50.12` (WiFi); wired DHCP | `capstone-pi2`, laptop SSH key; sudo needs the password | William's Debian 13 image. On the robot WiFi. `~/capstone-base` (+ `.venv`), `~/Capstone_Vision`, `~/drive_server.py`. William's head-tracker dashboard service on :8080. **Drives** (§3) |
-| Robot 1: Pi 3 (Nate's) | should be `192.168.50.11`; falls back to its bench hotspot `Capstone-Pi` `10.42.0.1` | `user`, laptop SSH key; sudo needs the password | **Cannot join `capstone-robots`** (§4). Code added, nothing driven. To be replaced by a backup Pi 3 |
-| Backup Pi 3 | was seen at `192.168.50.105` (MAC `b8:27:eb:35:63:17`) | ? | Joined `capstone-robots` fine on 2026-11-19, so a Pi 3 *can* use this AP |
+| Retired Robot 1: Pi 3 (Nate's) | should be `192.168.50.11`; falls back to its bench hotspot `Capstone-Pi` `10.42.0.1` | `user`, laptop SSH key; sudo needs the password | **Cannot join `capstone-robots`** (§4). Code added, nothing driven. To be replaced by a backup Pi 3 |
+| Current Robot 1: Pi 3 B+ | `192.168.50.105` DHCP (MAC `b8:27:eb:35:63:17`) | `robot-pi1`, laptop SSH key | Joined `capstone-robots`; dashboard active; see current hardware warnings above |
 
-SSH from the laptop: use **Windows OpenSSH** (`C:\Windows\System32\OpenSSH\ssh.exe`); Git Bash's ssh lacks
+On Windows, SSH from the laptop: use **Windows OpenSSH** (`C:\Windows\System32\OpenSSH\ssh.exe`); Git Bash's ssh lacks
 the host keys. In Git Bash set `MSYS_NO_PATHCONV=1` or remote paths like `/tmp/x` get rewritten.
 
 ## 3. Robot 2: verified on hardware (2026-11-19)
@@ -69,7 +85,7 @@ cd ~/capstone-base && .venv/bin/python ~/drive_server.py --robot-id 2 --hardware
 - Below ~1.5 m from the camera the robot sits at the image's bottom edge and is detected in ~1 frame in 4.
   Keep robots 2–5 m out.
 
-## 4. Robot 1 (Pi 3): WiFi problem
+## 4. Retired Robot 1 (Pi 3): historical WiFi problem
 
 Its onboard WiFi (BCM43430/1, firmware 7.45.98) **joins an iPhone hotspot fine but never reaches the
 master Pi's access point** (`ASSOC-REJECT status_code=16`; nothing in the AP's log), on channel 6 and 1.

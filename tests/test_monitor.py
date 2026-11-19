@@ -4,14 +4,17 @@ import json
 import socket
 import threading
 import time
+import shlex
+import subprocess
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
 from monitor import assess
 from monitor.beacon import StatusBeacon, StatusListener
-from monitor.probes import decode_throttled, drive_status, http_json, parse_health, parse_process, tcp_check
-from monitor.server import Node, SystemMonitor, build_nodes
+from monitor.probes import decode_throttled, drive_status, gateway_probe, http_json, parse_health, parse_process, tcp_check
+from monitor.server import CameraRelay, Node, SystemMonitor, build_nodes, make_server
 from robot.drive_server import DriveParams, DriveServer, PrintMotors
 from vision.config import load_config
 
@@ -187,7 +190,8 @@ def test_old_drive_server_and_armed_control():
     vision = {"state": "running", "message": {"robots": [{"id": 2, "x": 0.5, "y": 2.0, "heading": 10.0, "age": 0.1}]}}
     out = assess.assess_robot(ROBOT, raw, {}, vision, 0.1, control, 0.1)
     lv = levels(out)
-    assert lv["Drive server"] == assess.OK and "update robot/drive_server.py" in text(out, "Drive server")
+    assert lv["Drive server"] == assess.WARN and "update robot/drive_server.py" in text(out, "Drive server")
+    assert "unknown command type 'status'" in text(out, "Drive server")
     assert lv["Seen by vision"] == assess.OK
     assert lv["Control"] == assess.BAD         # armed, but no reply from the drive server
     assert "drive on" in out["summary"] and "seen" in out["summary"]
@@ -240,6 +244,7 @@ def test_build_nodes_from_repo_config():
     nodes = {n.key: n for n in build_nodes(load_config())}
     assert nodes["master"].host == "192.168.1.20" and nodes["master"].ssh_user == "vision"
     assert nodes["master"].streams == {"birdseye": 5600}
+    assert (nodes["robot1"].host, nodes["robot1"].ssh_user) == ("192.168.50.105", "robot-pi1")
     r2 = nodes["robot2"]
     assert (r2.host, r2.drive_port, r2.ssh_user, r2.streams) == ("192.168.50.12", 5700, "capstone-pi2", {"robot2": 5602})
 
@@ -305,3 +310,100 @@ def test_monitor_probes_local_services():
         srv.sock.close()
         dash.shutdown()
         ssh_port.close()
+
+
+def test_gateway_probe_runs_same_read_only_checks_and_uses_laptop_time(monkeypatch):
+    import monitor.probes as probes
+    real_run = subprocess.run
+    calls = []
+
+    def local_gateway(cmd, **kwargs):
+        calls.append(cmd)
+        # Execute exactly the Python program SSH would run, against a local fake service.
+        return real_run(shlex.split(cmd[-1]), **kwargs)
+
+    monkeypatch.setattr(probes.subprocess, "run", local_gateway)
+    dash = ThreadingHTTPServer(("127.0.0.1", 0), FakeDashboard)
+    threading.Thread(target=dash.serve_forever, daemon=True).start()
+    try:
+        before = time.time()
+        result = gateway_probe("ssh", "vision@main", dict(host="127.0.0.1",
+                               ssh_port=dash.server_port, dashboard_port=dash.server_port))
+        assert result["ping"]["open"]
+        assert result["dashboard"]["data"]["positions"] == [500, 498]
+        assert before <= result["at"] <= time.time()
+        assert result["probe_via"] == "vision@main"
+        assert "BatchMode=yes" in calls[0]
+    finally:
+        dash.shutdown()
+
+
+def test_gateway_auth_failure_clears_stale_results(monkeypatch):
+    import monitor.probes as probes
+    monkeypatch.setattr(probes.subprocess, "run", lambda *a, **kw:
+                        subprocess.CompletedProcess(a[0], 255, b"", b"Permission denied (publickey)."))
+    result = gateway_probe("ssh", "vision@main", {"host": "robot"})
+    assert not result["ping"]["up"] and not result["ping_wifi"]["up"]
+    assert "SSH key login refused" in result["ping"]["error"]
+    assert result["dashboard"] is None and result["health"] is None
+
+
+def test_camera_failure_explains_hardware_status():
+    raw = {"ping": UP, "dashboard": {"data": {"camera": {
+        "live": False, "status": "Camera stopped delivering frames"}}, "error": None}}
+    out = assess.assess_robot(ROBOT, raw, {}, None, None, None, None)
+    assert levels(out)["Camera"] == assess.WARN
+    assert text(out, "Camera") == "Camera stopped delivering frames"
+
+
+def test_gateway_camera_uses_local_proxy_and_preserves_robot_address(monkeypatch):
+    import monitor.server as server
+    cfg = {"system": {"probe_via": "vision@main", "robots": {1: {"host": "robot", "ssh_user": "pi"}}}}
+    result = {"at": time.time(), "probe_via": "vision@main", "ping": UP,
+              "dashboard": {"data": {"positions": [10, 20], "camera": {"live": True}}, "error": None}}
+    monkeypatch.setattr(server, "gateway_probe", lambda *a: result)
+    mon = SystemMonitor(cfg, listener=False, start=False)
+    try:
+        mon.probe_once(mon.nodes[0])
+        robot = next(n for n in mon.snapshot()["nodes"] if n["key"] == "robot1")
+        assert robot["address"] == "robot"
+        assert robot["camera"]["url"] == "/camera/robot1"
+    finally:
+        mon.close()
+
+
+def test_camera_proxy_relays_jpeg_stream_without_control_requests():
+    frame = b"--frame\r\nContent-Type: image/jpeg\r\n\r\njpeg-test\r\n"
+    requests = []
+
+    class JPEG(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_GET(self):
+            requests.append((self.command, self.path))
+            self.send_response(200)
+            self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
+            self.send_header("Content-Length", str(len(frame)))
+            self.end_headers()
+            self.wfile.write(frame)
+
+    upstream = ThreadingHTTPServer(("127.0.0.1", 0), JPEG)
+    threading.Thread(target=upstream.serve_forever, daemon=True).start()
+    cfg = {"system": {"robots": {1: {"host": "127.0.0.1", "dashboard_port": upstream.server_port}}}}
+    mon = SystemMonitor(cfg, listener=False, start=False)
+    relay = CameraRelay(cfg)
+    httpd = make_server(mon, relay, "127.0.0.1", 0)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{httpd.server_port}/camera/robot1", timeout=2) as r:
+            assert "multipart/x-mixed-replace" in r.headers["Content-Type"]
+            assert r.read() == frame
+        assert requests == [("GET", "/camera.mjpg")]
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        upstream.shutdown()
+        upstream.server_close()
+        relay.tunnels.close()
+        mon.close()

@@ -200,11 +200,14 @@ def assess_master(node, raw, vision_msg, vision_age, robot_names):
     if node.wifi_host and online:
         pw = raw.get("ping_wifi")
         if pw is not None and not pw["up"]:
-            checks.append(check("Route to robots", BAD, f"laptop can't reach {node.wifi_host}: access point down, "
+            checks.append(check("Route to robots", BAD, f"SSH gateway check failed: {pw['error']}" if raw.get("probe_via") else
+                                f"laptop can't reach {node.wifi_host}: access point down, "
                                 "or the laptop's route is missing (admin PowerShell: "
                                 f"route -p add 192.168.50.0 mask 255.255.255.0 {node.host})"))
         elif pw is not None:
-            checks.append(check("Route to robots", OK, f"{node.wifi_host} reachable"))
+            via = raw.get("probe_via")
+            checks.append(check("Route to robots", OK, f"{node.wifi_host} reachable" +
+                                (f" via SSH ({via}); laptop route not checked" if via else "")))
 
     h = raw.get("health")
     if online:
@@ -260,7 +263,9 @@ def assess_master(node, raw, vision_msg, vision_age, robot_names):
         camera = {"port": vision["gui_port"], "path": "/video/birdseye", "label": "birds-eye, from the vision GUI"}
     return {"key": node.key, "name": node.name, "kind": "master", "address": node.host,
             "level": BAD if ping is not None and not online else worst(checks), "summary": " · ".join(tokens),
-            "checks": checks, "details": {**_details(raw), "stations": (h or {}).get("stations")}, "camera": camera}
+            "checks": checks, "details": {**_details(raw), "ssh_user": node.ssh_user,
+                                          "probe_via": raw.get("probe_via"),
+                                          "stations": (h or {}).get("stations")}, "camera": camera}
 
 
 # ---------------------------------------------------------------------------------------------------------
@@ -316,8 +321,10 @@ def assess_robot(node, raw, master_raw, vision_msg, vision_age, control_msg, con
                 checks.append(check("Drive server", WARN if rep.get("error") else OK, text))
             else:  # older drive server: answers, but without the detail fields
                 drive_token = "drive on"
-                checks.append(check("Drive server", OK, f"running: {state} (update robot/drive_server.py on the "
-                                    "Pi for hardware/simulation and command details)"))
+                error = rep.get("error")
+                checks.append(check("Drive server", WARN if error else OK, f"running: {state} (update robot/drive_server.py on the "
+                                    "Pi for hardware/simulation and command details)" +
+                                    (f" · last error: {error}" if error else "")))
     else:
         level = BAD if armed else OFF
         checks.append(check("Drive server", level, f"not running (no answer on UDP {node.drive_port})"))
@@ -359,7 +366,9 @@ def assess_robot(node, raw, master_raw, vision_msg, vision_age, control_msg, con
         checks.append(check("Camera", OK, f"head tracker camera live ({cam_live.get('model') or 'camera'})"))
         camera = {"url": f"http://{node.host}:{node.dashboard_port}/camera.mjpg", "label": "head tracker camera"}
     elif online:
-        checks.append(check("Camera", OFF, "no camera stream (camstream sender or head tracker)"))
+        camera_status = ((dash or {}).get("data") or {}).get("camera") or {}
+        checks.append(check("Camera", WARN if camera_status.get("status") else OFF,
+                            camera_status.get("status") or "no camera stream (camstream sender or head tracker)"))
 
     # Seen by the birds-eye camera
     pose = None
@@ -413,4 +422,5 @@ def assess_robot(node, raw, master_raw, vision_msg, vision_age, control_msg, con
             "wifi_dbm": dbm if online else None,
             "level": BAD if ping is not None and not online else worst(checks), "summary": " · ".join(tokens),
             "checks": checks, "camera": camera,
-            "details": {**_details(raw), "drive": (d or {}).get("reply"), "ssh_user": node.ssh_user}}
+            "details": {**_details(raw), "drive": (d or {}).get("reply"), "ssh_user": node.ssh_user,
+                        "probe_via": raw.get("probe_via")}}
