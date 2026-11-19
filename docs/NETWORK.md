@@ -51,7 +51,7 @@ network is unreliable. With the route in place the laptop can reach the master P
 |---|---|
 | SSID | `capstone-robots` (hidden: no) |
 | Security | WPA2-PSK (CCMP). The password is kept outside the repo. |
-| Band / channel | 2.4 GHz, channel 6. The robot Pis are Pi 3s, which have no 5 GHz radio. |
+| Band / channel | 2.4 GHz, channel 1 (moved from 6 on 2026-11-19, off the channel robot 1's fallback hotspot uses). Robot 1 is a Pi 3, which has no 5 GHz radio. |
 | Country code | `US` (kernel command line `cfg80211.ieee80211_regdom=US`) |
 | NetworkManager profile | `robot-ap` on the master Pi, starts on boot |
 
@@ -115,3 +115,10 @@ changing anything else.
    - `ssh` works to all three Pis;
    - `chronyc tracking` on each slave shows it synced to `192.168.50.1`.
 5. Survives reboot of any device, in any order.
+
+**Known issue (2026-11-19): robot 1's Pi 3 cannot join `capstone-robots`.** Its onboard WiFi (BCM43430/1,
+firmware 7.45.98) sends association requests the master Pi 4's access point (BCM4345/6) never answers
+(`ASSOC-REJECT status_code=16`, nothing in the AP log), on channel 6 and channel 1 alike. The same Pi 3 joins
+an iPhone hotspot fine, a Pi 4 (robot 2) and an iPhone join `capstone-robots` fine, and robot 1's own
+hotspot (identical NetworkManager settings) accepts another Pi 3. A reboot and
+`brcmfmac feature_disable=0x82000` did not help. Planned fix: a USB WiFi adapter on robot 1.

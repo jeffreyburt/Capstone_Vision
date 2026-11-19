@@ -4,7 +4,7 @@
 #   sudo bash scripts/setup_robot_ap.sh          # set up (asks for the WiFi password)
 #   sudo bash scripts/setup_robot_ap.sh --undo   # remove everything this script added
 #
-# Result: SSID "capstone-robots" (WPA2, 2.4 GHz channel 6, because the robot Pis are Pi 3s), the Pi at
+# Result: SSID "capstone-robots" (WPA2, 2.4 GHz channel 1, because the robot Pis are Pi 3s), the Pi at
 # 192.168.50.1 on wlan0, DHCP for 192.168.50.100-199, and packet forwarding between wlan0 and eth0.
 # It is ROUTED, not NATed or bridged:
 #   - eth0 (the laptop link, 192.168.1.x) is not touched, so SSH from the laptop keeps working.
@@ -16,7 +16,7 @@ set -euo pipefail
 
 CON=robot-ap
 SSID=capstone-robots
-CHANNEL=6
+CHANNEL=1
 ADDR=192.168.50.1/24
 DHCP_RANGE=192.168.50.100,192.168.50.199
 NM_CONF=/etc/NetworkManager/conf.d/90-robot-ap.conf
