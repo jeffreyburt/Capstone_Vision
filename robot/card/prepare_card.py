@@ -1,8 +1,8 @@
 """Prepare a Raspberry Pi OS (Bookworm) SD card, mounted on this laptop, to boot as a capstone robot Pi.
 
 On its first boot the Pi then sets its hostname, login user, SSH key, the capstone-robots WiFi with a
-static address, I2C and the servo UART, installs the robot code offline, and reboots. No flashing: the
-card must already hold Raspberry Pi OS Bookworm.
+static address, I2C and the servo UART, installs the robot code offline (Nate's capstone-base and this
+repo's committed HEAD), and reboots. No flashing: the card must already hold Raspberry Pi OS Bookworm.
 
     python robot/card/prepare_card.py --boot D:\\ --robot 2 --bundle <dir>
 
@@ -90,6 +90,9 @@ def main():
 
     copy_lf(REPO / "robot" / "drive_server.py", setup / "drive_server.py")
     copy_lf(HERE / "install_robot_code.sh", setup / "install_robot_code.sh")
+    # This repo as committed (head_tracker/, drive_with_head_lock.py, robot/), unpacked to ~/Capstone_Vision
+    subprocess.run(["git", "-c", "core.autocrlf=false", "archive", "--format=tar.gz", "--prefix=Capstone_Vision/",
+                    "-o", str(setup / "Capstone_Vision.tar.gz"), "HEAD"], cwd=REPO, check=True)
 
     script = (HERE / "firstrun.template.sh").read_text().replace("\r\n", "\n")
     fields = {"__ROBOT_ID__": str(args.robot), "__HOSTNAME__": hostname, "__USERNAME__": args.username,

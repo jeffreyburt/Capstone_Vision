@@ -7,16 +7,29 @@
 #   ~/capstone-base/          Nate's robot code (NateMG4/NEU-capstone-robot), with its .venv
 #   ~/capstone-base/.venv     python venv with smbus2 + pyserial (from wheels/) and capstone_base importable
 #   ~/capstone-base/.venv/bin/capstone-teleop etc.   the repo's command-line tools
-#   ~/drive_server.py         the MVP drive server (Capstone_Vision robot/drive_server.py)
+#   ~/Capstone_Vision/        this repo (head_tracker/, drive_with_head_lock.py, robot/drive_server.py)
+#   ~/drive_server.py         link to ~/Capstone_Vision/robot/drive_server.py
 set -eu
 SRC="$(cd "$(dirname "$0")" && pwd)"
 cd "$HOME"
+STAMP="$(date +%Y%m%d%H%M%S)"
 
 if [ -d capstone-base ]; then
-    mv capstone-base "capstone-base.old.$(date +%Y%m%d%H%M%S)"
+    mv capstone-base "capstone-base.old.$STAMP"
 fi
 tar xzf "$SRC/capstone-base.tar.gz"
-cp "$SRC/drive_server.py" "$HOME/drive_server.py"
+if [ -f "$SRC/Capstone_Vision.tar.gz" ]; then
+    if [ -d Capstone_Vision ]; then mv Capstone_Vision "Capstone_Vision.old.$STAMP"; fi
+    tar xzf "$SRC/Capstone_Vision.tar.gz"
+    ln -sf "$HOME/Capstone_Vision/robot/drive_server.py" "$HOME/drive_server.py"
+else
+    cp "$SRC/drive_server.py" "$HOME/drive_server.py"
+fi
+
+# The head tracker (head_tracker/README.md) uses these system packages with /usr/bin/python3.
+for pkg in python3-serial python3-picamera2 ffmpeg rpicam-apps; do
+    dpkg -s "$pkg" >/dev/null 2>&1 && echo "apt package $pkg: present" || echo "apt package $pkg: MISSING"
+done
 
 VENV="$HOME/capstone-base/.venv"
 if python3 -m venv "$VENV" 2>/dev/null && "$VENV/bin/python" -m pip --version >/dev/null 2>&1; then
