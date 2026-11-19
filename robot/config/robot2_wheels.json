@@ -1,0 +1,10 @@
+{
+  "motor_type": 3,
+  "encoder_polarity": 0,
+  "wheel_channels": [3, 1, 4, 2],
+  "motor_signs": [1, -1, -1, 1],
+  "encoder_signs": [1, -1, -1, 1],
+  "max_speed_counts": 30,
+  "bus_number": 1,
+  "address": 52
+}
