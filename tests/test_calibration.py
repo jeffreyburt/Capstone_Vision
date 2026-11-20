@@ -157,3 +157,38 @@ def test_calibration_action_rejects_unknown_confirm_step(cfg):
     cal = CalibrationManager(cfg)
     with pytest.raises(ValueError):
         calibration_action(cal, "confirm", {"step": "drive_robots"})
+
+
+def test_restart_camera_uses_ssh_without_sudo_and_reports_failure(cfg):
+    calls = []
+
+    def runner(ssh, user, host, port, script=None, timeout=10.0):
+        calls.append((user, host, script))
+        return "sender running again after 4s (pid 9)\n", None, 0
+
+    monitor = SystemMonitor(cfg, ssh=True, ssh_runner=runner, listener=False, start=False)
+    assert monitor.restart_camera()["ok"] and calls[0][0] == "vision" and "sudo" not in calls[0][2]
+    monitor.ssh_runner = lambda *a, **k: ("sender did not come back\n", None, 0)
+    with pytest.raises(RuntimeError, match="did not come back"):
+        monitor.restart_camera()
+    monitor.ssh_runner = lambda *a, **k: ("", "ssh timed out", 0)
+    with pytest.raises(RuntimeError, match="timed out"):
+        monitor.restart_camera()
+
+
+def test_restart_vision_only_signals_a_vision_process(cfg, monkeypatch):
+    import monitor.server as server
+    monitor = SystemMonitor(cfg, ssh=False, listener=False, start=False)
+    killed, spawned = [], []
+    monitor.heartbeats = lambda: (({"pid": 12345}, 0.1), (None, None))
+    monkeypatch.setattr(server.subprocess, "run", lambda argv, **k: type("R", (), {"stdout": "python -m vision.main --gui"
+                        if "args=" in argv else "", "returncode": 1})())
+
+    class P:
+        pid = 777
+    out = monitor.restart_vision(spawn=lambda *a, **k: spawned.append(a) or P(), kill=lambda *a: killed.append(a))
+    assert killed and spawned and spawned[0][0][-3:] == ["-m", "vision.main", "--gui"] and out["ok"]
+    killed.clear()
+    monkeypatch.setattr(server.subprocess, "run", lambda argv, **k: type("R", (), {"stdout": "/usr/bin/other", "returncode": 1})())
+    monitor.restart_vision(spawn=lambda *a, **k: P(), kill=lambda *a: killed.append(a))
+    assert not killed  # a reused PID belonging to something else is never signalled

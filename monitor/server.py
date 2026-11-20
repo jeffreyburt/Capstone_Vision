@@ -25,6 +25,10 @@ import argparse
 import copy
 import json
 import os
+import signal
+import subprocess
+import sys
+import tempfile
 import threading
 import time
 import urllib.request
@@ -42,6 +46,7 @@ from .tunnels import CameraTunnels
 from control.waypoints import WaypointStore, waypoint_feedback
 
 PAGE = Path(__file__).with_name("page.html")
+REPO = Path(__file__).resolve().parent.parent
 CALIBRATION_PAGE = Path(__file__).with_name("calibration.html")
 
 
@@ -284,6 +289,45 @@ class SystemMonitor:
                     "keep_out_m": limits.get("keep_out_m"), "area": self.cfg.get("area")},
         }
 
+    # ---- recovery actions (no motion: only restart the camera sender and the laptop vision program) ----
+    CAMERA_RESTART_SCRIPT = (
+        'pkill -u "$USER" -f "camstream[.]sender birdseye" || echo "no sender was running"\n'
+        'for i in 1 2 3 4 5 6 7 8 9 10 11 12; do sleep 1; p=$(pgrep -u "$USER" -f "camstream[.]sender birdseye")'
+        ' && { echo "sender running again after ${i}s (pid $p)"; exit 0; }; done\n'
+        'echo "sender did not come back; check: journalctl -u camstream-birdseye"; exit 3\n')
+
+    def restart_camera(self):
+        """Restart the main camera sender on the master Pi. It runs as the SSH user under systemd
+        (Restart=always), so ending it makes systemd start a fresh one; no sudo needed."""
+        master = next((n for n in self.nodes if n.kind == "master"), None)
+        if master is None or not master.ssh_user:
+            raise RuntimeError("no master Pi with an SSH user is configured")
+        out, err, _ = self.ssh_runner(self.ssh, master.ssh_user, master.host, master.ssh_port,
+                                      self.CAMERA_RESTART_SCRIPT, 30.0)
+        if err:
+            raise RuntimeError(err)
+        text = out.strip().splitlines()[-1] if out.strip() else "restarted"
+        if "again after" not in text:
+            raise RuntimeError(text)
+        return {"ok": True, "message": text + ". Vision reconnects on its own; if frames stay stale, restart vision."}
+
+    def restart_vision(self, spawn=subprocess.Popen, kill=os.kill):
+        """Replace the laptop's vision.main (the one that sent a heartbeat) with a fresh one that has the GUI."""
+        (vmsg, vage), _ = self.heartbeats()
+        pid = (vmsg or {}).get("pid")
+        if isinstance(pid, int) and pid > 1:
+            ps = subprocess.run(["ps", "-p", str(pid), "-o", "args="], capture_output=True, text=True).stdout
+            if "vision.main" in ps:        # never signal an unrelated process that reused the PID
+                kill(pid, signal.SIGTERM)
+                for _ in range(50):
+                    if subprocess.run(["ps", "-p", str(pid)], capture_output=True).returncode != 0:
+                        break
+                    time.sleep(0.2)
+        log = Path(tempfile.gettempdir()) / "capstone-vision.log"
+        proc = spawn([sys.executable, "-u", "-m", "vision.main", "--gui"], cwd=str(REPO),
+                     stdout=open(log, "ab"), stderr=subprocess.STDOUT, start_new_session=True)
+        return {"ok": True, "message": f"Vision restarted (pid {proc.pid}); log {log}. Allow ~20 s for the first frame."}
+
     def close(self):
         self._stop.set()
         if self.listener is not None:
@@ -444,6 +488,17 @@ def make_server(monitor, relay, host, port, calibration=None):
         def do_POST(self):
             if self.path.startswith('/api/calibration/'):
                 self._calibration_post()
+                return
+            if self.path in ('/api/camera/restart', '/api/vision/restart'):
+                origin = self.headers.get('Origin')
+                if origin and origin != 'http://' + self.headers.get('Host', ''):
+                    self.send_error(403)
+                    return
+                try:
+                    action = monitor.restart_camera if 'camera' in self.path else monitor.restart_vision
+                    self._send(200, 'application/json', json.dumps(action()).encode())
+                except (RuntimeError, OSError) as error:
+                    self._send(502, 'application/json', json.dumps({'error': str(error)}).encode())
                 return
             if self.path not in ('/api/navigation/target', '/api/navigation/clear', '/api/navigation/arm'):
                 self.send_error(404)

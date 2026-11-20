@@ -99,7 +99,7 @@
 <div id="lost">Lost connection to the system GUI. Is <code>python -m monitor</code> still running?</div>
 <main>
   <section class="panel" id="main-camera">
-    <h2>Main camera · live tracking <span class="grow"></span><span class="pill" id="main-camera-pill">checking</span></h2>
+    <h2>Main camera · live tracking <span class="grow"></span><button id="restart-camera" title="Restart the camera sender on the main Pi">Restart camera</button><button id="restart-vision" title="Restart the laptop vision program">Restart vision</button><span class="pill" id="main-camera-pill">checking</span></h2>
     <p id="main-camera-status" role="status">Checking the main camera…</p>
     <img id="main-camera-image" alt="Main camera with person boxes, ArUco marker IDs and robot center overlays" hidden>
     <p id="main-camera-targets"></p>
@@ -591,6 +591,20 @@ $("show-all-cameras").onclick = () => {
   if (latest) drawCards(latest);
   $("main-camera").scrollIntoView({ behavior: "smooth", block: "start" });
 };
+for (const [id, path, ask] of [["restart-camera", "/api/camera/restart", "Restart the main camera sender? Camera frames pause for a few seconds. Robots are not commanded."],
+                               ["restart-vision", "/api/vision/restart", "Restart the vision program on this laptop? Tracking pauses ~20 s and driving stops until it is back."]]) {
+  document.getElementById(id).addEventListener("click", async (e) => {
+    if (!confirm(ask)) return;
+    const b = e.currentTarget, label = b.textContent; b.disabled = true; b.textContent = "Working…";
+    const status = document.getElementById("main-camera-status");
+    try {
+      const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const j = await r.json(); status.textContent = j.message || j.error || "Done";
+    } catch (err) { status.textContent = "Request failed: " + err; }
+    b.disabled = false; b.textContent = label;
+  });
+}
+
 async function poll() {
   try {
     const r = await fetch("/state", { cache: "no-store" });
