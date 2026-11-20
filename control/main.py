@@ -23,6 +23,7 @@ from vision.config import load_config
 from .controller import Limits, RobotController
 from .link import RobotLink, VisionListener
 from .planner import FormationPlanner
+from .waypoints import compute_waypoints, read_waypoints
 
 STOP = (0.0, 0.0, 0.0)
 TIMING_DEFAULTS = {"vision_timeout_s": 1.0, "max_pose_age_s": 0.7, "user_lost_s": 2.0}
@@ -99,7 +100,7 @@ def _fmt_status(mode, msg, targets, results, link_ages):
         r, t = robots.get(rid), targets.get(rid)
         heading = "heading unknown" if not r or r.get("heading") is None else f"{r['heading']:.0f}deg"
         pose = f"({r['x']:.2f}, {r['y']:.2f}, {heading})" if r else "(unseen)"
-        goal = f" -> ({t.x:.2f}, {t.y:.2f}, {t.heading_deg:.0f}deg)" if t else ""
+        goal = f" -> ({t.x:.2f}, {t.y:.2f})" if t else ""
         age = link_ages.get(rid)
         link = "no reply" if age is None else ("link ok" if age < 1.0 else f"link {age:.0f}s old")
         parts.append(f"R{rid} {pose}{goal} cmd ({cmd[0]:+.2f}, {cmd[1]:+.2f}, {cmd[2]:+.2f}) {reason}, {link}")
@@ -112,7 +113,7 @@ def status_report(mode, msg_age_s, targets, results, link_ages, link_status):
     for rid, (cmd, reason) in results.items():
         t = targets.get(rid)
         robots[str(rid)] = {
-            "target": None if t is None else [round(t.x, 3), round(t.y, 3), round(t.heading_deg, 1)],
+            "target": None if t is None else [round(t.x, 3), round(t.y, 3), None if t.heading_deg is None else round(t.heading_deg, 1)],
             "cmd": [round(v, 3) for v in cmd], "reason": reason,
             "link_age_s": link_ages.get(rid), "reply": link_status.get(rid)}
     return {"state": "running", "mode": mode, "vision_age_s": msg_age_s, "robots": robots}
@@ -123,6 +124,7 @@ def main(argv=None):
     ap.add_argument("--config", help="path to config.yaml (default: repo config.yaml)")
     ap.add_argument("--robots", help="comma-separated robot IDs to drive (default: all in control.robots)")
     ap.add_argument("--arm", action="store_true", help="send drive commands (default: dry run)")
+    ap.add_argument("--waypoints", action="store_true", help="use dashboard grid targets instead of following the person")
     args = ap.parse_args(argv)
 
     cfg = load_config(args.config)
@@ -166,16 +168,22 @@ def main(argv=None):
             msg, received_at = vision.poll()
             now = time.time()
             msg_age = None if received_at is None else now - received_at
-            targets, results = compute_commands(msg, msg_age, planner, controllers, timing, compensated_ids)
+            if args.waypoints:
+                nav = read_waypoints(f"http://127.0.0.1:{int((cfg.get('system') or {}).get('gui_port',8090))}/api/navigation")
+                targets, results = compute_waypoints(msg, msg_age, nav, controllers, timing)
+            else:
+                targets, results = compute_commands(msg, msg_age, planner, controllers, timing, compensated_ids)
             if args.arm:
                 for rid, (cmd, _) in results.items():
                     if paused or cmd == STOP:
                         link.stop(rid)
                     else:
-                        link.drive(rid, *cmd, pose_compensated=rid in compensated_ids)
+                        link.drive(rid, *cmd, pose_compensated=args.waypoints or rid in compensated_ids)
             link_ages = link.poll()
             mode = "PAUSED" if paused else ("ARMED" if args.arm else "DRY RUN")
-            beacon.update(status_report(mode, msg_age, targets, results, link_ages, link.status))
+            report = status_report(mode, msg_age, targets, results, link_ages, link.status)
+            report['navigation_mode'] = 'waypoints' if args.waypoints else 'follow'
+            beacon.update(report)
             if now - last_print >= 1.0:
                 print(_fmt_status(mode, msg, targets, results, link_ages))
                 last_print = now

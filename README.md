@@ -95,6 +95,28 @@ with a tape measure and restart vision. Camera height alone does not establish a
 tracking while following, also measure the moving-marker geometry described in
 [docs/HEAD_TRACKER.md](docs/HEAD_TRACKER.md), or mount the tracking markers rigidly on the chassis.
 
+### Grid targets for both robots
+
+On the system dashboard, select **Robot 1** or **Robot 2** below the floor map, then click the grid to
+set that robot's destination. Each robot has its own colored dashed target. **Cancel all targets**
+clears both. Click coordinates use the exact map scale, including responsive resizing. Targets outside
+`area` are rejected. The target service lives only in memory and a monitor restart clears it.
+
+The current setup is **preview only**: camera positions are approximate, chassis headings are unknown,
+and neither robot's wheel server is responding. Both robots are selected in the unarmed waypoint
+controller (`python -m control.main --robots 1,2 --waypoints`). It consumes dashboard targets without
+following the person, shows previews, and sends no wheel commands. Preview targets stay non-executable
+when calibration later improves; a new target must be selected after navigation is ready.
+
+Physical navigation additionally requires a measured floor pose, fresh compensated chassis position
+and heading (see [HEAD_TRACKER.md](docs/HEAD_TRACKER.md)), an accessible hardware drive server that
+reports `require_compensated_pose: true`, and the direct routed drive network in
+[NETWORK.md](docs/NETWORK.md). Only after verification can the separate controller be started with
+`--waypoints --robots 1,2 --arm`. Approximate, stale, missing or uncompensated feedback and loss of the
+waypoint service produce zero velocity. This is a direct point controller with the existing keep-out
+constraints, not an obstacle-mapping path planner. Keep the test area clear and follow the hardware
+bring-up procedure before arming. There is no auto-arm action in the dashboard.
+
 ### Marker visibility
 
 The current robots use `DICT_4X4_50`: robot 1 IDs 0–3 (rear 2), robot 2 IDs 4–7 (rear 6).
@@ -132,8 +154,8 @@ claimed. Person detection identifies people, not identities, and may choose a di
 
 `python -m monitor` runs on its own (start it first; it keeps working while the other programs start, stop
 or crash) and shows, for every machine, green / amber / red rows plus a network diagram and a top-down map
-with the robots, the user and the control targets. It only reads; it never starts, stops or commands
-anything. Nothing needs installing on the Pis:
+with the robots, the user and the control targets. Its status probes are read-only. Grid clicks set targets for a separate controller; the dashboard never
+arms or starts wheel hardware. Nothing needs installing on the Pis:
 
 | Machine | What it shows | Where it comes from |
 |---|---|---|

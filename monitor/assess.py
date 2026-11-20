@@ -401,7 +401,7 @@ def assess_robot(node, raw, master_raw, vision_msg, vision_age, control_msg, con
             text += f", command ({cmd[0]:+.2f}, {cmd[1]:+.2f}) m/s {math.degrees(cmd[2]):+.0f}°/s"
         if ctl_robot.get("target"):
             tx, ty, th = ctl_robot["target"]
-            text += f" → target ({tx:.2f}, {ty:.2f}) {th:.0f}°"
+            text += f" → target ({tx:.2f}, {ty:.2f})" + (f" {th:.0f}°" if th is not None else " · heading unspecified")
         level = OK
         if control.get("mode") == "ARMED":
             if link is None or link > 1.0:

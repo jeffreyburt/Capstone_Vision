@@ -4,8 +4,9 @@
     python -m monitor --no-ssh         # skip the SSH health checks (temperature, power, WiFi, processes)
     python -m monitor --bind 0.0.0.0   # also reachable from other machines (e.g. a phone)
 
-Runs on its own, so it keeps working when vision.main or control.main are stopped or crash. Read-only: it
-never starts, stops or commands anything. Where the information comes from:
+Runs on its own, so it keeps working when vision.main or control.main are stopped or crash. Status
+probes are read-only. Grid clicks store waypoints for a separate controller; this server never arms
+or directly commands wheel hardware. Where the information comes from:
 
     laptop programs   heartbeats from vision.main and control.main (UDP 127.0.0.1:5007, monitor/beacon.py)
     every Pi          TCP connect to SSH (is it up?), SSH health script with the laptop's key (monitor/probes.py)
@@ -37,6 +38,7 @@ from . import assess
 from .beacon import StatusListener, status_port
 from .probes import find_ssh, gateway_probe, network_probe, parse_health, run_ssh, tcp_check
 from .tunnels import CameraTunnels
+from control.waypoints import WaypointStore
 
 PAGE = Path(__file__).with_name("page.html")
 
@@ -127,6 +129,7 @@ class SystemMonitor:
 
     def __init__(self, cfg, *, ssh=True, ssh_runner=run_ssh, listener=True, start=True):
         self.cfg = cfg
+        self.waypoints = WaypointStore(_int_keys((cfg.get('control') or {}).get('robots')), cfg.get('area'))
         sysc = cfg.get("system") or {}
         self.nodes = build_nodes(cfg)
         self.probe_interval = float(sysc.get("probe_interval_s", 2.0))
@@ -228,14 +231,38 @@ class SystemMonitor:
         dbg = self.cfg.get("debug") or {}
         robots_cfg = self.cfg.get("robots") or []
         limits = (self.cfg.get("control") or {}).get("limits") or {}
+        readiness = {}
+        poses = {r['id']: r for r in ((vision or {}).get('message') or {}).get('robots', [])}
+        for node in self.nodes:
+            if node.kind != 'robot':
+                continue
+            pose = poses.get(node.robot_id, {})
+            reply = ((raw[node.key].get('drive') or {}).get('reply') or {})
+            reason = None
+            if not vision or now - vision.get('last_frame_t', 0) > 1:
+                reason = 'Fresh camera positions required'
+            elif ((vision.get('message') or {}).get('position_quality') == 'approximate' or
+                  (vision.get('message') or {}).get('driving_allowed') is False):
+                reason = 'Approximate positions — driving disabled'
+            elif not pose.get('pose_compensated') or pose.get('heading') is None or pose.get('age', 999) > .25:
+                reason = 'Calibrated compensated chassis pose required'
+            elif not reply:
+                reason = 'Drive server not responding'
+            elif reply.get('hardware') is not True:
+                reason = 'Drive server hardware mode not verified'
+            elif not reply.get('require_compensated_pose'):
+                reason = 'Drive server must require compensated pose'
+            readiness[str(node.robot_id)] = {'ready': reason is None, 'reason': reason or 'Ready for an explicitly armed waypoint controller'}
         return {
             "t": now,
             "main_camera": main_camera_view(vmsg, vage, now),
+            "navigation": {"targets": self.waypoints.snapshot(), "readiness": readiness},
             "nodes": out_nodes,
             "links": links,
             "vision": None if vision is None else {"message": vision.get("message"), "scene": vision.get("scene"),
                                                    "gui_port": vision.get("gui_port")},
-            "control": None if control is None else {"mode": control.get("mode"), "robots": control.get("robots")},
+            "control": None if control is None else {"mode": control.get("mode"), "robots": control.get("robots"),
+                                                     "navigation_mode": control.get("navigation_mode")},
             "map": {"x": dbg.get("map_x", [-3, 3]), "y": dbg.get("map_y", [-0.5, 7]),
                     "robot_size_m": 2 * max([r.get("center_offset_m", 0.15) for r in robots_cfg] or [0.15]),
                     "keep_out_m": limits.get("keep_out_m"), "area": self.cfg.get("area")},
@@ -307,6 +334,8 @@ def make_server(monitor, relay, host, port):
                 self._send(200, "text/html; charset=utf-8", PAGE.read_bytes())
             elif path == "/state":
                 self._send(200, "application/json", json.dumps(monitor.snapshot()).encode())
+            elif path == '/api/navigation':
+                self._send(200, 'application/json', json.dumps(monitor.snapshot()['navigation']).encode())
             elif path == "/video/birdseye":
                 snapshot = monitor.snapshot()
                 vision = snapshot.get("vision") or {}
@@ -324,6 +353,28 @@ def make_server(monitor, relay, host, port):
                     self.send_error(404)
             else:
                 self.send_error(404)
+
+        def do_POST(self):
+            if self.path not in ('/api/navigation/target', '/api/navigation/clear'):
+                self.send_error(404)
+                return
+            origin = self.headers.get('Origin')
+            if origin and origin != 'http://' + self.headers.get('Host', ''):
+                self.send_error(403)
+                return
+            try:
+                size = int(self.headers.get('Content-Length', '0'))
+                if not 0 < size <= 2048:
+                    raise ValueError('Missing or oversized JSON request')
+                data = json.loads(self.rfile.read(size))
+                if self.path.endswith('/clear'):
+                    monitor.waypoints.clear()
+                else:
+                    ready = monitor.snapshot()['navigation']['readiness'].get(str(data['robot_id']), {}).get('ready', False)
+                    monitor.waypoints.set(data['robot_id'], data['x'], data['y'], preview_only=not ready)
+                self._send(200, 'application/json', json.dumps(monitor.snapshot()['navigation']).encode())
+            except (ValueError, TypeError, KeyError) as error:
+                self._send(400, 'application/json', json.dumps({'error': str(error)}).encode())
 
         def _dashboard_camera(self, node):
             try:

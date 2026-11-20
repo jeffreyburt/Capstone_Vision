@@ -115,6 +115,11 @@
       <h2>Floor map <span class="sub">top view, meters</span><span class="sub" id="map-note"></span>
         <span class="grow"></span><button id="clear-trails">Clear trails</button></h2>
       <canvas id="map"></canvas>
+      <div style="padding:8px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <label>Selected robot <select id="waypoint-robot"><option value="1">Robot 1</option><option value="2">Robot 2</option></select></label>
+        <button id="clear-waypoints">Cancel all targets</button>
+      </div>
+      <p id="navigation-status" role="status" style="padding:0 12px;color:var(--warn)">Click the grid to preview a destination. Driving is disabled.</p>
       <div class="legend">
         <span><i style="background:var(--r1)"></i>robot (arrow = front)</span>
         <span><i style="background:transparent;border:1.5px dashed var(--muted)"></i>control target</span>
@@ -320,6 +325,29 @@ function drawHeader(st) {
 // ---------------------------------------------------------------- floor map (top view)
 const canvas = $("map"), ctx = canvas.getContext("2d");
 const trails = new Map();
+let mapTransform = null;
+async function navigationRequest(path, body) {
+  const response = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const data = await response.json();
+  if (!response.ok) throw Error(data.error || "Target request failed");
+  return data;
+}
+canvas.style.cursor = "crosshair";
+canvas.onclick = async event => {
+  if (!mapTransform) return;
+  const rect = canvas.getBoundingClientRect(), g = mapTransform;
+  const px = (event.clientX - rect.left) * canvas.clientWidth / rect.width;
+  const py = (event.clientY - rect.top) * canvas.clientHeight / rect.height;
+  const x = g.x0 + (px - g.ox) / g.s, y = g.y1 - (py - g.oy) / g.s;
+  if (x < g.x0 || x > g.x1 || y < g.y0 || y > g.y1) return;
+  try {
+    await navigationRequest("/api/navigation/target", { robot_id: Number($("waypoint-robot").value), x, y });
+  } catch (error) { $("navigation-status").textContent = error.message; }
+};
+$("clear-waypoints").onclick = async () => {
+  try { await navigationRequest("/api/navigation/clear", {}); }
+  catch (error) { $("navigation-status").textContent = error.message; }
+};
 $("clear-trails").onclick = () => trails.clear();
 
 function drawMap(st) {
@@ -332,7 +360,15 @@ function drawMap(st) {
 
   const msg = st.vision && st.vision.message, scene = st.vision && st.vision.scene, m = st.map;
   const robots = (msg && msg.robots) || [], user = msg && msg.user;
-  const targets = (st.control && st.control.robots) || {};
+  const targets = { ...((st.control && st.control.robots) || {}) };
+  for (const [id, goal] of Object.entries(st.navigation?.targets || {})) targets[id] = { target: [goal.x, goal.y, null] };
+  const selected = $("waypoint-robot").value, nav = st.navigation?.readiness?.[selected];
+  const goal = st.navigation?.targets?.[selected];
+  $("navigation-status").textContent = (goal ? `R${selected} destination: (${goal.x.toFixed(2)}, ${goal.y.toFixed(2)}) m. ` : "Click the grid to set a destination. ") +
+    (!nav?.ready ? `Preview only: ${nav?.reason || "checking readiness"}. No movement.` :
+      goal?.preview_only ? "Saved preview only; select a new destination after navigation is ready." :
+      st.control?.navigation_mode !== "waypoints" ? "Waypoint controller is not running." :
+      st.control?.mode === "ARMED" ? "Armed waypoint controller active." : "Dry run only; controller is not armed.");
   const cam = scene && scene.camera;
   // extent: config debug.map_x / map_y, grown to include everything we draw
   let [x0, x1] = m.x, [y0, y1] = m.y;
@@ -344,6 +380,7 @@ function drawMap(st) {
   const pad = 26, s = Math.min((cw - 2 * pad) / (x1 - x0), (ch - 2 * pad) / (y1 - y0));
   const ox = (cw - s * (x1 - x0)) / 2, oy = (ch - s * (y1 - y0)) / 2;
   const P = (x, y) => [ox + (x - x0) * s, oy + (y1 - y) * s];   // world (x right, y away from camera) -> screen
+  mapTransform = { ox, oy, s, x0, x1, y0, y1 };
 
   // grid
   ctx.lineWidth = 1; ctx.font = "11px system-ui"; ctx.fillStyle = "#8a939e";
@@ -416,7 +453,7 @@ function drawMap(st) {
     ctx.setLineDash([6, 5]); ctx.strokeStyle = color; ctx.lineWidth = 1.5;
     if (r) { ctx.beginPath(); ctx.moveTo(...P(r.x, r.y)); ctx.lineTo(...P(tx, ty)); ctx.stroke(); }
     box(tx, ty, th); ctx.stroke(); ctx.setLineDash([]);
-    arrow(tx, ty, th, half + 0.12, color);
+    if (th != null) arrow(tx, ty, th, half + 0.12, color);
   }
 
   // trails and robots

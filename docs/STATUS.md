@@ -31,6 +31,19 @@ master Pi camera ──Ethernet──► laptop: vision.main ──UDP 5005─�
 
 ## 2. Machines
 
+**2026-11-20 grid navigation preparation:** Owner requested click-to-go for both robots. Dashboard now
+has robot selection, independent in-memory grid targets and cancellation. Targets are preview-only while
+readiness is blocked and cannot later execute merely because calibration recovers. Current facts:
+approximate marker-center positions, no chassis heading, and neither robot's drive server responds.
+No wheel services were started and no motion/torque commands were sent. The Mac controller is now
+`control.main --robots 1,2 --waypoints` without --arm. Both robots show zero commands and the approximate
+positions block. New waypoint control requires calibrated compensated chassis poses plus verified
+hardware drive-server mode and compensated-pose enforcement, along with the direct routed drive link.
+Existing person-follow mode remains available without --waypoints. Full suite: 131 tests plus 10
+subtests pass; live independent preview targets for both robots, browser preview warning, zero commands,
+and target cancellation were checked. Synthetic test targets were removed after verification.
+
+
 **2026-11-20 approximate position trial:** Owner supplied 0.395 m lens height and confirmed 10 cm black
 marker squares. Enabled the explicit approximate fallback with provisional 10° downward tilt and zero
 roll. Visible side-marker PnP centers suggest 9–10° if their configured 0.30 m mounting height is correct;
