@@ -378,7 +378,7 @@ function drawMap(st) {
   const goal = st.navigation?.targets?.[selected];
   $("navigation-arm").checked = st.navigation?.armed === true;
   $("navigation-status").textContent = (goal ? `R${selected} destination: (${goal.x.toFixed(2)}, ${goal.y.toFixed(2)}) m. ` : "Click the grid to set a destination. ") +
-    (!nav?.ready ? `Preview only: ${nav?.reason || "checking readiness"}. No movement.` :
+    (!nav?.ready ? (goal && !goal.preview_only && st.navigation?.armed ? `Paused: ${nav?.reason || "checking readiness"}. Waiting for valid feedback.` : `Preview only: ${nav?.reason || "checking readiness"}. No movement.`) :
       !st.navigation?.armed ? "Click driving disabled. Enable it, then choose a new destination." :
       goal?.preview_only ? "Saved preview only; select a new destination after navigation is ready." :
       st.control?.navigation_mode !== "waypoints" ? "Waypoint controller is not running." :

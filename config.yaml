@@ -7,7 +7,7 @@ streams:
   birdseye:
     host: 192.168.1.20      # main camera over Ethernet; no robot-subnet route required
     port: 5600
-    quality: 95             # JPEG quality (higher = sharper markers, more bandwidth; Ethernet, so plenty)
+    quality: 85             # full-resolution markers with less JPEG encode delay
     max_fps: 15             # send at most this many frames/s (the camera itself runs at camera.fps)
     # Full 12 MP sensor: best accuracy and range, lower frame rate. For speed use 1920x1080 / [2304, 1296].
     camera: {width: 4608, height: 2592, fps: 10, sensor_mode: [4608, 2592], rotation: 180}
@@ -183,6 +183,11 @@ output:
 # The laptop closes the loop: vision pose -> listening-triangle target -> velocity command over UDP.
 control:
   drive_via: vision@192.168.1.20  # authenticated UDP relay; robot allow-list uses main Pi 192.168.50.1
+  waypoint_motion:
+    linear_accel: 0.12
+    linear_decel: 0.18
+    angular_accel: 0.6
+    filter_s: 0.2
   vision_port: 5005         # where vision.main publishes (output.port above)
   rate_hz: 10               # command rate; each robot's drive server stops after 0.5 s without one
   vision_timeout_s: 1.0     # stop every robot if no vision message arrives for this long
@@ -223,6 +228,9 @@ control:
     yaw_tolerance_deg: 5
     keep_out_m: 0.8         # robots never move toward the user when closer than this
     robot_clearance_m: 0.6  # ...or toward each other when closer than this (center to center)
+    drive_heading_deadband_deg: 5
+    drive_alignment_release_deg: 45
+    reverse_hysteresis_deg: 20
     allow_strafe: false     # robot 2's strafe turns into rotation: turn-then-drive instead. true = full mecanum
 
 # ---- System GUI (python -m monitor -> http://localhost:8090/): status of every Pi, robot and laptop program ----

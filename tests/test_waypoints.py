@@ -208,3 +208,47 @@ def test_progress_fault_can_reset_after_dashboard_restart_at_same_target_revisio
     assert guard.check(goal,2,True,0)
     assert not guard.check(goal,2,True,7)
     assert guard.check({**goal,'session':'restarted'},2,True,8)
+
+
+def test_target_can_wait_for_transient_camera_age_without_becoming_preview():
+    cfg={'area':{'x':[-2,2],'y':[0,5]},'control':{'robots':{1:{'host':'127.0.0.1'}}}}
+    monitor=SystemMonitor(cfg,listener=False,start=False)
+    relay=CameraRelay(cfg);monitor.waypoints.arm(True)
+    def snapshot():
+        return {'navigation':{'armed':monitor.waypoints.armed,'targets':monitor.waypoints.snapshot(),
+            'readiness':{'1':{'ready':False,'hardware_ready':True,'can_accept_target':True,
+                              'reason':'Camera capture too old'}}}}
+    monitor.snapshot=snapshot
+    server=make_server(monitor,relay,'127.0.0.1',0)
+    threading.Thread(target=server.serve_forever,daemon=True).start()
+    try:
+        request=urllib.request.Request(f'http://127.0.0.1:{server.server_port}/api/navigation/target',
+            data=json.dumps({'robot_id':1,'x':0,'y':3}).encode(),
+            headers={'Content-Type':'application/json'},method='POST')
+        with urllib.request.urlopen(request,timeout=2) as response:nav=json.load(response)
+        assert nav['targets']['1']['preview_only'] is False
+        # Storing intent does not bypass the controller's own stale-capture stop.
+        msg,_,controllers=inputs();msg.update(frame_clock='local',t=0,max_frame_age_s=.65)
+        assert compute_waypoints(msg,0,nav,controllers)[1][1][0]==(0,0,0)
+    finally:
+        server.shutdown();server.server_close();monitor.close();relay.tunnels.close()
+
+
+def test_feedback_age_includes_real_camera_delay(monkeypatch):
+    from control.waypoints import waypoint_feedback
+    msg,nav,_=inputs();msg.update(frame_clock='local',t=100.,max_frame_age_s=.65)
+    monkeypatch.setattr('control.waypoints.time.time',lambda:100.5)
+    feedback=waypoint_feedback(msg,.01,nav['targets'],[1])['1']
+    assert feedback['tracking_age_s']==pytest.approx(.5)
+    assert feedback['fresh']
+    monkeypatch.setattr('control.waypoints.time.time',lambda:100.8)
+    assert not waypoint_feedback(msg,.01,nav['targets'],[1])['1']['fresh']
+
+
+def test_recent_observation_cannot_outlive_total_capture_plus_observation_budget(monkeypatch):
+    msg,nav,controllers=inputs();msg.update(frame_clock='local',t=100.4,max_frame_age_s=.65)
+    msg['robots'][0]['age']=.2
+    monkeypatch.setattr('control.waypoints.time.time',lambda:100.9)
+    _,commands=compute_waypoints(msg,0,nav,controllers)
+    assert commands[1][0]==(0,0,0)  # .5 frame age + .2 observation age exceeds .65
+    assert commands[2][0]!=(0,0,0)

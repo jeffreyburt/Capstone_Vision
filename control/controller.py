@@ -37,6 +37,9 @@ class Limits:
     robot_clearance_m: float = 0.6  # ...or toward another robot when closer than this (center to center)
     allow_strafe: bool = True       # False: turn-then-drive, never sideways (no-strafe mode)
     allow_reverse: bool = True      # no-strafe mode may drive backward instead of turning around
+    drive_heading_deadband_deg: float = 0.0
+    drive_alignment_release_deg: float = 0.0
+    reverse_hysteresis_deg: float = 0.0
     drive_align_deg: float = 25.0   # no-strafe mode: only drive while pointing within this of the travel line
     no_strafe_restart_m: float = 0.15  # no-strafe mode: once parked, only move again past this error
 
@@ -81,12 +84,18 @@ class RobotController:
         self.limits = limits or Limits()
         self.position_settled = False
         self.heading_settled = False
+        self.travel_aligned = False
+        self.travel_reverse = None
 
     def reset(self):
         self.position_settled = self.heading_settled = False
+        self.travel_aligned = False
+        self.travel_reverse = None
 
-    def _turn_toward(self, error_rad):
+    def _turn_toward(self, error_rad, deadband_deg=0.0):
         L = self.limits
+        deadband = math.radians(deadband_deg)
+        error_rad = math.copysign(max(0.,abs(error_rad)-deadband),error_rad)
         return max(-L.max_yaw_rad_s, min(L.max_yaw_rad_s, L.yaw_gain * error_rad))
 
     def _face_target_heading(self, pose, target):
@@ -117,15 +126,34 @@ class RobotController:
         bearing = math.atan2(ey, ex)
         ahead, behind = wrap_rad(bearing - h), wrap_rad(bearing + math.pi - h)
         reverse = L.allow_reverse and abs(behind) < abs(ahead)
+        if L.reverse_hysteresis_deg > 0:
+            if self.travel_reverse is None:
+                self.travel_reverse = reverse
+            elif L.allow_reverse:
+                kept,other = (behind,ahead) if self.travel_reverse else (ahead,behind)
+                if abs(other)+math.radians(L.reverse_hysteresis_deg) < abs(kept):
+                    self.travel_reverse = not self.travel_reverse
+            reverse = self.travel_reverse
         err = behind if reverse else ahead
         speed = 0.0
-        if abs(err) < math.radians(L.drive_align_deg):
-            speed = min(L.max_speed_m_s, L.position_gain * dist) * math.cos(err)
+        angle = abs(math.degrees(err))
+        if L.drive_alignment_release_deg > L.drive_align_deg:
+            if not self.travel_aligned and angle < L.drive_align_deg:
+                self.travel_aligned = True
+            elif self.travel_aligned and angle > L.drive_alignment_release_deg:
+                self.travel_aligned = False
+            blend = max(0., min(1., (L.drive_alignment_release_deg-angle)/
+                                (L.drive_alignment_release_deg-L.drive_align_deg)))
+            blend = blend*blend*(3-2*blend)
+            if self.travel_aligned:
+                speed = min(L.max_speed_m_s,L.position_gain*dist)*max(0.,math.cos(err))*blend
+        elif angle < L.drive_align_deg:
+            speed = min(L.max_speed_m_s,L.position_gain*dist)*math.cos(err)
         v = -speed if reverse else speed
         # Keep-out: remove motion toward the user/robots, then keep only what a straight drive can do.
         wvx, wvy = remove_approach(v * math.cos(h), v * math.sin(h), pose["x"], pose["y"], obstacles)
         vx = wvx * math.cos(h) + wvy * math.sin(h)
-        return vx, 0.0, self._turn_toward(err)
+        return vx, 0.0, self._turn_toward(err,L.drive_heading_deadband_deg)
 
     def command(self, pose, target, obstacles=()):
         """pose: dict with x, y, heading (deg), as in the vision message. target: planner.Target.

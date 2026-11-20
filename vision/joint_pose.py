@@ -90,7 +90,7 @@ class HeadGeometry:
         return corners
 
 
-def fit_chassis(marker, corners, geometry):
+def fit_chassis(marker, corners, geometry, prior_heading=None):
     """Fit a level chassis directly in image space.
 
     Intersecting each corner ray with its assumed height is ill-conditioned when the
@@ -155,9 +155,15 @@ def fit_chassis(marker, corners, geometry):
         error = residual(state)
         if np.isfinite(error).all():
             score = float(np.mean(error**2))
-            if best is None or score < best[0]:
-                best = score, state
-    if best is None or best[0] > 9.:  # maximum 3 px coordinate RMS
+            if score > 9.:  # never trade reprojection validity for temporal continuity
+                continue
+            selection = score
+            if prior_heading is not None:
+                difference=(state[2]-prior_heading+math.pi)%(2*math.pi)-math.pi
+                selection += (.5*math.degrees(difference)/10.)**2
+            if best is None or selection < best[0]:
+                best = selection, state
+    if best is None:
         return None
     return best[1][:2], float(best[1][2])
 
@@ -278,16 +284,27 @@ class DashboardJointFeedback:
                     pass
             self.stop.wait(.04)
 
+    @staticmethod
+    def interpolate(samples, stamp):
+        for (before,a),(after,b) in zip(samples,samples[1:]):
+            if before <= stamp <= after and 0 < after-before <= .3:
+                fraction=(stamp-before)/(after-before)
+                return a+(b-a)*fraction
+        if samples:
+            when,units=min(samples,key=lambda sample:abs(sample[0]-stamp))
+            if abs(when-stamp) <= .12:
+                return units.copy()
+        return None
+
     def positions_at(self, stamp):
         if not 0 <= time.time()-stamp <= self.max_frame_age:
             return {}
         result={}
         with self.lock:
             for rid,samples in self.history.items():
-                if samples:
-                    when,units=min(samples,key=lambda s:abs(s[0]-stamp))
-                    if abs(when-stamp) <= .12:
-                        result[rid]=units.copy()
+                units=self.interpolate(list(samples),stamp)
+                if units is not None:
+                    result[rid]=units
         return result
 
     def close(self):

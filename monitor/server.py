@@ -233,6 +233,10 @@ class SystemMonitor:
         limits = (self.cfg.get("control") or {}).get("limits") or {}
         readiness = {}
         poses = {r['id']: r for r in ((vision or {}).get('message') or {}).get('robots', [])}
+        message = (vision or {}).get('message') or {}
+        local_clock = message.get('frame_clock') == 'local'
+        capture_age = now-message.get('t',now) if local_clock else 0.
+        pose_timeout = min(.65,message.get('max_frame_age_s',.25)) if local_clock else .25
         for node in self.nodes:
             if node.kind != 'robot':
                 continue
@@ -241,13 +245,12 @@ class SystemMonitor:
             reason = None
             if not vision or now - vision.get('last_frame_t', 0) > 1:
                 reason = 'Fresh camera positions required'
-            elif ((vision.get('message') or {}).get('frame_clock') == 'local' and
-                  not 0 <= now-(vision.get('message') or {}).get('t',0) <= min(.65,(vision.get('message') or {}).get('max_frame_age_s',.25))):
+            elif local_clock and not 0 <= capture_age <= pose_timeout:
                 reason = 'Camera capture too old'
             elif ((vision.get('message') or {}).get('position_quality') == 'approximate' or
                   (vision.get('message') or {}).get('driving_allowed') is False):
                 reason = 'Approximate positions — driving disabled'
-            elif not pose.get('pose_compensated') or pose.get('heading') is None or pose.get('age', 999) > .25:
+            elif not pose.get('pose_compensated') or pose.get('heading') is None or pose.get('age',999)+capture_age > pose_timeout:
                 reason = pose.get('pose_status') or 'Calibrated compensated chassis pose required'
             elif not reply:
                 reason = 'Drive server not responding'
@@ -255,7 +258,12 @@ class SystemMonitor:
                 reason = 'Drive server hardware mode not verified'
             elif not reply.get('require_compensated_pose'):
                 reason = 'Drive server must require compensated pose'
-            readiness[str(node.robot_id)] = {'ready': reason is None, 'reason': reason or 'Ready for an explicitly armed waypoint controller'}
+            hardware_ready = bool(reply and reply.get('hardware') is True and reply.get('require_compensated_pose') is True)
+            can_accept = bool(hardware_ready and vision and vision.get('calibrated') and
+                              now-vision.get('last_frame_t',0)<=1 and pose.get('heading') is not None and
+                              (pose.get('pose_compensated') or pose.get('pose_status')=='Camera capture too old'))
+            readiness[str(node.robot_id)] = {'hardware_ready': hardware_ready, 'can_accept_target': can_accept,
+                'ready': reason is None, 'reason': reason or 'Ready for an explicitly armed waypoint controller'}
         return {
             "t": now,
             "main_camera": main_camera_view(vmsg, vage, now),
@@ -378,7 +386,8 @@ def make_server(monitor, relay, host, port):
                 elif self.path.endswith('/clear'):
                     monitor.waypoints.clear()
                 else:
-                    ready = monitor.snapshot()['navigation']['readiness'].get(str(data['robot_id']), {}).get('ready', False)
+                    readiness = monitor.snapshot()['navigation']['readiness'].get(str(data['robot_id']), {})
+                    ready = readiness.get('ready',False) or readiness.get('can_accept_target',False)
                     monitor.waypoints.set(data['robot_id'], data['x'], data['y'], preview_only=not ready or not monitor.waypoints.armed)
                 self._send(200, 'application/json', json.dumps(monitor.snapshot()['navigation']).encode())
             except (ValueError, TypeError, KeyError) as error:

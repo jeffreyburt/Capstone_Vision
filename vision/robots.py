@@ -83,9 +83,10 @@ def face_on_floor(marker, spec, geometry):
     return center, normal
 
 
-def estimate_robots(markers, specs, geometry, joint_positions=None):
+def estimate_robots(markers, specs, geometry, joint_positions=None, prior_headings=None):
     """Detected markers -> one RobotObservation per robot that has at least one usable marker."""
     joint_positions = joint_positions or {}
+    prior_headings = prior_headings or {}
     by_marker = {mid: spec for spec in specs for mid in spec.faces}
     groups = {}
     for m in markers:
@@ -95,7 +96,7 @@ def estimate_robots(markers, specs, geometry, joint_positions=None):
         if spec.head is not None:
             units = joint_positions.get(spec.id) if spec.head.needs_feedback else spec.head.neutral_units
             corners = None if units is None else spec.head.corners(m.id, units)
-            pose = None if corners is None else fit_chassis(m, corners, geometry)
+            pose = None if corners is None else fit_chassis(m,corners,geometry,prior_headings.get(spec.id))
             if pose is None:
                 continue
             robot_center, heading = pose

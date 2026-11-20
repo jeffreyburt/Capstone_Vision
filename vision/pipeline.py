@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 import time
+import math
 
 from .geometry import load_geometry
 from .joint_pose import JointFeedback, DashboardJointFeedback
@@ -102,8 +103,10 @@ class VisionPipeline:
         joints = {}
         if self.geometry is not None:
             joints = self.joints.positions_at(t) if self.joints is not None else None
+            priors = {rid: math.radians(track.heading) for rid,track in self.tracker.tracks.items()
+                      if track.heading is not None and track.age(t)<=.65}
             estimates = (estimate_marker_positions(robot_markers, self.specs, self.geometry) if self.geometry.approximation
-                         else estimate_robots(robot_markers, self.specs, self.geometry, joints))
+                         else estimate_robots(robot_markers, self.specs, self.geometry, joints,priors))
             observations = [o for o in estimates
                             if self._in_area(o.x, o.y)]
         self.tracker.update(t, observations)
@@ -132,21 +135,23 @@ class VisionPipeline:
             for robot in message["robots"]:
                 if robot["id"] in self.compensated_ids:
                     frame_fresh = (not (self.cfg.get('camera') or {}).get('local_frame_timestamps') or
-                                   0 <= time.time()-t <= float(self.cfg.get('compensated_frame_timeout_s',.25)))
-                    robot["pose_compensated"] = robot["id"] in observed and robot["age"] == 0 and frame_fresh
+                                   0 <= time.time()-t+robot['age'] <= float(self.cfg.get('compensated_frame_timeout_s',.25)))
+                    robot["pose_compensated"] = frame_fresh and (robot["id"] in observed or ((self.cfg.get("camera") or {}).get("local_frame_timestamps") and robot["age"] > 0))
                     head = next(spec.head for spec in self.specs if spec.id == robot['id'])
                     units = (joints or {}).get(robot['id']) if head.needs_feedback else None
                     if head.needs_feedback and units is None:
+                        robot['pose_compensated'] = False
                         robot['pose_status'] = 'Fresh head feedback unavailable'
                     elif head.needs_feedback and head.unit_limits is not None and any(
                             not lo <= value <= hi for value,(lo,hi) in zip(units,head.unit_limits)):
+                        robot['pose_compensated'] = False
                         robot['pose_status'] = 'Head outside calibrated movement range'
                     elif not frame_fresh:
                         robot['pose_status'] = 'Camera capture too old'
                     elif not robot['pose_compensated']:
                         robot['pose_status'] = 'Calibrated marker not reliably visible'
                     else:
-                        robot['pose_status'] = 'Calibrated moving head' if head.needs_feedback else 'Secured fixed head'
+                        robot['pose_status'] = 'Recent calibrated observation' if robot['age']>0 else 'Calibrated moving head' if head.needs_feedback else 'Secured fixed head'
                     if units is not None:
                         robot['head_units'] = units.tolist()
         for robot in message['robots']:

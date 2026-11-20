@@ -101,3 +101,29 @@ def test_http_feedback_maps_clock_skew_but_preserves_sample_age():
     assert DashboardJointFeedback.decode(reply,100.,100.3) is None
     reply['position_time']=999_998.
     assert DashboardJointFeedback.decode(reply,100.,100.04) is None
+
+
+def test_single_missed_frame_retains_recent_fixed_pose_without_resetting_its_age(monkeypatch):
+    from vision.pipeline import VisionPipeline
+    from vision.robots import RobotObservation
+    import vision.pipeline as module
+    geometry=Geometry(CameraModel.from_fov(640,480,100),FloorPose.look_at([0,0,.395],[0,2,0]))
+    cfg={'camera':{'local_frame_timestamps':True},'compensated_frame_timeout_s':.65,
+         'robots':[{'id':1,'faces':{2:180},'head_pose':{
+             'neutral_units':[0,0],'degrees_per_unit':[1,1],
+             'pan_pivot_m':[0,0,0],'tilt_pivot_m':[0,0,0],
+             'markers':{2:{'mount':'fixed','center_m':[-.14,0,.295]}}}}]}
+    observed=[True]
+    monkeypatch.setattr(module,'estimate_robots',lambda *args:[RobotObservation(1,0,2,90,[2])] if observed[0] else [])
+    wall=[100.1];monkeypatch.setattr(module.time,'time',lambda:wall[0])
+    pipeline=VisionPipeline(cfg,geometry=geometry)
+    try:
+        frame=np.zeros((480,640,3),np.uint8)
+        assert pipeline.process(frame,100).message['robots'][0]['pose_compensated']
+        observed[0]=False;wall[0]=100.4
+        robot=pipeline.process(frame,100.25).message['robots'][0]
+        assert robot['pose_compensated'] and robot['age']==.25
+        assert robot['x']==0 and robot['y']==2  # no invented position/extrapolation
+        wall[0]=100.8
+        assert not pipeline.process(frame,100.6).message['robots'][0]['pose_compensated']
+    finally:pipeline.close()
