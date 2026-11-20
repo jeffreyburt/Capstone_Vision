@@ -283,3 +283,21 @@ def test_waypoint_move_holds_the_heading_present_at_the_click():
     targets, results = compute_waypoints(msg, 0, nav, {2: ctrl}, motions=motions, now=0.1)
     assert targets[2].heading_deg == 90          # still the heading from the click, not the drifted one
     assert results[2][0][2] < 0                  # yaw command turns back toward it
+
+
+def test_heading_drift_stops_a_holonomic_move_until_a_new_destination():
+    from control.controller import Limits
+    from control.waypoints import WaypointMotion
+    ctrl = RobotController(Limits(allow_strafe=True))
+    msg, nav, _ = inputs()
+    nav['targets'] = {'2': {'x': 2.0, 'y': 1.0, 'preview_only': False, 'revision': 1}}
+    nav['session'] = 's'
+    motions = {2: WaypointMotion()}
+    compute_waypoints(msg, 0, nav, {2: ctrl}, motions=motions, now=0.)
+    msg['robots'][1]['heading'] = 125            # 35 degrees away from the 90 held
+    _, results = compute_waypoints(msg, 0, nav, {2: ctrl}, motions=motions, now=0.1)
+    assert results[2][0] == (0., 0., 0.) and 'heading drifted' in results[2][1]
+    msg['robots'][1]['heading'] = 90             # back in range: still latched
+    assert compute_waypoints(msg, 0, nav, {2: ctrl}, motions=motions, now=0.2)[1][2][0] == (0., 0., 0.)
+    nav['targets']['2']['revision'] = 2          # a new click clears it
+    assert compute_waypoints(msg, 0, nav, {2: ctrl}, motions=motions, now=0.3)[1][2][0] != (0., 0., 0.)

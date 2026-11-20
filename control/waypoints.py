@@ -11,6 +11,7 @@ from .planner import Target
 from .controller import remove_approach, world_to_body
 
 STOP = (0., 0., 0.)
+HEADING_FAULT_DEG = 20.   # holonomic moves stop if the chassis heading drifts this far from the held one
 FRAME_HARD_LIMIT_S = 1.0   # total age of the newest camera frame beyond which motion always stops
 
 
@@ -91,6 +92,7 @@ class WaypointMotion:
         self.filtered=[0.,0.,0.]
         self.last_time=None
         self.hold_heading=None   # chassis heading (deg) captured when the goal was set, held for the whole move
+        self.heading_fault=False  # latched until a new goal: the heading drifted too far, so the move was stopped
 
     def activate(self, goal, session, ctrl, heading=None):
         key=(session,goal.get('revision'),goal['x'],goal['y'])
@@ -98,6 +100,7 @@ class WaypointMotion:
             self.key=key
             self.arrived=False
             self.hold_heading=heading
+            self.heading_fault=False
             ctrl.reset()
 
     def halt(self):
@@ -110,6 +113,7 @@ class WaypointMotion:
         self.key=None
         self.arrived=False
         self.hold_heading=None
+        self.heading_fault=False
 
     def command(self, desired, pose, target, tolerance, now, obstacles=()):
         distance=math.hypot(target.x-pose['x'],target.y-pose['y'])
@@ -264,6 +268,17 @@ def compute_waypoints(msg, age, navigation, controllers, timing=None, *, progres
             motions[rid].activate(goals[str(rid)],navigation.get('session'),ctrl,pose['heading'])
             if motions[rid].hold_heading is not None:   # keep the chassis pointing the way it was when the goal was set
                 targets[rid].heading_deg = motions[rid].hold_heading
+        if motions is not None and ctrl.limits.allow_strafe and motions[rid].hold_heading is not None:
+            drift = abs((pose['heading']-motions[rid].hold_heading+180.)%360.-180.)
+            if drift > HEADING_FAULT_DEG:
+                motions[rid].heading_fault = True
+            if motions[rid].heading_fault:
+                motions[rid].halt()
+                ctrl.reset()
+                if progress is not None:
+                    progress[rid].pause()
+                results[rid] = (STOP, f'heading drifted {drift:.0f}° from the held heading; stopped — select a new destination to retry')
+                continue
         cmd = ctrl.command(pose, targets[rid], obstacles)
         if motions is not None:
             cmd = motions[rid].command(cmd,pose,targets[rid],ctrl.limits.position_tolerance_m,now,obstacles)
