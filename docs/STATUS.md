@@ -31,6 +31,16 @@ master Pi camera ──Ethernet──► laptop: vision.main ──UDP 5005─�
 
 ## 2. Machines
 
+**2026-11-20 persistent geometry measurement update:** Owner reports rear-tag center 14 cm from
+chassis center and centered left/right; interpreted as 14 cm aft (x=-0.14 m, y=0) and recorded for both
+robots in calib/head_neutral_pending.json, with measurement source and approximation noted. Owner
+confirmed the left head is mechanically secured. This closes the previous fixed-left-head and horizontal
+rear-tag-offset questions; measured heights, right-axis geometry, joint sign/scale, and dynamic feedback
+transport/clock checks remain pending. Calibration inventory and reuse conditions are in calib/README.md.
+All measurements, floor/lens calibrations and wheel maps are tracked in Git; none are erased by reboot.
+No head_pose activated and no hardware commands sent in this update.
+
+
 **2026-11-20 neutral-head capture (pending, not navigation calibration):** Owner placed both heads
 level, facing chassis front, and confirmed remaining robot black squares are 10 cm. Read-only Robot 2
 feedback: pan 391, tilt 770, torque [0,0], tracking/sweep stopped. Robot 1 has no servo replies.

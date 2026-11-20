@@ -7,7 +7,17 @@
     "servo_feedback_available": false,
     "neutral_units": null,
     "visible_rear_marker_id": 2,
-    "requires_fixed_head": true
+    "requires_fixed_head": true,
+    "rear_marker_offset": {
+      "x_m": -0.14,
+      "y_m": 0.0,
+      "source": "owner approximate measurement, 2026-11-20",
+      "interpretation": "14 cm behind chassis center, centered left-to-right; applied to both robots from shared measurement",
+      "z_m": null
+    },
+    "neutral_marker_mount": "upright rear face, head level and facing chassis front",
+    "head_mechanically_secured": true,
+    "head_secured_source": "owner confirmation, 2026-11-20"
   },
   "robot2": {
     "servo_feedback_available": true,
@@ -19,7 +29,15 @@
       0,
       0
     ],
-    "visible_rear_marker_id": 6
+    "visible_rear_marker_id": 6,
+    "rear_marker_offset": {
+      "x_m": -0.14,
+      "y_m": 0.0,
+      "source": "owner approximate measurement, 2026-11-20",
+      "interpretation": "14 cm behind chassis center, centered left-to-right; applied to both robots from shared measurement",
+      "z_m": null
+    },
+    "neutral_marker_mount": "upright rear face, head level and facing chassis front"
   },
   "camera_observations": {
     "capture_t": 1792294742.7694764,
@@ -141,8 +159,7 @@
     ]
   },
   "required_measurements": [
-    "Confirm left head is mechanically secured against shifting during driving",
-    "For each robot: horizontal fore/aft and left/right offset of rear tag center from midpoint of wheelbase",
+    "Validate each rear marker center height above floor; current camera estimates are about 0.295 m (robot1) and 0.294 m (robot2)",
     "For right robot: pan-axis fore/aft and left/right location relative to wheelbase midpoint",
     "For right robot: tilt-axis fore/aft and left/right location and height above floor",
     "Identify whether rear marker follows pan, tilt, both, or neither",
@@ -152,5 +169,25 @@
     "neutral units are one read-only capture, not an engaged hold",
     "clock alignment and feedback transport require validation before dynamic compensation",
     "PnP returns ambiguous alternatives; these observations are not active chassis geometry"
-  ]
+  ],
+  "updated_on": "2026-11-20",
+  "chassis_coordinates": {
+    "origin": "floor point beneath midpoint of four wheel centers",
+    "x": "forward",
+    "y": "left",
+    "z": "up",
+    "units": "meters"
+  },
+  "reuse": {
+    "persistent": true,
+    "reboot_requires_recalibration": false,
+    "invalidate_if": [
+      "head or marker mount shifts",
+      "chassis reference changes",
+      "servo horn or linkage is reindexed",
+      "camera moves relative to floor (floor pose only)",
+      "lens, focus, resolution or crop changes (validate lens calibration)"
+    ],
+    "navigation_ready": false
+  }
 }
