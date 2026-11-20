@@ -31,6 +31,13 @@ master Pi camera ──Ethernet──► laptop: vision.main ──UDP 5005─�
 
 ## 2. Machines
 
+**2026-11-20 Robot 1 direction correction:** Repeat lifted forward test produced encoder deltas
+[0,-586,592,-591], with watchdog zero output. Owner observed RR tire top moving toward rear while
+FL/RL moved toward front. Corrected RR/M2 forward sign from -1 to +1 (motor and encoder mapping signs).
+Current experimental FL/FR/RL/RR signs are [1,1,-1,1], giving forward raw commands [0,+4,+4,-4].
+Configuration deployed without a new movement command; visual verification of this correction is pending.
+The previous M4 feedback discrepancy did not recur, but its cause is unknown. No ground test performed.
+
 **2026-11-20 Robot 1 three-wheel preparation (hardware observations):** Wheel tests associate
 FL=M3 (positive top toward front), FR=M1 (direction unverified), RL=M4 and RR=M2
 (positive top toward rear). M1 showed near-zero encoder feedback with both FR and a swapped RL motor,

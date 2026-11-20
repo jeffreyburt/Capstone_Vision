@@ -145,7 +145,7 @@ def test_rejects_commands_from_other_hosts():
 
 
 def test_three_wheel_mode_masks_failed_channel_and_caps_active_wheels():
-    p = DriveParams([3, 1, 4, 2], [1, 1, -1, -1], disabled_channels=[1])
+    p = DriveParams([3, 1, 4, 2], [1, 1, -1, 1], disabled_channels=[1])
     assert p.max_counts == 6
     for velocity in ((1, 0, 0), (0, 1, 0), (0, 0, 1), (1, -1, 1)):
         wheels = wheel_counts(*velocity, p)
@@ -153,7 +153,7 @@ def test_three_wheel_mode_masks_failed_channel_and_caps_active_wheels():
         assert motors[0] == 0
         assert max(abs(v) for v in motors) <= 6
     # The final output gate also blocks stale or unexpected wheel values.
-    assert to_motors([5, 100, 5, 5], p) == [0, -5, 5, -5]
+    assert to_motors([5, 100, 5, 5], p) == [0, 5, 5, -5]
 
 
 @pytest.mark.parametrize('disabled', [[0], [5], [True], [1, 2], [1, 1]])
@@ -165,7 +165,7 @@ def test_invalid_disabled_channels_rejected(disabled):
 def test_three_wheel_ramping_and_watchdog_keep_failed_output_zero():
     clock = FakeClock()
     motors = PrintMotors()
-    p = DriveParams([3, 1, 4, 2], [1, 1, -1, -1], disabled_channels=[1])
+    p = DriveParams([3, 1, 4, 2], [1, 1, -1, 1], disabled_channels=[1])
     srv = DriveServer(motors, p, robot_id=1, port=0, host='127.0.0.1', clock=clock, log=lambda s: None)
     try:
         for _ in range(10):
@@ -173,10 +173,20 @@ def test_three_wheel_ramping_and_watchdog_keep_failed_output_zero():
             srv.tick(clock())
             assert motors.values[0] == 0
             clock.t += 0.05
-        assert motors.values == (0, -6, 6, -6)
+        assert motors.values == (0, 6, 6, -6)
         assert srv._status_reply(None, clock())['disabled_channels'] == [1]
         clock.t += 1
         srv.tick(clock())
         assert motors.values == (0, 0, 0, 0)
     finally:
         srv.sock.close()
+
+
+def test_robot1_deployed_config_forward_directions():
+    from pathlib import Path
+    from robot.drive_server import load_hiwonder_json
+    path = Path(__file__).resolve().parents[1] / 'robot/config/robot1_three_wheels.json'
+    hw = load_hiwonder_json(path)
+    disabled = json.loads(path.read_text())['disabled_channels']
+    p = DriveParams(hw['wheel_channels'], hw['motor_signs'], disabled_channels=disabled)
+    assert to_motors(wheel_counts(0.03, 0, 0, p), p) == [0, 4, 4, -4]
