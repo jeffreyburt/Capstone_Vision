@@ -115,7 +115,16 @@ control:
   max_pose_age_s: 0.7       # stop a robot the camera hasn't seen for this long
   user_lost_s: 2.0          # stop every robot when the user hasn't been seen for this long
   robots:                   # drive server address per robot. side = which side of the user, seen by the user
-    1: {host: 192.168.50.105, port: 5700, side: left}
+    1:
+      host: 192.168.50.105
+      port: 5700
+      side: left
+      limits:  # experimental three-wheel robot: slow turn-then-drive correction
+        max_speed_m_s: 0.04
+        max_yaw_rad_s: 0.15
+        position_gain: 0.4
+        position_tolerance_m: 0.10
+        allow_strafe: false
     2: {host: 192.168.50.12, port: 5700, side: right}
   formation:                # listening triangle: user at one corner, the speakers at the other two
     distance_m: 2.0         # requested speaker-to-user distance; validate current floor pose before arming

@@ -31,6 +31,30 @@ master Pi camera ──Ethernet──► laptop: vision.main ──UDP 5005─�
 
 ## 2. Machines
 
+**2026-11-20 waypoint camera feedback:** Main dashboard now includes per-robot camera position,
+destination, X/Y error, distance error, tracking age/quality, navigation-block reason, and a 60-second
+distance-error chart. Existing grid selection supports separate robot destinations; cancel clears both.
+Waypoint targets carry a click revision. Controller latches zero translation after six seconds without
+at least 3 cm improvement while translation is requested; a new click (even at the same coordinates)
+resets the latch. Stale/blocked tracking stops commands and pauses the progress timer. Turning alone
+is not treated as failed translation. Robot 1 has independent conservative navigation limits: 0.04 m/s,
+0.15 rad/s, 10 cm tolerance, turn-then-drive; its robot-side six-count cap remains unchanged.
+
+Restarted local monitor and unarmed waypoint controller with these changes; previous in-memory targets
+were cleared. Live /state and browser rendering verify both robots' approximate feedback. Full suite:
+142 tests and 10 subtests passed; dashboard JavaScript syntax verified. No movement commands sent in
+this dashboard update. Robot 1 hardware service remains stopped; robot 2 service remains as configured.
+
+**Navigation is not enabled yet:** current vision is approximate marker-center position, heading=null,
+no head-to-chassis compensation configured. Floor calibration and moving-head geometry are required.
+Printable 15 cm black-square floor markers 40/41 are committed under markers/floor-36cm. Owner also has
+15 cm Robot 1 front/left tags (configured IDs 0/1), which may be borrowed for floor calibration with
+--ids 0 1 --forward-id 0 --size-cm 15. They must not be treated as robot poses while lying on the floor;
+keep all navigation unarmed, return tags to known mounts afterward, and validate the actual robot-tag
+sizes separately from floor-marker size. Do not enable driving from approximate data or assume a fixed
+head geometry while the tags move with pan/tilt.
+
+
 **2026-11-20 Robot 1 direction correction:** Repeat lifted forward test produced encoder deltas
 [0,-586,592,-591], with watchdog zero output. Owner observed RR tire top moving toward rear while
 FL/RL moved toward front. Corrected RR/M2 forward sign from -1 to +1 (motor and encoder mapping signs).

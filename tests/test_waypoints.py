@@ -15,7 +15,7 @@ def test_store_validates_targets_and_clears_both_robots():
     store = WaypointStore([1, 2], {'x': [-2, 2], 'y': [0, 5]})
     store.set(1, -1, 2)
     store.set(2, 1, 3)
-    assert store.snapshot() == {'1': {'x': -1., 'y': 2., 'preview_only': True}, '2': {'x': 1., 'y': 3., 'preview_only': True}}
+    assert store.snapshot() == {'1': {'x': -1., 'y': 2., 'preview_only': True, 'revision': 1}, '2': {'x': 1., 'y': 3., 'preview_only': True, 'revision': 2}}
     for args in [(3, 0, 1), (True, 0, 1), (1, float('nan'), 1), (1, 3, 1), (1, 0, -1)]:
         with pytest.raises(ValueError):
             store.set(*args)
@@ -103,7 +103,7 @@ def test_http_targets_are_preview_only_and_reject_cross_origin_requests():
 
     try:
         state = post('/api/navigation/target', {'robot_id': 2, 'x': 1, 'y': 3})
-        assert state['targets']['2'] == {'x': 1., 'y': 3., 'preview_only': True}
+        assert state['targets']['2'] == {'x': 1., 'y': 3., 'preview_only': True, 'revision': 1}
         assert not state['readiness']['2']['ready']
         with pytest.raises(urllib.error.HTTPError) as error:
             post('/api/navigation/target', {'robot_id': 2, 'x': 100, 'y': 3})
@@ -118,3 +118,54 @@ def test_http_targets_are_preview_only_and_reject_cross_origin_requests():
         server.server_close()
         monitor.close()
         relay.tunnels.close()
+
+
+def test_feedback_reports_camera_error_and_marks_approximate_stale_data():
+    from control.waypoints import waypoint_feedback
+    msg, nav, _ = inputs()
+    msg['position_quality'] = 'approximate'
+    msg['robots'][0]['age'] = .4
+    result = waypoint_feedback(msg, .1, nav['targets'], [1, 2])
+    assert result['1']['actual'] == [0, 1]
+    assert result['1']['target'] == [0, 3]
+    assert result['1']['error'] == [0, 2]
+    assert result['1']['distance_m'] == 2
+    assert result['1']['tracking_age_s'] == pytest.approx(.5)
+    assert not result['1']['fresh']
+    assert result['1']['quality'] == 'approximate'
+    assert waypoint_feedback(None, None, {}, [1])['1']['actual'] is None
+
+
+def test_no_progress_latches_stop_until_a_new_click_even_at_same_coordinates():
+    from control.waypoints import WaypointProgress
+    msg, nav, controllers = inputs()
+    guards = {rid: WaypointProgress() for rid in controllers}
+    nav['targets']['1']['revision'] = 1
+    _, commands = compute_waypoints(msg, 0, nav, controllers, progress=guards, now=0)
+    assert commands[1][0] != (0, 0, 0)
+    _, commands = compute_waypoints(msg, 0, nav, controllers, progress=guards, now=7)
+    assert commands[1][0] == (0, 0, 0)
+    assert 'no camera progress' in commands[1][1]
+    msg['robots'][0]['y'] = 2
+    _, commands = compute_waypoints(msg, 0, nav, controllers, progress=guards, now=8)
+    assert commands[1][0] == (0, 0, 0)
+    nav['targets']['1']['revision'] = 2
+    _, commands = compute_waypoints(msg, 0, nav, controllers, progress=guards, now=9)
+    assert commands[1][0] != (0, 0, 0)
+
+
+def test_progress_timer_pauses_for_unusable_camera_and_turning():
+    from control.waypoints import WaypointProgress
+    guard = WaypointProgress()
+    goal = {'x':0, 'y':3}
+    assert guard.check(goal, 2, True, 0)
+    assert guard.check(goal, 1.9, True, 5)
+    assert guard.check(goal, 1.9, True, 10)
+    assert guard.check(goal, 1.9, False, 15)
+    assert guard.check(goal, 1.9, True, 20)
+    msg, nav, controllers = inputs()
+    guards = {rid: WaypointProgress() for rid in controllers}
+    compute_waypoints(msg, 0, nav, controllers, progress=guards, now=0)
+    compute_waypoints(None, 10, nav, controllers, progress=guards, now=20)
+    _, commands = compute_waypoints(msg, 0, nav, controllers, progress=guards, now=30)
+    assert commands[1][0] != (0,0,0)

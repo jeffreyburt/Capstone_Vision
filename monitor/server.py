@@ -38,7 +38,7 @@ from . import assess
 from .beacon import StatusListener, status_port
 from .probes import find_ssh, gateway_probe, network_probe, parse_health, run_ssh, tcp_check
 from .tunnels import CameraTunnels
-from control.waypoints import WaypointStore
+from control.waypoints import WaypointStore, waypoint_feedback
 
 PAGE = Path(__file__).with_name("page.html")
 
@@ -256,7 +256,9 @@ class SystemMonitor:
         return {
             "t": now,
             "main_camera": main_camera_view(vmsg, vage, now),
-            "navigation": {"targets": self.waypoints.snapshot(), "readiness": readiness},
+            "navigation": {"targets": self.waypoints.snapshot(), "readiness": readiness,
+                           "feedback": waypoint_feedback((vision or {}).get('message'), vage, self.waypoints.snapshot(),
+                                                         [n.robot_id for n in self.nodes if n.kind == 'robot'])},
             "nodes": out_nodes,
             "links": links,
             "vision": None if vision is None else {"message": vision.get("message"), "scene": vision.get("scene"),

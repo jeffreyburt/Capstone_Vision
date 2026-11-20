@@ -42,6 +42,10 @@
   #diagram .node { cursor: pointer; }
   #diagram .node:hover rect { fill: #222831; }
   #map { display: block; width: 100%; height: 460px; }
+  #navigation-feedback { padding: 8px 12px; }
+  #navigation-feedback table { width:100%; border-collapse:collapse; font-size:12px; }
+  #navigation-feedback th, #navigation-feedback td { text-align:left; padding:5px; border-bottom:1px solid var(--line); }
+  #error-chart { width:100%; height:120px; display:block; }
   #map-note { color: var(--warn); font-weight: 400; }
   .legend { display: flex; flex-wrap: wrap; gap: 14px; padding: 6px 12px 10px; color: var(--muted); font-size: 12px; }
   .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
@@ -120,6 +124,9 @@
         <button id="clear-waypoints">Cancel all targets</button>
       </div>
       <p id="navigation-status" role="status" style="padding:0 12px;color:var(--warn)">Click the grid to preview a destination. Driving is disabled.</p>
+      <div id="navigation-feedback" aria-live="polite"></div>
+      <canvas id="error-chart" aria-label="Camera distance to destination over the last sixty seconds"></canvas>
+      <div class="legend"><span>Distance error over time · lower is closer · stale data creates gaps</span></div>
       <div class="legend">
         <span><i style="background:var(--r1)"></i>robot (arrow = front)</span>
         <span><i style="background:transparent;border:1.5px dashed var(--muted)"></i>control target</span>
@@ -486,6 +493,48 @@ function drawMap(st) {
   $("map-note").textContent = notes.join(" · ");
 }
 
+// Camera feedback is independent of arming: previews still show measured error, never drive.
+const errorHistory = new Map();
+function drawNavigationFeedback(st) {
+  const feedback = st.navigation?.feedback || {}, now = Date.now() / 1000;
+  const coord = p => p ? `(${p[0].toFixed(2)}, ${p[1].toFixed(2)})` : "—";
+  let rows = "";
+  for (const [id, f] of Object.entries(feedback)) {
+    const ready = st.navigation?.readiness?.[id];
+    const controller = st.control?.robots?.[id];
+    const estimated = f.quality === "approximate";
+    const label = !f.actual ? "Not seen" : !f.fresh ? "Tracking stale" : estimated ? "Estimated marker position" : "Camera chassis position";
+    const reason = !ready?.ready ? ready?.reason : controller?.reason;
+    rows += `<tr><td>R${esc(id)}</td><td>${coord(f.actual)}<br>${esc(label)}</td><td>${coord(f.target)}</td><td>${f.distance_m == null ? "—" : `${estimated ? "≈ " : ""}${f.distance_m.toFixed(2)} m`}<br>${f.error ? `Δx ${f.error[0].toFixed(2)}, Δy ${f.error[1].toFixed(2)}` : ""}</td><td>${f.tracking_age_s == null ? "—" : `${f.tracking_age_s.toFixed(2)} s`}<br>${esc(reason || "No destination")}</td></tr>`;
+    let history = errorHistory.get(id);
+    if (!history || history.revision !== f.revision) history = { revision:f.revision, points:[], frame:null };
+    const frame = st.vision?.message?.frame;
+    if (frame !== history.frame) {
+      history.points.push([now, f.fresh && f.distance_m != null ? f.distance_m : null]);
+      history.frame = frame;
+    }
+    history.points = history.points.filter(p => p[0] >= now - 60);
+    errorHistory.set(id, history);
+  }
+  $("navigation-feedback").innerHTML = `<table><thead><tr><th>Robot</th><th>Camera position (m)</th><th>Destination (m)</th><th>Position error</th><th>Age / navigation</th></tr></thead><tbody>${rows || '<tr><td colspan="5">Waiting for camera feedback</td></tr>'}</tbody></table>`;
+  const chart = $("error-chart"), w = chart.clientWidth, h = chart.clientHeight, dpr = window.devicePixelRatio || 1;
+  chart.width = Math.round(w*dpr); chart.height = Math.round(h*dpr);
+  const ctx = chart.getContext("2d"); ctx.scale(dpr,dpr);
+  const ymax = Math.max(.1, ...[...errorHistory.values()].flatMap(v => v.points.map(p => p[1] || 0)));
+  ctx.font = "11px system-ui"; ctx.fillStyle = "#8a939e";
+  ctx.fillText(`${ymax.toFixed(2)} m`, 5, 12); ctx.fillText("0 m", 5, h-12); ctx.fillText("60 s ago → now", w-110, h-4);
+  for (const [id, history] of errorHistory) {
+    ctx.strokeStyle = robotColor(+id); ctx.lineWidth = 2; ctx.beginPath(); let connected = false;
+    for (const [t,e] of history.points) {
+      if (e == null) { connected=false; continue; }
+      const x=45+(t-now+60)/60*(w-55), y=12+(1-e/ymax)*(h-35);
+      if (connected) ctx.lineTo(x,y); else ctx.moveTo(x,y);
+      connected=true;
+    }
+    ctx.stroke();
+  }
+}
+
 // ---------------------------------------------------------------- polling
 let mainCameraURL = null, mainCameraRetry = 0;
 $("main-camera-image").onerror = () => {
@@ -544,6 +593,7 @@ async function poll() {
     drawDiagram(latest);
     drawCards(latest);
     drawMap(latest);
+    drawNavigationFeedback(latest);
   } catch (e) {
     drawMainCamera({ main_camera: { live: false, status: "Dashboard connection lost; waiting to reconnect" } });
     document.body.classList.add("lost");

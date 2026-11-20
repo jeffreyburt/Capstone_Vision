@@ -23,7 +23,7 @@ from vision.config import load_config
 from .controller import Limits, RobotController
 from .link import RobotLink, VisionListener
 from .planner import FormationPlanner
-from .waypoints import compute_waypoints, read_waypoints
+from .waypoints import WaypointProgress, compute_waypoints, read_waypoints
 
 STOP = (0.0, 0.0, 0.0)
 TIMING_DEFAULTS = {"vision_timeout_s": 1.0, "max_pose_age_s": 0.7, "user_lost_s": 2.0}
@@ -141,7 +141,9 @@ def main(argv=None):
                                f.get("distance_m", 1.5), f.get("spread_deg", 60.0), f.get("facing_deg", -90.0),
                                f.get("replan_m", 0.3), cfg.get("area"))
     limits = Limits.from_config(c.get("limits"))
-    controllers = {rid: RobotController(limits) for rid in driven}
+    controllers = {rid: RobotController(Limits.from_config({
+        **(c.get('limits') or {}), **(robots_cfg[rid].get('limits') or {})})) for rid in driven}
+    progress = {rid: WaypointProgress() for rid in driven}
     timing = {k: c[k] for k in TIMING_DEFAULTS if k in c}
     period = 1.0 / float(c.get("rate_hz", 10))
 
@@ -170,7 +172,7 @@ def main(argv=None):
             msg_age = None if received_at is None else now - received_at
             if args.waypoints:
                 nav = read_waypoints(f"http://127.0.0.1:{int((cfg.get('system') or {}).get('gui_port',8090))}/api/navigation")
-                targets, results = compute_waypoints(msg, msg_age, nav, controllers, timing)
+                targets, results = compute_waypoints(msg, msg_age, nav, controllers, timing, progress=progress)
             else:
                 targets, results = compute_commands(msg, msg_age, planner, controllers, timing, compensated_ids)
             if args.arm:
