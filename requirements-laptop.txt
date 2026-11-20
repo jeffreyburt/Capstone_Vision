@@ -1,3 +1,5 @@
 # Controller laptop: everything in requirements.txt + person detection.
 -r requirements.txt
 ultralytics          # YOLO person detection (pulls in PyTorch; for an NVIDIA GPU install the CUDA build of torch)
+
+scipy               # offline articulated-head motion calibration fitting

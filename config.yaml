@@ -26,6 +26,7 @@ streams:
 
 # ---- Birds-eye vision (runs on the laptop) ----
 camera:
+  local_frame_timestamps: true  # align camera and HTTP joint feedback without changing Pi clocks
   source: stream://birdseye # laptop: the master Pi's stream. Also: picam | webcam | test | video file | URL
   # The settings below are used wherever a Pi camera is opened (the senders) and for webcams.
   webcam_index: 0
@@ -60,10 +61,77 @@ robots:
   #        (0 = front, 90 = left side, 180 = back, 270 = right side)
   # center_offset_m: distance from the marker surface to the robot's center (half of a 30 cm robot)
   - id: 1
+    head_pose:
+      neutral_units:
+      - 0
+      - 0
+      degrees_per_unit:
+      - 1
+      - 1
+      pan_pivot_m:
+      - 0
+      - 0
+      - 0
+      tilt_pivot_m:
+      - 0
+      - 0
+      - 0
+      markers:
+        '2':
+          mount: fixed
+          center_m:
+          - -0.14
+          - 0
+          - 0.2952609205636474
+          rotation_vector_rad:
+          - 0.02168821587013519
+          - 0.004358532131393825
+          - -4.726632047745827e-05
     moving_head_markers: true  # chassis heading unavailable until head_pose calibration
     faces: {0: 0, 1: 90, 2: 180, 3: 270}
     center_offset_m: 0.15
   - id: 2
+    head_pose:
+      neutral_units:
+      - 391
+      - 770
+      degrees_per_unit:
+      - 0.27106635355867265
+      - 0.22619580681950738
+      pan_pivot_m:
+      - -0.013451569635130712
+      - -0.07841484031480485
+      - 0.0
+      tilt_pivot_m:
+      - -0.04719760585549351
+      - 0.0
+      - 0.3201280763228578
+      valid_units:
+      - - 331
+        - 451
+      - - 710
+        - 775
+      markers:
+        '6':
+          mount: tilt
+          center_m:
+          - -0.14
+          - 0.0
+          - 0.2937034410485732
+          rotation_vector_rad:
+          - 0.04043269929944133
+          - -0.03819042930693983
+          - 0
+        '5':
+          mount: pan
+          center_m:
+          - -0.020838988000895932
+          - 0.1083818550129793
+          - 0.23903912263783259
+          rotation_vector_rad:
+          - 0.04048336968790622
+          - -0.10513518773976117
+          - -0.03411309100077434
     moving_head_markers: true
     faces: {4: 0, 5: 90, 6: 180, 7: 270}
     center_offset_m: 0.15
@@ -72,6 +140,8 @@ robots:
   # See docs/HEAD_TRACKER.md for the per-marker mount and joint calibration.
 
 # UDP joint feedback from robot dashboards when any robot enables head_pose.
+compensated_frame_timeout_s: 0.65  # measured 0.30–0.45 s stream delay; commands still expire on vision loss
+joint_feedback_transport: dashboard_http  # read measured joint samples through existing SSH gateway
 joint_feedback_port: 5006
 
 people:
@@ -112,6 +182,7 @@ output:
 # ---- Robot control MVP (python -m control.main; robot side: robot/drive_server.py) ----
 # The laptop closes the loop: vision pose -> listening-triangle target -> velocity command over UDP.
 control:
+  drive_via: vision@192.168.1.20  # authenticated UDP relay; robot allow-list uses main Pi 192.168.50.1
   vision_port: 5005         # where vision.main publishes (output.port above)
   rate_hz: 10               # command rate; each robot's drive server stops after 0.5 s without one
   vision_timeout_s: 1.0     # stop every robot if no vision message arrives for this long
@@ -128,7 +199,16 @@ control:
         position_gain: 0.4
         position_tolerance_m: 0.10
         allow_strafe: false
-    2: {host: 192.168.50.12, port: 5700, side: right}
+    2:
+      host: 192.168.50.12
+      port: 5700
+      side: right
+      limits:  # initial camera-guided mode: same conservative camera-delay allowance
+        max_speed_m_s: 0.04
+        max_yaw_rad_s: 0.15
+        position_gain: 0.4
+        position_tolerance_m: 0.10
+        allow_strafe: false
   formation:                # listening triangle: user at one corner, the speakers at the other two
     distance_m: 2.0         # requested speaker-to-user distance; validate current floor pose before arming
     spread_deg: 60          # angle between the speakers as seen by the user (60 = equilateral)

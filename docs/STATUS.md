@@ -31,6 +31,62 @@ master Pi camera ──Ethernet──► laptop: vision.main ──UDP 5005─�
 
 ## 2. Machines
 
+**2026-11-20 ACTIVE calibrated click-navigation profile (supersedes earlier pending/rejected notes):**
+Owner confirmed chassis stationary and requested minimal intervention; no temporary chassis tag or
+chassis repositioning was used. Refined the model to fit actual neutral tag mounting angles. Offline
+independent RMS ~1.56 px, p95 drift ~3.2 cm and heading deviation ~4.6 degrees. A separate live head-only
+validation produced 62 valid compensated frames: p95 position drift ~4.0 cm, maximum ~5.8 cm, heading
+p95 ~2.4 degrees. Saved exact model/hash and recordings in calib; see calib/README.md for full provenance.
+The right-head model is active only in tested pan 331–451 / tilt 710–775. The secured left head uses
+fixed rear tag 2 without servo feedback. Hidden top/front tags are ignored. No wheel motion was commanded
+in this calibration/setup session; first camera-guided floor waypoint validation remains to be done.
+
+Implemented mounting rotation offsets, fixed-only/no-feedback heads, joint-range rejection, and direct
+image-space level-chassis fitting (the prior ray/height method was ill-conditioned near lens height).
+Joint readings are polled read-only through SSH with remote-relative age; sender/receiver clock mapping
+aligns camera timestamps locally. Measured capture/encoding/processing delay 0.30–0.45 s; profile uses
+0.65 s capture cutoff with 0.04 m/s navigation caps and 10 cm tolerance on both robots. Stale actual capture
+times are rejected even if status heartbeats are fresh. Vision sends frame status immediately.
+
+Added authenticated SSH-to-UDP command gateway, with stop acknowledgement bootstrap, stale-ACK stop,
+latest-per-robot queue draining, endpoint allow-list and original robot watchdogs. Installed/enabled
+Robot 1 capstone-drive-1.service (M1 disabled, six-count cap) and updated Robot 2's existing service to
+allow gateway source 192.168.50.1 instead of Mac 192.168.1.10. Robot 2 wheel mapping preserved. Both units
+require compensated poses. Status/stop-only checks confirmed hardware=true, errors null, all outputs zero.
+Robot 1 staging initially hit automatic-approval service HTTP 503; ordinary retry succeeded.
+
+Main monitor/vision/waypoint stack is active. Controller transport runs --arm, but **dashboard movement
+switch is OFF**, targets empty, all emitted commands zero/stop. New Enable click driving control is
+required before an executable grid click; changing enable state clears old goals. Off-state clicks stay
+preview-only. Cancel all clears both targets. Lost vision/joints, invalid range, stale capture and failed
+translation progress stop navigation. Live samples: both robots compensated on 15/16 snapshots, navigation
+ready on 11/16 (occasional capture-age guard pauses). Browser rendering and off-state preview/clear tested.
+
+Tests: 157 passed plus 10 subtests; JavaScript syntax and rendered switch-off/feedback rows verified.
+Current local PIDs: monitor 66519, controller 66520, passive vision 64496. Camera main stream remains live.
+Right head remained torque-engaged near neutral after tests (last calibration capture ~396/765), tracking
+and sweep off. Right dashboard restarted after capture to restore its original A/B sweep parameters;
+verified positions ~396/766, torque [1,1], tracking/sweep off and original config restored.
+No Mac Wi-Fi or Pi clocks changed. Calibration persists in Git across reboots.
+
+
+**2026-11-20 right-head motion calibration attempt:** Owner authorized camera-observed servo movements
+and requested chassis stay forward; no wheel commands were sent. Collected 118 samples for pan +/-60
+units and tilt -60, 85 independent smaller-movement validation samples, then 86 samples at pan +60 with
+a -30 tilt to expose side ID 5 alongside rear ID 6. All segments eased over 2 seconds. The first strict
+return check failed at pan 384 vs 391; movement stopped with torque engaged. Subsequent tests returned
+near neutral; final capture 397/768 with torque engaged, head tracking/sweep off.
+
+Raw recordings, provisional PnP analysis, and combined fit report are in calib/right_head_*.json; pending
+reference record and calib/README.md link them. Added opt-in acquisition and hardware-free fitting tools,
+SciPy laptop dependency, and tests for model agreement/feedback filtering/explicit execution guard.
+Model validation is REJECTED for navigation: independent corner RMS ~2.54 px, but training stationary
+chassis p95 drift ~5.2 cm and heading deviation ~21.7 degrees (27.8-degree span). Do not activate the
+candidate head_pose. Need a temporary chassis-fixed reference to separate base motion and head geometry;
+asked owner to attach spare 15 cm ID 1 upright on rigid lower chassis, removing its floor copy first.
+No active calibration or wheel-server configuration changed; driving remains unarmed and blocked.
+
+
 **2026-11-20 persistent geometry measurement update:** Owner reports rear-tag center 14 cm from
 chassis center and centered left/right; interpreted as 14 cm aft (x=-0.14 m, y=0) and recorded for both
 robots in calib/head_neutral_pending.json, with measurement source and approximation noted. Owner

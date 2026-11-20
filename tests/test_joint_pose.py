@@ -68,3 +68,36 @@ def test_compensated_drive_requires_marker_pose_and_accepts_stop():
     drive["pose_compensated"] = True
     assert parse_command(json.dumps(drive), 1, require_compensated_pose=True)[0] == "drive"
     assert parse_command('{"type":"stop","robot_id":1}', 1, require_compensated_pose=True)[0] == "stop"
+
+
+def test_fixed_head_geometry_needs_no_live_servo_feedback():
+    cfg={'robots':[{'id':1,'faces':{2:180},'head_pose':{
+        'neutral_units':[0,0],'degrees_per_unit':[1,1],
+        'pan_pivot_m':[0,0,0],'tilt_pivot_m':[0,0,0],
+        'markers':{2:{'mount':'fixed','center_m':[-.14,0,.295]}}}}]}
+    spec=robot_specs_from_config(cfg)[0]
+    assert not spec.head.needs_feedback
+    geometry=Geometry(CameraModel.from_fov(1600,900,102),FloorPose.look_at([0,0,.395],[0,3,0]))
+    corners=spec.head.corners(2,None)+[0,2,0]
+    marker=MarkerDetection(2,geometry.world_to_pixels(corners))
+    obs,=estimate_robots([marker],[spec],geometry)
+    assert (obs.x,obs.y)==pytest.approx((0,2),abs=1e-5)
+
+
+def test_calibrated_joint_envelope_rejects_extrapolation(articulated):
+    head=articulated[0].head
+    head.unit_limits=np.array([[450,550],[450,550]])
+    assert head.corners(2,np.array([500,500])) is not None
+    assert head.corners(2,np.array([551,500])) is None
+    assert head.corners(2,np.array([500,449])) is None
+
+
+def test_http_feedback_maps_clock_skew_but_preserves_sample_age():
+    from vision.joint_pose import DashboardJointFeedback
+    reply={'positions':[391,770],'position_error':None,'serverTime':1_000_000.,'position_time':999_999.9}
+    stamp,units=DashboardJointFeedback.decode(reply,100.,100.04)
+    assert stamp==pytest.approx(99.92)
+    assert list(units)==[391,770]
+    assert DashboardJointFeedback.decode(reply,100.,100.3) is None
+    reply['position_time']=999_998.
+    assert DashboardJointFeedback.decode(reply,100.,100.04) is None

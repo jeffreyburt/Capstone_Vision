@@ -241,11 +241,14 @@ class SystemMonitor:
             reason = None
             if not vision or now - vision.get('last_frame_t', 0) > 1:
                 reason = 'Fresh camera positions required'
+            elif ((vision.get('message') or {}).get('frame_clock') == 'local' and
+                  not 0 <= now-(vision.get('message') or {}).get('t',0) <= min(.65,(vision.get('message') or {}).get('max_frame_age_s',.25))):
+                reason = 'Camera capture too old'
             elif ((vision.get('message') or {}).get('position_quality') == 'approximate' or
                   (vision.get('message') or {}).get('driving_allowed') is False):
                 reason = 'Approximate positions — driving disabled'
             elif not pose.get('pose_compensated') or pose.get('heading') is None or pose.get('age', 999) > .25:
-                reason = 'Calibrated compensated chassis pose required'
+                reason = pose.get('pose_status') or 'Calibrated compensated chassis pose required'
             elif not reply:
                 reason = 'Drive server not responding'
             elif reply.get('hardware') is not True:
@@ -257,6 +260,7 @@ class SystemMonitor:
             "t": now,
             "main_camera": main_camera_view(vmsg, vage, now),
             "navigation": {"targets": self.waypoints.snapshot(), "readiness": readiness,
+                           "armed": self.waypoints.armed, "session": self.waypoints.session,
                            "feedback": waypoint_feedback((vision or {}).get('message'), vage, self.waypoints.snapshot(),
                                                          [n.robot_id for n in self.nodes if n.kind == 'robot'])},
             "nodes": out_nodes,
@@ -357,7 +361,7 @@ def make_server(monitor, relay, host, port):
                 self.send_error(404)
 
         def do_POST(self):
-            if self.path not in ('/api/navigation/target', '/api/navigation/clear'):
+            if self.path not in ('/api/navigation/target', '/api/navigation/clear', '/api/navigation/arm'):
                 self.send_error(404)
                 return
             origin = self.headers.get('Origin')
@@ -369,11 +373,13 @@ def make_server(monitor, relay, host, port):
                 if not 0 < size <= 2048:
                     raise ValueError('Missing or oversized JSON request')
                 data = json.loads(self.rfile.read(size))
-                if self.path.endswith('/clear'):
+                if self.path.endswith('/arm'):
+                    monitor.waypoints.arm(data['enabled'])
+                elif self.path.endswith('/clear'):
                     monitor.waypoints.clear()
                 else:
                     ready = monitor.snapshot()['navigation']['readiness'].get(str(data['robot_id']), {}).get('ready', False)
-                    monitor.waypoints.set(data['robot_id'], data['x'], data['y'], preview_only=not ready)
+                    monitor.waypoints.set(data['robot_id'], data['x'], data['y'], preview_only=not ready or not monitor.waypoints.armed)
                 self._send(200, 'application/json', json.dumps(monitor.snapshot()['navigation']).encode())
             except (ValueError, TypeError, KeyError) as error:
                 self._send(400, 'application/json', json.dumps({'error': str(error)}).encode())

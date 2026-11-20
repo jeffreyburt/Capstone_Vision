@@ -121,6 +121,7 @@
       <canvas id="map"></canvas>
       <div style="padding:8px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <label>Selected robot <select id="waypoint-robot"><option value="1">Robot 1</option><option value="2">Robot 2</option></select></label>
+        <label><input type="checkbox" id="navigation-arm"> Enable click driving</label>
         <button id="clear-waypoints">Cancel all targets</button>
       </div>
       <p id="navigation-status" role="status" style="padding:0 12px;color:var(--warn)">Click the grid to preview a destination. Driving is disabled.</p>
@@ -351,6 +352,10 @@ canvas.onclick = async event => {
     await navigationRequest("/api/navigation/target", { robot_id: Number($("waypoint-robot").value), x, y });
   } catch (error) { $("navigation-status").textContent = error.message; }
 };
+$("navigation-arm").onchange = async () => {
+  try { await navigationRequest('/api/navigation/arm', { enabled: $("navigation-arm").checked }); }
+  catch (error) { $("navigation-arm").checked = false; $("navigation-status").textContent = error.message; }
+};
 $("clear-waypoints").onclick = async () => {
   try { await navigationRequest("/api/navigation/clear", {}); }
   catch (error) { $("navigation-status").textContent = error.message; }
@@ -371,8 +376,10 @@ function drawMap(st) {
   for (const [id, goal] of Object.entries(st.navigation?.targets || {})) targets[id] = { target: [goal.x, goal.y, null] };
   const selected = $("waypoint-robot").value, nav = st.navigation?.readiness?.[selected];
   const goal = st.navigation?.targets?.[selected];
+  $("navigation-arm").checked = st.navigation?.armed === true;
   $("navigation-status").textContent = (goal ? `R${selected} destination: (${goal.x.toFixed(2)}, ${goal.y.toFixed(2)}) m. ` : "Click the grid to set a destination. ") +
     (!nav?.ready ? `Preview only: ${nav?.reason || "checking readiness"}. No movement.` :
+      !st.navigation?.armed ? "Click driving disabled. Enable it, then choose a new destination." :
       goal?.preview_only ? "Saved preview only; select a new destination after navigation is ready." :
       st.control?.navigation_mode !== "waypoints" ? "Waypoint controller is not running." :
       st.control?.mode === "ARMED" ? "Armed waypoint controller active." : "Dry run only; controller is not armed.");
@@ -569,7 +576,7 @@ function drawMainCamera(st) {
     (c.user ? ` · person distance ≈ ${Math.hypot(r.x - c.user.x, r.y - c.user.y).toFixed(2)} m` : ""));
   if (c.user) positions.push(`Person ≈ (${c.user.x.toFixed(2)}, ${c.user.y.toFixed(2)}) m`);
   $("main-camera-positions").textContent = positions.length ? positions.join(" | ") +
-    " · X right / Y forward from beneath the camera" + (c.position_quality === "approximate" ? " · Robot reference: visible marker centers; head offsets uncorrected" : "") : "";
+    (c.position_quality === "approximate" ? " · X right / Y forward from beneath the camera" : " · Floor-calibrated axes; +Y toward calibration tag 0") + (c.position_quality === "approximate" ? " · Robot reference: visible marker centers; head offsets uncorrected" : "") : "";
   if (mainCameraURL !== c.url && Date.now() >= mainCameraRetry) {
     mainCameraURL = c.url;
     img.src = `${c.url}?t=${Date.now()}`;

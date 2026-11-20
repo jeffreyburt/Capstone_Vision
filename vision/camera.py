@@ -184,6 +184,7 @@ class StreamSource:
         self.name = name
         self.rx = FrameReceiver(cfg, [name])
         self.last_seq = None
+        self.local_timestamps = bool((cfg.get("camera") or {}).get("local_frame_timestamps",False))
 
     def read(self, warn_after=5.0):
         start = time.time()
@@ -191,6 +192,11 @@ class StreamSource:
             f = self.rx.wait_new(self.name, self.last_seq, timeout=1.0)
             if f is not None:
                 self.last_seq = f.seq
+                if self.local_timestamps:
+                    stamp = f.local_capture_time
+                    if stamp is None:
+                        continue  # never combine unmapped frame clocks with local HTTP feedback
+                    return f.image, stamp
                 return f.image, f.t_capture  # capture time on the sender's clock
             if time.time() - start > warn_after:
                 s = self.rx.streams[self.name]

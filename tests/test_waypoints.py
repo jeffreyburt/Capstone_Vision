@@ -29,7 +29,7 @@ def test_store_validates_targets_and_clears_both_robots():
 def inputs():
     msg = {'robots': [{'id': 1, 'x': 0, 'y': 1, 'heading': 90, 'age': 0, 'pose_compensated': True},
                       {'id': 2, 'x': 1, 'y': 1, 'heading': 90, 'age': 0, 'pose_compensated': True}]}
-    nav = {'targets': {'1': {'x': 0, 'y': 3, 'preview_only': False}, '2': {'x': 1, 'y': 3, 'preview_only': False}},
+    nav = {'armed': True, 'targets': {'1': {'x': 0, 'y': 3, 'preview_only': False}, '2': {'x': 1, 'y': 3, 'preview_only': False}},
            'readiness': {'1': {'ready': True}, '2': {'ready': True}}}
     return msg, nav, {1: RobotController(), 2: RobotController()}
 
@@ -105,6 +105,11 @@ def test_http_targets_are_preview_only_and_reject_cross_origin_requests():
         state = post('/api/navigation/target', {'robot_id': 2, 'x': 1, 'y': 3})
         assert state['targets']['2'] == {'x': 1., 'y': 3., 'preview_only': True, 'revision': 1}
         assert not state['readiness']['2']['ready']
+        assert state['armed'] is False
+        state = post('/api/navigation/arm', {'enabled': True})
+        assert state['armed'] is True and state['targets'] == {}
+        state = post('/api/navigation/arm', {'enabled': False})
+        assert state['armed'] is False and state['targets'] == {}
         with pytest.raises(urllib.error.HTTPError) as error:
             post('/api/navigation/target', {'robot_id': 2, 'x': 100, 'y': 3})
         assert error.value.code == 400
@@ -169,3 +174,37 @@ def test_progress_timer_pauses_for_unusable_camera_and_turning():
     compute_waypoints(None, 10, nav, controllers, progress=guards, now=20)
     _, commands = compute_waypoints(msg, 0, nav, controllers, progress=guards, now=30)
     assert commands[1][0] != (0,0,0)
+
+
+def test_dashboard_disarm_stops_commands_and_old_goals_never_resume():
+    msg, nav, controllers = inputs()
+    nav['armed'] = False
+    _, commands = compute_waypoints(msg, 0, nav, controllers)
+    assert all(cmd[0] == (0,0,0) for cmd in commands.values())
+    assert 'dashboard driving disabled' in commands[1][1]
+    store=WaypointStore([1],{'x':[-2,2],'y':[0,5]})
+    store.set(1,0,3,preview_only=False)
+    store.arm(True)
+    assert store.snapshot()=={}
+    store.set(1,0,3,preview_only=False)
+    store.arm(False)
+    assert not store.armed and store.snapshot()=={}
+    with pytest.raises(ValueError):store.arm('true')
+
+
+def test_capture_age_stops_navigation_even_with_new_heartbeats(monkeypatch):
+    msg, nav, controllers = inputs()
+    msg.update(frame_clock='local',t=100.,max_frame_age_s=.65)
+    monkeypatch.setattr('control.waypoints.time.time',lambda:100.8)
+    _,commands=compute_waypoints(msg,0,nav,controllers)
+    assert all(v[0]==(0,0,0) for v in commands.values())
+    assert commands[1][1]=='camera capture too old'
+
+
+def test_progress_fault_can_reset_after_dashboard_restart_at_same_target_revision():
+    from control.waypoints import WaypointProgress
+    guard=WaypointProgress()
+    goal={'session':'first','revision':1,'x':0,'y':3}
+    assert guard.check(goal,2,True,0)
+    assert not guard.check(goal,2,True,7)
+    assert guard.check({**goal,'session':'restarted'},2,True,8)

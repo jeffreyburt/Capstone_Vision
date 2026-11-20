@@ -1,5 +1,28 @@
 # Capstone head tracking and vision-guided driving
 
+## Current installed profile (2026-11-20)
+
+The saved, active configuration and experiment recordings are in [calib/README.md](../calib/README.md).
+Robot 1 uses its mechanically secured rear marker as `fixed`; it does not need servo replies. Robot 2
+uses camera-fitted pan/tilt geometry and measured HTTP joint feedback through the main Pi. It is limited
+to the tested pan 331–451 / tilt 710–775 range. Both wheel services run standalone compensated-pose mode;
+do not start the neutral-only UART wrapper alongside the dashboards or wheel services.
+
+Open the main dashboard, enable click driving, select a robot, then click a fresh grid destination.
+Driving starts disabled after monitor restart. The currently running controller has `--arm`, but the
+separate dashboard enable switch and fresh calibrated-pose checks gate every command. Cancelling goals,
+disabling driving, loss of vision/joints or leaving the calibrated range stops motion. Mac Wi-Fi stays
+unchanged; command UDP is relayed over authenticated SSH through the main Pi.
+
+Marker calibration additionally supports `rotation_vector_rad` (a Rodrigues rotation of neutral corner
+offsets about the marker center) and `head_pose.valid_units` (two calibrated encoder ranges). Fixed-only
+heads need no live joint source; placeholder neutral/scale/pivots are unused for their fixed marker.
+The image-space pose fit avoids unstable ray/height intersections at this low camera vantage point.
+See the calibration inventory for reuse, validation accuracy, clock mapping and startup commands.
+
+The sections below describe general workflows and legacy neutral-only setup; use the current installed
+profile above for this robot pair.
+
 The robot has two operating modes. In parked mode, the robot-mounted camera and browser face detector aim the speaker using the existing head tracker. In drive mode, the overhead vision camera tracks the ArUco markers and the laptop commands the chassis. The speaker stays level and faces forward during drive mode because the markers are attached to it.
 
 ## Layout and setup

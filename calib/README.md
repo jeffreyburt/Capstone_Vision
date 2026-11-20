@@ -1,48 +1,117 @@
-# Saved robot and camera calibration
+# Persistent calibration and click-to-drive setup
 
-These files are committed to Git. A reboot or application restart does **not** require repeating
-calibration. The laptop's `config.yaml` selects the active lens/floor files; wheel services use their
-robot-specific configuration. Pending head measurements are retained here but are not enabled as a
-completed navigation calibration.
+The calibration is saved in Git and loaded by `config.yaml`. Rebooting the Pis or restarting the laptop
+programs does **not** require repeating the measurements. Camera or mechanical changes can invalidate
+the affected calibration; normal travel and power cycles do not.
 
-| File | Saved information / status |
+## Current active calibration — 2026-11-20
+
+| File | Information |
 | --- | --- |
-| [camera_intrinsics.yaml](camera_intrinsics.yaml) | Lens matrix and distortion at 4608 × 2592; 12 views, 0.874 px RMS. |
-| [floor_pose_36cm.yaml](floor_pose_36cm.yaml) | Current floor transform. Owner measured 39.5 cm lens height and ~103 cm floor-tag spacing; camera fit 37.9 cm and 103.6 cm. Filename is historical. |
-| [head_neutral_pending.json](head_neutral_pending.json) | Neutral capture and sourced physical measurements; **incomplete for navigation**. |
-| [../robot/config/robot1_three_wheels.json](../robot/config/robot1_three_wheels.json) | Robot 1 wheel mapping/signs, M1 disabled, six-count speed cap. |
-| [../robot/config/robot2_wheels.json](../robot/config/robot2_wheels.json) | Robot 2 wheel mapping and board settings. |
-| [floor_pose.yaml](floor_pose.yaml) | Historical camera pose at about 1 m; not the active floor transform. |
+| [camera_intrinsics.yaml](camera_intrinsics.yaml) | Lens matrix/distortion at 4608 × 2592; 12 views, 0.874 px RMS. |
+| [floor_pose_36cm.yaml](floor_pose_36cm.yaml) | Current floor transform; filename is historical. Owner: lens 39.5 cm, floor-tag spacing ~103 cm. Fit: 37.9 cm, 103.6 cm. |
+| [robot1_head_pose.yaml](robot1_head_pose.yaml) | Secured fixed left head, rear tag 2; no working servos or feedback required. |
+| [robot2_head_pose.yaml](robot2_head_pose.yaml) | Camera-fitted right pan/tilt geometry, tag mounting angles, tested range and live validation. |
+| [head_neutral_pending.json](head_neutral_pending.json) | Historical filename; now records active calibration, owner measurements, original neutral observations and validation provenance. |
+| [../robot/config/robot1_three_wheels.json](../robot/config/robot1_three_wheels.json) | Left wheel mapping/signs; M1 disabled; six-count speed cap. M1 motor must remain disconnected. |
+| [../robot/config/robot2_wheels.json](../robot/config/robot2_wheels.json) | Existing right wheel mapping/board settings. |
+| [floor_pose.yaml](floor_pose.yaml) | Historical ~1 m camera pose; not active. |
 
-## Head reference measurements, 2026-11-20
+Active head geometry is embedded in `config.yaml`; the per-robot YAML files preserve its measured/fitted
+source and validation. Update both together when changing geometry.
 
-Chassis coordinates: origin on the floor below the midpoint of the four wheel centers; +X forward,
-+Y left, +Z up. Units below are meters unless stated otherwise.
+Chassis origin is the floor point beneath the midpoint of the four wheel centers; +X forward, +Y left,
++Z up. The owner supplied the centered rear-tag offset, recorded for both as X=-0.14 m, Y=0. Both heads
+were level/facing chassis front at the reference capture. Robot black squares are 10 cm; borrowed floor
+tags are 15 cm. Hidden top/front tags are not required: left uses tag 2; right uses rear 6 and side 5.
+The left head must remain mechanically secured.
 
-- Both heads were placed level and facing their chassis fronts. Top/front tags are not needed for this
-  reference capture. Remaining robot black-square markers are **10 cm**; temporary floor markers are 15 cm.
-- Rear marker IDs: left/Robot 1 = **2**, right/Robot 2 = **6**.
-- Owner supplied **14 cm** rear-tag offset, centered left/right. Recorded for both as **X = -0.14 m,
-  Y = 0 m**, interpreting “rear” as behind chassis center. Offset is approximate, not a precision survey.
-- The left head is mechanically secured; its servo interface does not respond. Do not assume servo
-  feedback or a torque command can verify its fixed position.
-- Right neutral servo capture: **pan 391, tilt 770**, torque off at capture. These are reference readings,
-  not a command to return there automatically or a verified engaged hold.
-- Camera estimates of rear-tag center heights were 0.295 m (left) and 0.294 m (right). These are camera
-  estimates and remain separate from owner-measured dimensions. Raw PnP alternatives are retained.
+Right reference readings: pan 391, tilt 770. The model accounts for small tag mounting-angle offsets,
+a pan-following side marker, and a rear marker following pan and tilt. It uses fitted joint scales and
+pivot lines, not assumed manufacturer angle scales. Pan-axis Z and tilt-axis Y are unobservable along
+their own axes; zero in those coordinates is a gauge choice, not a physical pivot-height measurement.
 
-Remaining work: validate marker heights; measure right pan/tilt axis locations and marker mount hierarchy;
-establish joint direction/angle scale; verify clock alignment and joint-feedback transport; check that
-estimated chassis position/heading remain stable as the right head moves. Driving stays disabled until
-its required pose is validated. See [HEAD_TRACKER.md](../docs/HEAD_TRACKER.md).
+**Right calibrated envelope:** pan 331–451, tilt 710–775 encoder units (the upper five tilt units allow
+feedback jitter around the 770 reference). Outside it, no compensated pose is published and navigation
+stops. Wider movement needs additional validation; the model must not silently extrapolate. This initial
+calibration is for the gentle movements tested, not a guarantee at arbitrary head speeds.
 
-## When to check calibration again
+Independent offline validation: about 1.56 px corner-coordinate RMS, p95 position deviation ~3.2 cm,
+p95 heading deviation ~4.6°. Separate **live** validation while the chassis stayed forward/stationary:
+62 valid compensated frames, p95 position deviation ~4.0 cm, maximum ~5.8 cm, p95 heading deviation ~2.4°.
+These describe relative chassis stability, not absolute survey accuracy. The navigation stopping tolerance
+is 10 cm, with conservative per-robot speeds. No autonomous floor waypoint move was performed here.
 
-- After a reboot, check that the selected calibration files loaded, marker IDs are correct, the left head
-  remains secured, and live feedback/clock checks pass. Do not automatically overwrite saved measurements.
-- Moving the main camera changes the floor transform: redo floor calibration. Lens changes, focus changes,
-  resolution changes or cropping may also require lens-calibration validation.
-- Moving a tag, reindexing a servo horn, changing a linkage, or shifting a secured head invalidates the
-  affected head geometry. Ordinary robot travel or a reboot does not invalidate the fixed dimensions.
-- IDs **0 and 1** are currently excluded from robot poses because borrowed copies are on the floor.
-  Remove those floor copies before reusing those IDs on robots. Duplicate IDs must not be averaged.
+## Dashboard operation
+
+Open <http://localhost:8090/>. The floor map shows each robot's actual camera position, selected target,
+X/Y and distance errors, tracking age, and distance-error history. To drive:
+
+1. Confirm readiness and a clear path, with left M1 disconnected and its head secured.
+2. Turn on **Enable click driving**, select a robot, then click a destination on the grid.
+3. **Cancel all targets** stops both targets. Turning the enable switch off clears them too.
+
+The movement switch always starts **off** when the dashboard restarts. Changing it clears old goals;
+preview targets never automatically turn into movements when calibration/network conditions recover.
+Vision loss, stale capture, missing joint samples, invalid head range, and six seconds of failed
+translation progress stop commands. Robot-side watchdogs stop after 0.5 s without commands.
+
+## Network and restart
+
+The Mac keeps its Internet connection. Vision reads the main camera over Ethernet; measured right joints
+are polled through the existing authenticated SSH gateway. A minimum-observed camera send/receive clock
+offset and HTTP server-relative sample ages map both feeds onto the laptop clock without changing Pi
+system clocks. Delayed frames retain their age. Slow HTTP round trips or stale samples are rejected.
+The measured 300–450 ms stream/processing delay uses a 650 ms capture cutoff in low-speed navigation;
+packet-arrival freshness and the robot watchdog remain separate checks.
+
+`control.drive_via` sends UDP commands over authenticated SSH through the main Pi. Both robot services
+allow commands from the main Pi's Wi-Fi address 192.168.50.1 and require compensated poses. No Mac route
+or Wi-Fi change is needed. Services are `capstone-drive-1.service` and `capstone-drive-2.service`, enabled
+at boot; service startup sends only zero speed. Robot 1 uses ~/capstone-drive/robot1_three_wheels.json;
+Robot 2 retains ~/capstone-base/config/robot2_wheels.json.
+
+Start the laptop programs from the repo in separate terminals if they are not already running:
+
+```sh
+.venv/bin/python -m monitor
+.venv/bin/python -m vision.main --gui
+.venv/bin/python -m control.main --robots 1,2 --waypoints --arm
+```
+
+`--arm` enables the transport, but the dashboard's separate movement switch starts off; only a new
+explicit enabled grid click can produce motion. Do not run duplicate controllers or wheel tests beside
+the services. This session verified status/stop-only gateway traffic and all-zero motor outputs.
+
+## Saved recordings and reproducibility
+
+- [right_head_motion_2026-11-20.json](right_head_motion_2026-11-20.json): 118 raw samples. The strict
+  return check recorded `failed` at pan 384 vs 391; the data was retained, motion stopped, torque held.
+- [right_head_validation_2026-11-20.json](right_head_validation_2026-11-20.json): 85 independent samples
+  from smaller movements; not used to train the model.
+- [right_head_offset_tilt_2026-11-20.json](right_head_offset_tilt_2026-11-20.json): 86 samples exposing the
+  side/rear tags by moving the mechanism while keeping the chassis facing forward.
+- [right_head_live_validation_2026-11-20.json](right_head_live_validation_2026-11-20.json): 83 samples
+  of the running feedback pipeline, including the exact model and SHA-256 hash used at capture.
+- [right_head_motion_fit_2026-11-20.json](right_head_motion_fit_2026-11-20.json): initial PnP diagnostics,
+  superseded by the mounting-angle-aware fit; not active geometry.
+- [right_head_pixel_model_fit_2026-11-20.json](right_head_pixel_model_fit_2026-11-20.json): refined fit,
+  independent and live validation, candidate parameters and model provenance.
+
+Run `python tools/fit_head_motion.py` in the project environment to reproduce offline fitting (SciPy is
+in requirements-laptop.txt). It writes candidate diagnostics, never activates a new model or drives
+hardware. A rerun does not change the saved active config or establish a new live validation by itself.
+The experiment-specific `tools/capture_right_head_motion.py` requires `--execute` and a new `--out`
+recording path before it can engage/move the right head. It never drives wheels, refuses to overwrite
+recordings, and preserves saved tracking limits. It temporarily replaces dashboard A/B sweep parameters
+(the original values are in each recording). Inspect final positions/torque after any return warning. After the completed experiment, the right
+dashboard was restarted without servo movement to restore its original A/B sweep parameters; torque
+remained engaged near neutral (~396/766), and head tracking/sweep remained off.
+
+## When calibration needs revisiting
+
+- Move the main camera: repeat floor calibration. Change lens/focus/resolution/crop: validate intrinsics.
+- Move a tag, shift the secured left head, reindex a servo horn, or change a linkage: redo the affected
+  head geometry. Changing a motor controller does not by itself invalidate camera geometry.
+- IDs 0/1 are currently excluded from robot poses because floor copies are visible. Do not re-enable
+  them as robot tags until duplicates are removed and their actual mount geometry is calibrated.

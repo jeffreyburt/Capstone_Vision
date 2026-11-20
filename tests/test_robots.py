@@ -15,6 +15,12 @@ from vision.sim import face_corners_world, render_scene
 def cfg():
     c = load_config()
     c["people"]["enabled"] = False  # robot tests only
+    # This fixture renders rigid upright faces, independent of the lab's live articulated mounts.
+    for robot in c['robots']:
+        robot.pop('head_pose',None)
+        robot.pop('moving_head_markers',None)
+    c.get('calibration',{}).pop('floor_marker_ids',None)
+    c.get('camera',{})['local_frame_timestamps']=False
     return c
 
 

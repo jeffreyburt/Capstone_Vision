@@ -96,3 +96,12 @@ def test_rate_limit_does_not_halve_fps(stream_cfg):
     finally:
         rx.close()
         sender.stop()
+
+
+def test_local_frame_timestamp_uses_capture_clock_offset_without_hiding_delay():
+    from camstream.receiver import Frame
+    f=Frame('camera',{'t_capture':100.,'t_sent':100.1},b'',200.2,capture_clock_offset=100.)
+    assert abs(f.local_capture_time-200.)<1e-9
+    delayed=Frame('camera',{'t_capture':101.,'t_sent':101.1},b'',203.,capture_clock_offset=100.)
+    assert abs(delayed.local_capture_time-201.)<1e-9  # transport delay is not reset to zero
+    assert Frame('camera',{'t_capture':100.},b'',200.,capture_clock_offset=100.).local_capture_time is None

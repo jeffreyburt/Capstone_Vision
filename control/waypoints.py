@@ -4,6 +4,7 @@ import json
 import math
 import threading
 import time
+import uuid
 import urllib.request
 
 from .planner import Target
@@ -17,6 +18,8 @@ class WaypointStore:
         self.lock = threading.Lock()
         self.targets = {}
         self.revision = 0
+        self.armed = False
+        self.session = uuid.uuid4().hex
 
     def set(self, robot_id, x, y, *, preview_only=True):
         if type(robot_id) is not int or robot_id not in self.robot_ids:
@@ -30,6 +33,13 @@ class WaypointStore:
             self.revision += 1
             self.targets[str(robot_id)] = {"x": float(x), "y": float(y), "preview_only": bool(preview_only),
                                            "revision": self.revision}
+
+    def arm(self, enabled):
+        if type(enabled) is not bool:
+            raise ValueError('enabled must be a boolean')
+        with self.lock:
+            self.targets.clear()  # an old destination can never resume when enabling driving
+            self.armed = enabled
 
     def clear(self):
         with self.lock:
@@ -57,7 +67,7 @@ class WaypointProgress:
         self.best = self.since = None
 
     def check(self, goal, distance, translating, now):
-        key = (goal.get('revision'), goal['x'], goal['y'])
+        key = (goal.get('session'), goal.get('revision'), goal['x'], goal['y'])
         if key != self.key:
             self.key, self.fault, self.best, self.since = key, False, distance, now
         if self.fault:
@@ -106,8 +116,12 @@ def compute_waypoints(msg, age, navigation, controllers, timing=None, *, progres
     blocked = None
     if navigation is None:
         blocked = "waypoint service unavailable"
+    elif navigation.get("armed") is not True:
+        blocked = "dashboard driving disabled"
     elif msg is None or age is None or age > timing['vision_timeout_s']:
         blocked = "no vision"
+    elif msg.get('frame_clock') == 'local' and not 0 <= time.time()-msg['t'] <= min(.65,msg.get('max_frame_age_s',.25)):
+        blocked = 'camera capture too old'
     elif msg.get('position_quality') == 'approximate' or msg.get('driving_allowed') is False:
         blocked = "approximate positions — driving disabled"
     results = {}
@@ -148,7 +162,7 @@ def compute_waypoints(msg, age, navigation, controllers, timing=None, *, progres
                 guard.best = math.hypot(targets[rid].x-pose['x'], targets[rid].y-pose['y'])
                 guard.since = now
             distance = math.hypot(targets[rid].x-pose['x'], targets[rid].y-pose['y'])
-            if not guard.check(goals[str(rid)], distance, math.hypot(*cmd[:2]) > .001, now):
+            if not guard.check({**goals[str(rid)], 'session': navigation.get('session')}, distance, math.hypot(*cmd[:2]) > .001, now):
                 ctrl.reset()
                 results[rid] = (STOP, 'no camera progress; stopped — select a new destination to retry')
                 continue

@@ -42,6 +42,11 @@ def compute_commands(msg, msg_age_s, planner, controllers, timing=None, compensa
             c.reset()
         return {}, {rid: (STOP, "no vision") for rid in controllers}
 
+    if msg.get('frame_clock') == 'local' and not 0 <= time.time()-msg['t'] <= min(.65,msg.get('max_frame_age_s',.25)):
+        for ctrl in controllers.values():
+            ctrl.reset()
+        return {}, {rid: (STOP, 'camera capture too old') for rid in controllers}
+
     robots = {r["id"]: r for r in msg.get("robots", [])}
     if msg.get("position_quality") == "approximate" or msg.get("driving_allowed") is False:
         for ctrl in controllers.values():
@@ -148,7 +153,12 @@ def main(argv=None):
     period = 1.0 / float(c.get("rate_hz", 10))
 
     vision = VisionListener(int(c.get("vision_port", cfg.get("output", {}).get("port", 5005))))
-    link = RobotLink({rid: (robots_cfg[rid]["host"], robots_cfg[rid].get("port", 5700)) for rid in driven})
+    endpoints = {rid: (robots_cfg[rid]["host"], robots_cfg[rid].get("port",5700)) for rid in driven}
+    if c.get('drive_via'):
+        from .ssh_gateway import GatewayRobotLink
+        link = GatewayRobotLink(endpoints,c['drive_via'])
+    else:
+        link = RobotLink(endpoints)
     keys = Keys()
     beacon = StatusBeacon("control", status_port(cfg))  # status for the system GUI (python -m monitor)
 

@@ -1,5 +1,5 @@
 {
-  "status": "pending_geometry_measurements_not_for_navigation",
+  "status": "active_fixed_left_and_limited_range_right_calibration",
   "recorded_on": "2026-11-20",
   "marker_size_m": 0.1,
   "operator_reference": "both heads level and facing chassis front; top/front tags not visible",
@@ -17,7 +17,8 @@
     },
     "neutral_marker_mount": "upright rear face, head level and facing chassis front",
     "head_mechanically_secured": true,
-    "head_secured_source": "owner confirmation, 2026-11-20"
+    "head_secured_source": "owner confirmation, 2026-11-20",
+    "active_geometry_file": "robot1_head_pose.yaml"
   },
   "robot2": {
     "servo_feedback_available": true,
@@ -37,7 +38,55 @@
       "interpretation": "14 cm behind chassis center, centered left-to-right; applied to both robots from shared measurement",
       "z_m": null
     },
-    "neutral_marker_mount": "upright rear face, head level and facing chassis front"
+    "neutral_marker_mount": "upright rear face, head level and facing chassis front",
+    "motion_calibration": {
+      "status": "active_limited_range_live_validated",
+      "training_recordings": [
+        "right_head_motion_2026-11-20.json",
+        "right_head_offset_tilt_2026-11-20.json"
+      ],
+      "independent_validation_recording": "right_head_validation_2026-11-20.json",
+      "fit_report": "right_head_pixel_model_fit_2026-11-20.json",
+      "observed_marker_ids": [
+        5,
+        6
+      ],
+      "final_capture_positions": [
+        397,
+        768
+      ],
+      "final_torque": [
+        1,
+        1
+      ],
+      "next_requirement": "No user intervention required for saved calibrated range; wider ranges need further validation",
+      "live_validation_recording": "right_head_live_validation_2026-11-20.json",
+      "live_validation": {
+        "valid_frames": 62,
+        "position_drift_p95_m": 0.039531913503452094,
+        "position_drift_max_m": 0.05841232746604081,
+        "heading_deviation_p95_deg": 2.435000000000002,
+        "heading_span_deg": 5.6000000000000085,
+        "head_model_sha256": "f2d6fa85f208e716ad4425ebd2a5389132468c2d107445a93a030c128f8ed82c",
+        "chassis_stationary_source": "owner confirmation; chassis not repositioned",
+        "max_frame_age_s": 0.65,
+        "no_drive_commands_sent": true
+      }
+    },
+    "active_geometry_file": "robot2_head_pose.yaml",
+    "post_calibration_state": {
+      "positions": [
+        396,
+        766
+      ],
+      "torque": [
+        1,
+        1
+      ],
+      "sweep_running": false,
+      "tracking_active": false,
+      "original_sweep_config_restored": true
+    }
   },
   "camera_observations": {
     "capture_t": 1792294742.7694764,
@@ -158,17 +207,11 @@
       }
     ]
   },
-  "required_measurements": [
-    "Validate each rear marker center height above floor; current camera estimates are about 0.295 m (robot1) and 0.294 m (robot2)",
-    "For right robot: pan-axis fore/aft and left/right location relative to wheelbase midpoint",
-    "For right robot: tilt-axis fore/aft and left/right location and height above floor",
-    "Identify whether rear marker follows pan, tilt, both, or neither",
-    "Measure joint angle changes against encoder changes to establish signs and scales"
-  ],
+  "required_measurements": [],
   "limitations": [
-    "neutral units are one read-only capture, not an engaged hold",
-    "clock alignment and feedback transport require validation before dynamic compensation",
-    "PnP returns ambiguous alternatives; these observations are not active chassis geometry"
+    "Relative stationary-chassis stability is measured; this is not an absolute surveying accuracy guarantee",
+    "Left head must remain secured",
+    "Right joint range limits and camera/joint freshness checks must remain enabled"
   ],
   "updated_on": "2026-11-20",
   "chassis_coordinates": {
@@ -188,6 +231,11 @@
       "camera moves relative to floor (floor pose only)",
       "lens, focus, resolution or crop changes (validate lens calibration)"
     ],
-    "navigation_ready": false
-  }
+    "pose_calibration_ready": true,
+    "driving_enable_required": true
+  },
+  "remaining_validation": [
+    "Wider right-head movement range",
+    "First camera-guided floor waypoint test; no autonomous wheel move was performed in this calibration session"
+  ]
 }

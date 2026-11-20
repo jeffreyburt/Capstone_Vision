@@ -8,6 +8,7 @@ from collections import deque
 from dataclasses import dataclass
 
 import numpy as np
+import cv2
 
 
 def _vector(values, length):
@@ -33,6 +34,11 @@ class HeadGeometry:
     pan_pivot: np.ndarray
     tilt_pivot: np.ndarray
     mounts: dict
+    unit_limits: np.ndarray | None = None
+
+    @property
+    def needs_feedback(self):
+        return any(mount != "fixed" for mount, _ in self.mounts.values())
 
     @classmethod
     def from_config(cls, cfg, spec):
@@ -51,16 +57,30 @@ class HeadGeometry:
             right = np.array([-math.sin(yaw), math.cos(yaw), 0])
             up = np.array([0, 0, 1])
             half = spec.marker_size_m / 2
-            corners = center + half * np.array([up - right, up + right, -up + right, -up - right])
+            offsets = half * np.array([up - right, up + right, -up + right, -up - right])
+            if 'rotation_vector_rad' in marker:
+                rotation = cv2.Rodrigues(_vector(marker['rotation_vector_rad'], 3))[0]
+                offsets = offsets @ rotation.T
+            corners = center + offsets
             mounts[marker_id] = mount, corners
         if not mounts:
             raise ValueError("head_pose.markers must list at least one measured marker")
-        return cls(neutral, scale, _vector(cfg["pan_pivot_m"], 3), _vector(cfg["tilt_pivot_m"], 3), mounts)
+        limits = None
+        if 'valid_units' in cfg:
+            limits = np.asarray(cfg['valid_units'], dtype=float)
+            if limits.shape != (2,2) or not np.isfinite(limits).all() or np.any(limits[:,0] >= limits[:,1]):
+                raise ValueError('valid_units must contain two finite increasing ranges')
+        return cls(neutral, scale, _vector(cfg["pan_pivot_m"], 3), _vector(cfg["tilt_pivot_m"], 3), mounts, limits)
 
     def corners(self, marker_id, units):
         if marker_id not in self.mounts:
             return None
         mount, neutral_corners = self.mounts[marker_id]
+        if mount == 'fixed':
+            return neutral_corners
+        units = _vector(units, 2)
+        if self.unit_limits is not None and np.any((units < self.unit_limits[:,0]) | (units > self.unit_limits[:,1])):
+            return None
         pan, tilt = np.radians((units - self.neutral_units) * self.degrees_per_unit)
         corners = neutral_corners
         if mount in ("tilt", "tilt_only"):
@@ -71,23 +91,75 @@ class HeadGeometry:
 
 
 def fit_chassis(marker, corners, geometry):
-    """Match observed horizontal coordinates to the joint-transformed chassis model."""
-    measured = geometry.pixels_to_floor(marker.corners, corners[:, 2])
-    if not np.isfinite(measured).all():
+    """Fit a level chassis directly in image space.
+
+    Intersecting each corner ray with its assumed height is ill-conditioned when the
+    camera is close to the marker's upper edge. Fit X/Y/yaw with all pixels instead.
+    IPPE supplies starting poses; fixed floor roll/pitch reject planar pose flips.
+    """
+    corners = np.asarray(corners, dtype=float)
+    observed = np.asarray(marker.corners, dtype=float)
+    camera, floor = geometry.camera, geometry.pose
+    try:
+        solutions = cv2.solvePnPGeneric(corners, observed, camera.K, camera.dist,
+                                        flags=cv2.SOLVEPNP_IPPE)
+    except cv2.error:
         return None
-    model = corners[:, :2]
-    model_center, measured_center = model.mean(axis=0), measured.mean(axis=0)
-    a, b = model - model_center, measured - measured_center
-    dot = np.sum(a * b)
-    cross = np.sum(a[:, 0] * b[:, 1] - a[:, 1] * b[:, 0])
-    if math.hypot(dot, cross) < 0.25 * np.sum(a * a):
+
+    def residual(state):
+        x,y,h = state
+        c,s = math.cos(h),math.sin(h)
+        rotation = np.array([[c,-s,0],[s,c,0],[0,0,1]])
+        world = corners @ rotation.T + [x,y,0]
+        points = cv2.projectPoints(world, floor.rvec, floor.tvec, camera.K, camera.dist)[0].reshape(4,2)
+        return (points-observed).ravel()
+
+    seeds = []
+    measured = geometry.pixels_to_floor(observed,corners[:,2])
+    if np.isfinite(measured).all():
+        a = corners[:,:2]-corners[:,:2].mean(axis=0)
+        b = measured-measured.mean(axis=0)
+        dot = np.sum(a*b)
+        cross = np.sum(a[:,0]*b[:,1]-a[:,1]*b[:,0])
+        if math.hypot(dot,cross) > 1e-10:
+            h = math.atan2(cross,dot)
+            c,s = math.cos(h),math.sin(h)
+            rotation = np.array([[c,s],[-s,c]])
+            center = measured.mean(axis=0)-corners[:,:2].mean(axis=0)@rotation
+            seeds.append(np.array([center[0],center[1],h]))
+    for rvec,tvec in zip(solutions[1], solutions[2]):
+        world_rotation = floor.R.T @ cv2.Rodrigues(rvec)[0]
+        position = floor.R.T @ (tvec.ravel()-floor.tvec.ravel())
+        if world_rotation[2,2] < .7 or abs(position[2]) > .15:
+            continue
+        seeds.append(np.array([position[0],position[1],math.atan2(world_rotation[1,0],world_rotation[0,0])]))
+    best = None
+    for state in seeds:
+        for _ in range(25):
+            error = residual(state)
+            if not np.isfinite(error).all():
+                break
+            eps = 1e-5
+            jac = np.column_stack([(residual(state+np.eye(3)[i]*eps)-error)/eps for i in range(3)])
+            delta = np.linalg.lstsq(jac, -error, rcond=None)[0]
+            delta[:2] = np.clip(delta[:2], -.1, .1)
+            delta[2] = np.clip(delta[2], -.2, .2)
+            improved = False
+            for scale in (1., .5, .25, .125):
+                trial = state + scale*delta
+                if np.sum(residual(trial)**2) < np.sum(error**2):
+                    state, improved = trial, True
+                    break
+            if not improved or np.linalg.norm(delta) < 1e-7:
+                break
+        error = residual(state)
+        if np.isfinite(error).all():
+            score = float(np.mean(error**2))
+            if best is None or score < best[0]:
+                best = score, state
+    if best is None or best[0] > 9.:  # maximum 3 px coordinate RMS
         return None
-    heading = math.atan2(cross, dot)
-    c, s = math.cos(heading), math.sin(heading)
-    rotation = np.array([[c, s], [-s, c]])
-    if np.max(np.linalg.norm(a @ rotation - b, axis=1)) > 0.035:
-        return None
-    return measured_center - model_center @ rotation, heading
+    return best[1][:2], float(best[1][2])
 
 
 class JointFeedback:
@@ -142,3 +214,83 @@ class JointFeedback:
 
     def close(self):
         self.sock.close()
+
+
+class DashboardJointFeedback:
+    """Read measured joints through the existing SSH gateway, mapped to the laptop clock.
+
+    Remote clocks need not agree: reply serverTime minus position_time gives sample age.
+    Slow round trips and stale/error replies are rejected. Samples retain their age rather
+    than becoming fresh on every HTTP poll. No commands or torque changes are sent.
+    """
+    def __init__(self, sources, cfg):
+        import shutil
+        import threading
+        from monitor.tunnels import CameraTunnels
+        self.sources = sources
+        self.max_frame_age = float(cfg.get('compensated_frame_timeout_s',.4))
+        self.history = {rid: deque(maxlen=64) for rid in sources}
+        self.lock = threading.Lock()
+        self.stop = threading.Event()
+        system = cfg.get('system') or {}
+        self.robot_cfg = {int(k):v for k,v in (system.get('robots') or {}).items()}
+        self.tunnels = CameraTunnels(shutil.which('ssh') or 'ssh',system.get('probe_via'))
+        self.urls = {}
+        self.thread = threading.Thread(target=self._run,daemon=True,name='joint-http-feedback')
+        self.thread.start()
+
+    @staticmethod
+    def decode(reply, started, ended):
+        values = reply.get('positions')
+        if reply.get('position_error') or not isinstance(values,list) or len(values)!=2:
+            return None
+        if any(type(v) is not int or not 0 <= v <= 1000 for v in values):
+            return None
+        server, measured = reply.get('serverTime'),reply.get('position_time')
+        if not all(type(v) in (int,float) and math.isfinite(v) for v in (server,measured,started,ended)):
+            return None
+        age = server-measured
+        if not 0 <= ended-started <= .15 or not 0 <= age <= .35:
+            return None
+        return (started+ended)/2-age, np.array(values)
+
+    def _run(self):
+        import urllib.request
+        while not self.stop.is_set():
+            for rid,host in self.sources.items():
+                if self.stop.is_set():
+                    break
+                try:
+                    if rid not in self.urls:
+                        port=self.robot_cfg.get(rid,{}).get('dashboard_port',8080)
+                        endpoint,port=self.tunnels.endpoint(host,port)
+                        self.urls[rid]=f'http://{endpoint}:{port}/api/state'
+                    started=time.time()
+                    with urllib.request.urlopen(self.urls[rid],timeout=.3) as response:
+                        reply=json.load(response)
+                    sample=self.decode(reply,started,time.time())
+                    if sample is not None:
+                        with self.lock:
+                            history=self.history[rid]
+                            if not history or sample[0]>history[-1][0]:
+                                history.append(sample)
+                except (OSError,ValueError,TypeError):
+                    pass
+            self.stop.wait(.04)
+
+    def positions_at(self, stamp):
+        if not 0 <= time.time()-stamp <= self.max_frame_age:
+            return {}
+        result={}
+        with self.lock:
+            for rid,samples in self.history.items():
+                if samples:
+                    when,units=min(samples,key=lambda s:abs(s[0]-stamp))
+                    if abs(when-stamp) <= .12:
+                        result[rid]=units.copy()
+        return result
+
+    def close(self):
+        self.stop.set()
+        self.thread.join(timeout=6)
+        self.tunnels.close()

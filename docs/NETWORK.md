@@ -169,3 +169,24 @@ shown rather than hidden. No wheel/servo services need restarting to use this da
 Robot 1's `.105` address is a verified DHCP lease, not a static reservation. If it changes, update
 `streams.robot1.host` and `control.robots.1.host` together in `config.yaml`. The former `.11`/`user`
 entry refers to the retired Pi, not this replacement.
+
+
+## Active command and joint relay (2026-11-20)
+
+`control.drive_via: vision@192.168.1.20` now uses `control/ssh_gateway.py` to relay the existing robot UDP
+protocol through one authenticated SSH connection. The Mac needs no route to 192.168.50.0/24 and keeps
+its current Wi-Fi. Both drive services allow commands from main-Pi Wi-Fi IP 192.168.50.1 and require
+compensated poses. The relay forwards only configured robot endpoints; it drains buffered input and
+forwards the latest command per robot. Missing/stale acknowledgements replace drive requests with stops;
+the robot's 0.5-second watchdog handles connection loss. Status/stop-only traffic verified both services
+online, hardware=true, M1 disabled on Robot 1, and all outputs zero.
+
+`joint_feedback_transport: dashboard_http` reads real servo positions through the same SSH gateway.
+Remote `serverTime - position_time` preserves reading age without requiring clock changes. Camera
+`local_frame_timestamps` maps sender capture timestamps using the minimum observed receive-minus-send
+offset and retains transport/encoding delay. Long HTTP round trips, stale samples, and old frames are
+rejected. This supersedes the earlier direct-UDP routing requirement for the current profile; legacy
+UDP joint-feedback mode still requires synchronized clocks and an actual routed network.
+
+The monitor starts with click driving disabled and no targets. The armed waypoint transport remains
+stop-only until the user enables dashboard driving and selects a new non-preview destination.

@@ -99,6 +99,7 @@ def main(argv=None):
                            "detection_error": str(pipeline.async_people.error) if pipeline.async_people and pipeline.async_people.error else None,
                            "calibrated": pipeline.geometry is not None and pipeline.geometry.approximation is None,
                            "scene": scene})
+            beacon.send_now()  # publish this frame immediately; do not add the heartbeat period to navigation latency
 
             if now - last_publish >= publish_period:
                 publisher.send(result.message)

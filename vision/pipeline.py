@@ -1,9 +1,10 @@
 """Per-frame processing: markers -> robots, people -> user, both -> tracks -> output message."""
 
 from dataclasses import dataclass, field
+import time
 
 from .geometry import load_geometry
-from .joint_pose import JointFeedback
+from .joint_pose import JointFeedback, DashboardJointFeedback
 from .markers import MarkerDetector
 from .output import make_message
 from .robots import estimate_marker_positions, estimate_robots, robot_specs_from_config
@@ -50,9 +51,16 @@ class VisionPipeline:
         self.last_people = []
         endpoints = {int(rid): item["host"] for rid, item in cfg.get("control", {}).get("robots", {}).items()}
         sources = {spec.id: endpoints[spec.id]
-                   for spec in self.specs if spec.head is not None}
-        self.joints = JointFeedback(cfg.get("joint_feedback_port", 5006), sources) if sources else None
-        self.compensated_ids = set(sources)
+                   for spec in self.specs if spec.head is not None and spec.head.needs_feedback}
+        self.joints = None
+        if sources:
+            if cfg.get('joint_feedback_transport') == 'dashboard_http':
+                if not (cfg.get('camera') or {}).get('local_frame_timestamps'):
+                    raise ValueError('dashboard_http joints require local_frame_timestamps')
+                self.joints = DashboardJointFeedback(sources,cfg)
+            else:
+                self.joints = JointFeedback(cfg.get("joint_feedback_port",5006),sources)
+        self.compensated_ids = {spec.id for spec in self.specs if spec.head is not None}
         self.pending_head_ids = {int(r["id"]) for r in cfg.get("robots", [])
                                  if r.get("moving_head_markers") and r.get("head_pose") is None}
 
@@ -91,6 +99,7 @@ class VisionPipeline:
         markers = self.detector.detect(frame)
         observations = []
         robot_markers = [m for m in markers if m.id not in self.floor_marker_ids]
+        joints = {}
         if self.geometry is not None:
             joints = self.joints.positions_at(t) if self.joints is not None else None
             estimates = (estimate_marker_positions(robot_markers, self.specs, self.geometry) if self.geometry.approximation
@@ -122,10 +131,30 @@ class VisionPipeline:
             observed = {o.robot_id for o in observations}
             for robot in message["robots"]:
                 if robot["id"] in self.compensated_ids:
-                    robot["pose_compensated"] = robot["id"] in observed and robot["age"] == 0
+                    frame_fresh = (not (self.cfg.get('camera') or {}).get('local_frame_timestamps') or
+                                   0 <= time.time()-t <= float(self.cfg.get('compensated_frame_timeout_s',.25)))
+                    robot["pose_compensated"] = robot["id"] in observed and robot["age"] == 0 and frame_fresh
+                    head = next(spec.head for spec in self.specs if spec.id == robot['id'])
+                    units = (joints or {}).get(robot['id']) if head.needs_feedback else None
+                    if head.needs_feedback and units is None:
+                        robot['pose_status'] = 'Fresh head feedback unavailable'
+                    elif head.needs_feedback and head.unit_limits is not None and any(
+                            not lo <= value <= hi for value,(lo,hi) in zip(units,head.unit_limits)):
+                        robot['pose_status'] = 'Head outside calibrated movement range'
+                    elif not frame_fresh:
+                        robot['pose_status'] = 'Camera capture too old'
+                    elif not robot['pose_compensated']:
+                        robot['pose_status'] = 'Calibrated marker not reliably visible'
+                    else:
+                        robot['pose_status'] = 'Calibrated moving head' if head.needs_feedback else 'Secured fixed head'
+                    if units is not None:
+                        robot['head_units'] = units.tolist()
         for robot in message['robots']:
             if robot['id'] in self.pending_head_ids:
                 robot.update(heading=None, pose_compensated=False, reference='uncalibrated_head_markers')
+        if (self.cfg.get('camera') or {}).get('local_frame_timestamps'):
+            message['frame_clock'] = 'local'
+            message['max_frame_age_s'] = float(self.cfg.get('compensated_frame_timeout_s',.25))
         result = FrameResult(t, self.frame_index, markers, observations, self.last_people, user_obs, message)
         self.frame_index += 1
         return result

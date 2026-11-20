@@ -17,6 +17,7 @@ falls behind.
 """
 
 import os
+import math
 import threading
 import time
 from collections import deque
@@ -29,9 +30,10 @@ from camstream.protocol import unpack
 
 
 class Frame:
-    def __init__(self, name, header, payload, t_received):
+    def __init__(self, name, header, payload, t_received, capture_clock_offset=None):
         self.name, self.header, self.payload, self.t_received = name, header, payload, t_received
         self._image = None
+        self.capture_clock_offset = capture_clock_offset
 
     seq = property(lambda self: self.header["seq"])
     t_capture = property(lambda self: self.header["t_capture"])
@@ -42,6 +44,14 @@ class Frame:
         if self._image is None:
             self._image = cv2.imdecode(np.frombuffer(self.payload, np.uint8), cv2.IMREAD_COLOR)
         return self._image
+
+    @property
+    def local_capture_time(self):
+        sent, capture = self.header.get('t_sent'), self.header.get('t_capture')
+        values = (sent,capture,self.capture_clock_offset)
+        if not all(type(v) in (int,float) and math.isfinite(v) for v in values) or not 0 <= sent-capture <= 2:
+            return None
+        return capture + self.capture_clock_offset
 
     @property
     def age(self):
@@ -78,6 +88,7 @@ class FrameReceiver:
         self._latest = {n: None for n in names}
         self._history = {n: deque(maxlen=60) for n in names}  # (t_received, bytes, seq, t_capture)
         self._dropped = {n: 0 for n in names}
+        self._clock_offsets = {n: None for n in names}
         self._running = True
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
@@ -96,7 +107,13 @@ class FrameReceiver:
                     prev = self._latest[name]
                     if prev is not None and header["seq"] > prev.seq + 1:
                         self._dropped[name] += header["seq"] - prev.seq - 1
-                    self._latest[name] = Frame(name, header, payload, now)
+                    offset = self._clock_offsets[name]
+                    capture, sent = header.get('t_capture'), header.get('t_sent')
+                    if all(type(v) in (int,float) and math.isfinite(v) for v in (capture,sent)) and 0 <= sent-capture <= 2:
+                        candidate = now-sent
+                        offset = candidate if offset is None else min(offset,candidate)
+                        self._clock_offsets[name] = offset
+                    self._latest[name] = Frame(name, header, payload, now, offset)
                     self._history[name].append((now, len(msg), header["seq"], header["t_capture"]))
                     self._cond.notify_all()
 

@@ -1,0 +1,54 @@
+status: active_limited_range_live_validated
+head_pose:
+  neutral_units:
+  - 391
+  - 770
+  degrees_per_unit:
+  - 0.27106635355867265
+  - 0.22619580681950738
+  pan_pivot_m:
+  - -0.013451569635130712
+  - -0.07841484031480485
+  - 0.0
+  tilt_pivot_m:
+  - -0.04719760585549351
+  - 0.0
+  - 0.3201280763228578
+  valid_units:
+  - - 331
+    - 451
+  - - 710
+    - 775
+  markers:
+    '6':
+      mount: tilt
+      center_m:
+      - -0.14
+      - 0.0
+      - 0.2937034410485732
+      rotation_vector_rad:
+      - 0.04043269929944133
+      - -0.03819042930693983
+      - 0
+    '5':
+      mount: pan
+      center_m:
+      - -0.020838988000895932
+      - 0.1083818550129793
+      - 0.23903912263783259
+      rotation_vector_rad:
+      - 0.04048336968790622
+      - -0.10513518773976117
+      - -0.03411309100077434
+reference_date: '2026-11-20'
+user_rear_offset_m: -0.14
+live_validation:
+  valid_frames: 62
+  position_drift_p95_m: 0.039531913503452094
+  position_drift_max_m: 0.05841232746604081
+  heading_deviation_p95_deg: 2.435000000000002
+  heading_span_deg: 5.6000000000000085
+  head_model_sha256: f2d6fa85f208e716ad4425ebd2a5389132468c2d107445a93a030c128f8ed82c
+  chassis_stationary_source: owner confirmation; chassis not repositioned
+  max_frame_age_s: 0.65
+  no_drive_commands_sent: true
