@@ -108,8 +108,11 @@ current detections and frame age, and hides the video and targets when frames or
 stale. It relays the existing annotated vision stream through the monitor; viewing never starts control
 or sends wheel/servo commands.
 
-Start the main camera publisher on the main Pi (`python -m camstream.sender birdseye` in its configured
-virtual environment), then run `python -m vision.main --gui` and `python -m monitor` on the laptop.
+Enable the main camera publisher on the main Pi once with
+`bash scripts/install_sender_service.sh birdseye` from its checkout. It starts immediately and on boot;
+check it with `systemctl status camstream-birdseye.service`. Then run `python -m vision.main --gui` and
+`python -m monitor` on the laptop. If the laptop's vision receiver stays stalled after a long disconnect,
+restart only `vision.main --gui`.
 Open `http://localhost:8090/`. The main feed uses Ethernet `192.168.1.20:5600`; robot monitoring still
 uses the SSH gateway. Robot centers and the listener floor estimate require floor calibration; image
 boxes and marker outlines can be shown without it. No marker detections means no robot locations are

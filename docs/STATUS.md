@@ -1,6 +1,6 @@
 # System status: read this first
 
-**As of 2026-11-19.** Where the integrated speaker-robot system stands, what is verified on hardware, what is
+**As of 2026-11-20.** Where the integrated speaker-robot system stands, what is verified on hardware, what is
 known to be broken, and how to work on it. Update this file whenever a fact here changes; put dates on
 results and say whether they came from hardware, simulation or reasoning.
 
@@ -30,6 +30,17 @@ master Pi camera ──Ethernet──► laptop: vision.main ──UDP 5005─�
 | [README](../README.md) | Vision output format, system GUI, repo layout |
 
 ## 2. Machines
+
+**2026-11-20 main camera restored after reboot:** The main Pi was online but its manually launched
+camera publisher had not restarted; TCP 5600 was closed and the laptop retained an old frame. Installed
+and enabled the existing `camstream-birdseye.service` using
+`bash ~/Capstone_Vision/scripts/install_sender_service.sh birdseye`. Verified the service is active and
+enabled, publishing the IMX708 Wide feed at roughly 4 fps. The laptop vision receiver did not recover its
+overnight connection, so only `vision.main --gui` was restarted; fresh changing annotated JPEGs and IDs
+2/3/6 were then verified through dashboard `/video/birdseye`. The old floor pose remains disabled pending
+calibration. No motor or servo controls were changed. After future Pi reboots the publisher starts
+automatically; if an overnight laptop connection remains stalled, restart its passive vision process.
+
 
 **2026-11-19 all-camera dashboard update:** The main camera publisher and laptop vision process were
 already running; fresh annotated main-camera frames verified at about 3–4 fps. Both robot IMX708 feeds
