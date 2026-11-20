@@ -267,3 +267,19 @@ def test_frames_between_updates_do_not_halt_motion(monkeypatch):
     assert moving(100.80, 0.35)         # same frame 0.35 s later: total 0.8 s, still current
     assert not moving(101.10, 0.65)     # over the 1.0 s hard limit
     assert not moving(100.80, 0.0)      # arrived 0.8 s late: real lag
+
+
+def test_waypoint_move_holds_the_heading_present_at_the_click():
+    from control.controller import Limits
+    from control.waypoints import WaypointMotion
+    ctrl = RobotController(Limits(allow_strafe=True, yaw_tolerance_deg=2.0))
+    msg, nav, _ = inputs()
+    nav['targets'] = {'2': {'x': 2.0, 'y': 1.0, 'preview_only': False, 'revision': 1}}
+    nav['session'] = 's'
+    motions = {2: WaypointMotion()}
+    targets, _ = compute_waypoints(msg, 0, nav, {2: ctrl}, motions=motions, now=0.)
+    assert targets[2].heading_deg == 90
+    msg['robots'][1]['heading'] = 100            # the chassis rotates during the move
+    targets, results = compute_waypoints(msg, 0, nav, {2: ctrl}, motions=motions, now=0.1)
+    assert targets[2].heading_deg == 90          # still the heading from the click, not the drifted one
+    assert results[2][0][2] < 0                  # yaw command turns back toward it

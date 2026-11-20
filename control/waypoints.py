@@ -90,12 +90,14 @@ class WaypointMotion:
         self.current=[0.,0.,0.]
         self.filtered=[0.,0.,0.]
         self.last_time=None
+        self.hold_heading=None   # chassis heading (deg) captured when the goal was set, held for the whole move
 
-    def activate(self, goal, session, ctrl):
+    def activate(self, goal, session, ctrl, heading=None):
         key=(session,goal.get('revision'),goal['x'],goal['y'])
         if key != self.key:
             self.key=key
             self.arrived=False
+            self.hold_heading=heading
             ctrl.reset()
 
     def halt(self):
@@ -107,6 +109,7 @@ class WaypointMotion:
         self.halt()
         self.key=None
         self.arrived=False
+        self.hold_heading=None
 
     def command(self, desired, pose, target, tolerance, now, obstacles=()):
         distance=math.hypot(target.x-pose['x'],target.y-pose['y'])
@@ -258,7 +261,9 @@ def compute_waypoints(msg, age, navigation, controllers, timing=None, *, progres
         if user and user.get('age', 999) <= 2:
             obstacles.append((user['x'], user['y'], ctrl.limits.keep_out_m))
         if motions is not None:
-            motions[rid].activate(goals[str(rid)],navigation.get('session'),ctrl)
+            motions[rid].activate(goals[str(rid)],navigation.get('session'),ctrl,pose['heading'])
+            if motions[rid].hold_heading is not None:   # keep the chassis pointing the way it was when the goal was set
+                targets[rid].heading_deg = motions[rid].hold_heading
         cmd = ctrl.command(pose, targets[rid], obstacles)
         if motions is not None:
             cmd = motions[rid].command(cmd,pose,targets[rid],ctrl.limits.position_tolerance_m,now,obstacles)

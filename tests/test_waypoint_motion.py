@@ -127,3 +127,26 @@ def test_noisy_delayed_four_fps_feedback_produces_one_continuous_approach(monkey
     assert motion.arrived
     assert math.hypot(x-1,y)<.15
     assert not any(moving[-30:])
+
+
+def test_strafing_robot_moves_straight_and_holds_the_heading_from_the_click():
+    from control.controller import Limits, RobotController
+    from control.waypoints import WaypointMotion
+    ctrl = RobotController(Limits(allow_strafe=True, yaw_tolerance_deg=2.0, max_speed_m_s=.12))
+    motion = WaypointMotion()
+    goal = {'x': 1.0, 'y': 3.0, 'revision': 1}
+    pose = {'x': 1.0, 'y': 2.0, 'heading': 30.0}
+    motion.activate(goal, 's', ctrl, pose['heading'])
+    from control.planner import Target
+    target = Target(1.0, 3.0, motion.hold_heading)
+    # the chassis has drifted 10 degrees while strafing: command must be a pure +y world move plus a yaw fix
+    drifted = {**pose, 'heading': 40.0}
+    vx, vy, wz = ctrl.command(drifted, target)
+    import math
+    world = (vx * math.cos(math.radians(40)) - vy * math.sin(math.radians(40)),
+             vx * math.sin(math.radians(40)) + vy * math.cos(math.radians(40)))
+    assert abs(world[0]) < 1e-9 and world[1] > 0          # straight line to the target, no detour
+    assert wz < 0                                          # turning back toward the held 30 degrees
+    # a new goal captures the new heading; the old one is not reused
+    motion.activate({**goal, 'revision': 2}, 's', ctrl, 55.0)
+    assert motion.hold_heading == 55.0

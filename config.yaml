@@ -213,7 +213,8 @@ control:
         max_yaw_rad_s: 0.30
         position_gain: 0.6
         position_tolerance_m: 0.10
-        allow_strafe: false
+        yaw_tolerance_deg: 2.0   # holonomic mecanum: straight-line moves while holding the heading from the click
+        allow_strafe: true
   formation:                # listening triangle: user at one corner, the speakers at the other two
     distance_m: 2.0         # requested speaker-to-user distance; validate current floor pose before arming
     spread_deg: 60          # angle between the speakers as seen by the user (60 = equilateral)
