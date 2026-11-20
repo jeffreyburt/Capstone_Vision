@@ -364,7 +364,8 @@ def assess_robot(node, raw, master_raw, vision_msg, vision_age, control_msg, con
             camera = {"port": None, "path": f"/video/{stream}", "label": f"{stream} camstream"}
     elif cam_live is not None:
         checks.append(check("Camera", OK, f"head tracker camera live ({cam_live.get('model') or 'camera'})"))
-        camera = {"url": f"http://{node.host}:{node.dashboard_port}/camera.mjpg", "label": "head tracker camera"}
+        camera = {"url": f"http://{node.host}:{node.dashboard_port}/camera.mjpg",
+                  "label": "head tracker camera", "rotation": 180}
     elif online:
         camera_status = ((dash or {}).get("data") or {}).get("camera") or {}
         checks.append(check("Camera", WARN if camera_status.get("status") else OFF,

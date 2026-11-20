@@ -31,6 +31,17 @@ master Pi camera ──Ethernet──► laptop: vision.main ──UDP 5005─�
 
 ## 2. Machines
 
+**2026-11-19 all-camera dashboard update:** The main camera publisher and laptop vision process were
+already running; fresh annotated main-camera frames verified at about 3–4 fps. Both robot IMX708 feeds
+also deliver changing valid JPEGs through the monitor's `/camera/robot1` and `/camera/robot2` routes.
+The dashboard now groups both robot feeds directly below the main camera, visible by default, with
+per-camera hide controls, a Show all cameras button, retry handling, and explicit unavailable status.
+Head-camera display rotation is included in the camera metadata and matches the individual dashboards.
+Verified all three visible image sources in a rendered browser, changing frames from every endpoint,
+and all 24 monitor tests. Restarted only the laptop monitor; no robot controls, torque or wheel states
+were changed.
+
+
 **2026-11-19 servo capture fix:** Robot 2's capture buttons incorrectly treated fresh feedback as stale
 because the browser used the Mac's clock (~3.4 hours ahead of the Pi). The integrated head dashboard now
 returns `serverTime` and compares feedback against that same clock. Capture buttons also explain why

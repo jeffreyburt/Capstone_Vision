@@ -94,6 +94,14 @@ change the allowed IDs. Robot 1's rear tag still needs its overlapping connector
 
 ### System GUI
 
+All three camera feeds are grouped at the top of the system dashboard: the annotated main camera,
+then Robot 1 and Robot 2 side by side (stacked on narrow screens). Robot feeds are visible by default,
+relay through the main Pi, and retain the head dashboards' 180-degree display rotation. Each can be
+hidden individually; **Show all cameras** restores both. Disconnected streams retry automatically and
+unavailable cameras show their reported status instead of silently disappearing. Viewing feeds does
+not start head tracking, engage torque, or send wheel commands.
+
+
 The top panel shows the **main camera with live detection overlays**: red person boxes, green ArUco
 marker IDs, yellow robot centers, and a cyan floor estimate for the selected listener. The panel lists
 current detections and frame age, and hides the video and targets when frames or vision heartbeats go

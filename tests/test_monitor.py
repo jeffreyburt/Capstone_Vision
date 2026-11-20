@@ -301,6 +301,7 @@ def test_monitor_probes_local_services():
         assert "simulation" in text(robot, "Drive server")
         assert lv["Head tracker"] == assess.OK and lv["Camera"] == assess.OK
         assert robot["camera"]["url"].endswith("/camera.mjpg")
+        assert robot["camera"]["rotation"] == 180
         assert [link["to"] for link in st["links"]] == ["master", "robot2"]
         json.dumps(st)  # the page gets it as JSON
     finally:

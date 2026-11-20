@@ -24,6 +24,9 @@
   main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(380px, 46%); gap: 14px; padding: 14px 16px; }
   main > #diagram { grid-column: 1 / -1; }
   #main-camera { grid-column: 1 / -1; }
+  #robot-cameras { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  #robot-cameras .cam img { aspect-ratio: 4 / 3; object-fit: contain; max-height: 420px; }
+  .camera-unavailable { padding: 12px; color: var(--warn); }
   #main-camera img { display: block; width: 100%; max-height: 520px; object-fit: contain; background: #080b0f; }
   #main-camera img[hidden] { display: none; }
   #main-camera-status, #main-camera-targets { margin: 0; padding: 8px 12px; color: var(--muted); }
@@ -71,6 +74,7 @@
   .det pre { margin: 0; font: 12px ui-monospace, monospace; white-space: pre-wrap; }
   @media (min-width: 1500px) { #cards { grid-template-columns: 1fr 1fr; } #cards .card.wide { grid-column: 1 / -1; } }
   @media (max-width: 900px) {
+    #robot-cameras { grid-template-columns: 1fr; }
     main { grid-template-columns: minmax(0, 1fr); }
     .col.sticky { position: static; }
     #map { height: 340px; }
@@ -83,6 +87,7 @@
   <h1>Capstone system</h1>
   <span id="overall">connecting…</span>
   <span class="spacer"></span>
+  <button id="show-all-cameras">Show all cameras</button>
   <a id="vision-link" href="#" target="_blank" hidden>Vision GUI (3D view, lens calibration) ↗</a>
   <span id="updated"></span>
 </header>
@@ -99,6 +104,7 @@
       <span><i style="background:#00ffff"></i>selected listener floor estimate</span>
       <span>Viewing only · no motor or servo commands</span></div>
   </section>
+  <div id="robot-cameras" aria-label="Robot camera feeds"></div>
   <section class="panel" id="diagram">
     <h2>Network <span class="sub">click a machine for its details</span></h2>
     <svg viewBox="0 0 850 250" role="img" aria-label="network diagram"></svg>
@@ -191,7 +197,7 @@ function drawDiagram(st) {
 
 // ---------------------------------------------------------------- machine cards
 const cards = {};
-const camOn = store.get("cameras", { master: true });
+const camOn = store.get("camera-visibility-v2", { robot1: true, robot2: true });
 
 function makeCard(n) {
   const el = document.createElement("section");
@@ -208,7 +214,23 @@ function makeCard(n) {
   for (const k of ["dot", "name", "addr", "pill", "checks", "cam", "camlabel", "det"]) c[k] = el.querySelector(`.${k}`);
   c.img = el.querySelector("img");
   c.btn = el.querySelector(".cam button");
-  c.btn.onclick = () => { camOn[n.key] = !camOn[n.key]; store.set("cameras", camOn); updateCamera(c); };
+  c.btn.onclick = () => { camOn[n.key] = camOn[n.key] === false; store.set("camera-visibility-v2", camOn); updateCamera(c); };
+  c.img.onerror = () => {
+    c.imgURL = null;
+    c.retryAfter = Date.now() + 2000;
+    c.img.removeAttribute("src");
+    c.camlabel.textContent = "Camera disconnected; retrying…";
+  };
+  if (n.kind === "robot") {
+    const panel = document.createElement("section");
+    panel.className = "panel";
+    const title = document.createElement("h2");
+    title.textContent = `${n.name} · live camera`;
+    c.unavailable = document.createElement("p");
+    c.unavailable.className = "camera-unavailable";
+    panel.append(title, c.cam, c.unavailable);
+    $("robot-cameras").appendChild(panel);
+  }
   cards[n.key] = c;
   return c;
 }
@@ -227,11 +249,16 @@ function cameraURL(cam) {
 function updateCamera(c) {
   const url = cameraURL(c.camera);
   c.cam.hidden = !url;
-  const on = !!url && !!camOn[c.key];
+  const on = !!url && camOn[c.key] !== false;
   c.cam.classList.toggle("on", on);
   c.btn.textContent = on ? "Hide camera" : "Show camera";
   c.camlabel.textContent = url ? c.camera.label : "";
+  c.img.style.transform = `rotate(${c.camera?.rotation || 0}deg)`;
   const want = on ? url : null;
+  if (want && Date.now() < (c.retryAfter || 0)) {
+    c.camlabel.textContent = "Camera disconnected; retrying…";
+    return;
+  }
   if (c.imgURL !== want) {  // changing src closes the old MJPEG connection
     c.imgURL = want;
     if (want) c.img.src = want; else c.img.removeAttribute("src");
@@ -269,6 +296,10 @@ function drawCards(st) {
       `<span class="lbl">${esc(k.label)}</span><span class="txt">${esc(k.text)}</span>`).join(""));
     setHTML(c, "det", detailsHTML(n, st.t));
     c.camera = n.kind === "master" ? null : n.camera; // main feed has its own annotated panel
+    if (c.unavailable) {
+      c.unavailable.hidden = !!c.camera;
+      c.unavailable.textContent = n.checks.find(k => k.label === "Camera")?.text || "Waiting for camera status…";
+    }
     updateCamera(c);
   }
 }
@@ -451,6 +482,12 @@ function drawMainCamera(st) {
   }
 }
 let latest = null;
+$("show-all-cameras").onclick = () => {
+  for (const c of Object.values(cards)) camOn[c.key] = true;
+  store.set("camera-visibility-v2", camOn);
+  if (latest) drawCards(latest);
+  $("main-camera").scrollIntoView({ behavior: "smooth", block: "start" });
+};
 async function poll() {
   try {
     const r = await fetch("/state", { cache: "no-store" });
