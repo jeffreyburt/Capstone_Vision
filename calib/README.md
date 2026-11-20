@@ -4,6 +4,18 @@ The calibration is saved in Git and loaded by `config.yaml`. Rebooting the Pis o
 programs does **not** require repeating the measurements. Camera or mechanical changes can invalidate
 the affected calibration; normal travel and power cycles do not.
 
+## Dashboard checklist (no AI needed)
+
+Open <http://localhost:8090/calibration> (link in the main dashboard header). It lists every setup step in
+order with live status (done / needs attention / to do), shows every stored value read from these files, and
+runs the tools: lens calibration (via the vision GUI), floor measurement, right-head sweeps and fit, and a
+15-second stationary check. Fits only ever write candidates under `calib/candidates/`; Apply backs up the old
+file to `calib/history/` and writes a consolidated copy to `calib/snapshots/`. Owner measurements, operator
+confirmations (left head secured, wheel directions verified) and an event history are kept in
+[calibration_record.json](calibration_record.json). A `robot<ID>_head_pose.yaml` whose status starts with
+`active` is the runtime head geometry and overrides the copy embedded in `config.yaml`. Restart
+`python -m vision.main --gui` after applying a floor or head calibration. The page never drives wheels.
+
 ## Current active calibration — 2026-11-20
 
 | File | Information |

@@ -90,13 +90,24 @@ def stability(parameters, rows, camera, floor, side_mount):
 
 
 def main():
+    import argparse
     from scipy.optimize import least_squares
-    camera=CameraModel.load(ROOT/'calib/camera_intrinsics.yaml')
-    floor=FloorPose.load(ROOT/'calib/floor_pose_36cm.yaml')
+    from vision.config import load_config, resolve_path
+    ap=argparse.ArgumentParser(description='Offline right-head fit; defaults reproduce the 2026-11-20 fit')
+    ap.add_argument('--train',nargs='+',default=TRAIN,help='training recordings (names in calib/ or paths)')
+    ap.add_argument('--validation',default=VALIDATION,help='independent validation recording (not used to train)')
+    ap.add_argument('--out',default='calib/right_head_pixel_model_fit_2026-11-20.json',help='candidate output JSON')
+    args=ap.parse_args()
+    def recording(name):
+        p=Path(name)
+        return p if p.is_absolute() or p.exists() else ROOT/'calib'/name
+    cfg=load_config()
+    camera=CameraModel.load(resolve_path(cfg,cfg['calibration']['intrinsics']))
+    floor=FloorPose.load(resolve_path(cfg,cfg['calibration']['floor_pose']))
     rows=[]
-    for name in TRAIN:
-        rows.extend(stable_rows(json.loads((ROOT/'calib'/name).read_text())))
-    validation=stable_rows(json.loads((ROOT/'calib'/VALIDATION).read_text()))
+    for name in args.train:
+        rows.extend(stable_rows(json.loads(recording(name).read_text())))
+    validation=stable_rows(json.loads(recording(args.validation).read_text()))
     if not rows or not validation:
         raise SystemExit('Training and independent validation recordings are required')
     bounds=([.5,1.2,0,.15,-.3,-.2,-.3,.1,-.6,-.6,-.4,-.4,.15],
@@ -139,7 +150,8 @@ def main():
     best['validation_failures']=reasons
     best['status']='rejected_for_navigation' if reasons else 'offline_candidate_passed_live_validation_required'
     print(json.dumps(best,indent=2))
-    (ROOT/'calib/right_head_pixel_model_fit_2026-11-20.json').write_text(json.dumps(best,indent=2)+'\n')
+    out=Path(args.out); out=out if out.is_absolute() else ROOT/out
+    out.parent.mkdir(parents=True,exist_ok=True); out.write_text(json.dumps(best,indent=2)+'\n')
 
 
 if __name__ == '__main__':

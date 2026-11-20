@@ -36,11 +36,13 @@ from vision.config import load_config
 
 from . import assess
 from .beacon import StatusListener, status_port
+from .calibration import CalibrationManager
 from .probes import find_ssh, gateway_probe, network_probe, parse_health, run_ssh, tcp_check
 from .tunnels import CameraTunnels
 from control.waypoints import WaypointStore, waypoint_feedback
 
 PAGE = Path(__file__).with_name("page.html")
+CALIBRATION_PAGE = Path(__file__).with_name("calibration.html")
 
 
 def main_camera_view(message, heartbeat_age, now):
@@ -329,7 +331,48 @@ class CameraRelay:
             rx.close()
 
 
-def make_server(monitor, relay, host, port):
+def make_calibration(monitor):
+    def vision_gui():
+        (vmsg, vage), _ = monitor.heartbeats()
+        v = assess.heartbeat(vmsg, vage)
+        return (v or {}).get("gui_port")
+    return CalibrationManager(monitor.cfg, live=monitor.snapshot, vision_gui=vision_gui)
+
+
+CALIBRATION_ACTIONS = {"measurements", "confirm", "lens", "floor_measure", "floor_apply", "head_capture", "head_fit",
+                       "head_apply", "verify_run", "stop_job", "snapshot"}
+
+
+def calibration_action(cal, name, data):
+    """Run one dashboard calibration action; returns a JSON-able result. Raises ValueError/RuntimeError."""
+    if name == "measurements":
+        return {"measurements": cal.set_measurements(data.get("values") or {})}
+    if name == "confirm":
+        cal.confirm(str(data.get("step")), data.get("note", ""), bool(data.get("value", True)))
+    elif name == "lens":
+        return {"lens": cal.lens(str(data.get("command")))}
+    elif name == "floor_measure":
+        cal.floor_measure()
+    elif name == "floor_apply":
+        return cal.floor_apply()
+    elif name == "head_capture":
+        cal.head_capture(str(data.get("role")), data.get("confirmed") is True)
+    elif name == "head_fit":
+        cal.head_fit()
+    elif name == "head_apply":
+        return cal.head_apply(data.get("confirmed") is True)
+    elif name == "verify_run":
+        cal.verify_run()
+    elif name == "stop_job":
+        cal.stop_job()
+    elif name == "snapshot":
+        return {"snapshot": cal.write_snapshot("manual export")}
+    return {"ok": True}
+
+
+def make_server(monitor, relay, host, port, calibration=None):
+    calibration = calibration or make_calibration(monitor)
+
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
             pass
@@ -348,6 +391,15 @@ def make_server(monitor, relay, host, port):
                 self._send(200, "text/html; charset=utf-8", PAGE.read_bytes())
             elif path == "/state":
                 self._send(200, "application/json", json.dumps(monitor.snapshot()).encode())
+            elif path == "/calibration":
+                self._send(200, "text/html; charset=utf-8", CALIBRATION_PAGE.read_bytes())
+            elif path == "/api/calibration":
+                self._send(200, "application/json", json.dumps(calibration.state(), default=str).encode())
+            elif path == "/api/calibration/lens":
+                try:
+                    self._send(200, "application/json", json.dumps({"lens": calibration.lens()}).encode())
+                except (RuntimeError, OSError, ValueError) as error:
+                    self._send(200, "application/json", json.dumps({"lens": None, "error": str(error)}).encode())
             elif path == '/api/navigation':
                 self._send(200, 'application/json', json.dumps(monitor.snapshot()['navigation']).encode())
             elif path == "/video/birdseye":
@@ -368,7 +420,31 @@ def make_server(monitor, relay, host, port):
             else:
                 self.send_error(404)
 
+        def _calibration_post(self):
+            origin = self.headers.get('Origin')
+            if origin and origin != 'http://' + self.headers.get('Host', ''):
+                self.send_error(403)
+                return
+            name = self.path[len('/api/calibration/'):]
+            if name not in CALIBRATION_ACTIONS:
+                self.send_error(404)
+                return
+            try:
+                size = int(self.headers.get('Content-Length', '0'))
+                if not 0 <= size <= 4096:
+                    raise ValueError('Oversized JSON request')
+                data = json.loads(self.rfile.read(size) or b'{}')
+                if not isinstance(data, dict):
+                    raise ValueError('JSON object required')
+                result = calibration_action(calibration, name, data)
+                self._send(200, 'application/json', json.dumps(result, default=str).encode())
+            except (ValueError, TypeError, KeyError, RuntimeError, OSError) as error:
+                self._send(400, 'application/json', json.dumps({'error': str(error)}).encode())
+
         def do_POST(self):
+            if self.path.startswith('/api/calibration/'):
+                self._calibration_post()
+                return
             if self.path not in ('/api/navigation/target', '/api/navigation/clear', '/api/navigation/arm'):
                 self.send_error(404)
                 return
