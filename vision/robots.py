@@ -15,6 +15,7 @@ import math
 from dataclasses import dataclass
 
 import numpy as np
+import cv2
 
 from .joint_pose import HeadGeometry, fit_chassis
 
@@ -34,7 +35,7 @@ class RobotObservation:
     robot_id: int
     x: float
     y: float
-    heading_deg: float
+    heading_deg: float | None
     marker_ids: list
 
 
@@ -118,3 +119,33 @@ def estimate_robots(markers, specs, geometry, joint_positions=None):
         out.append(RobotObservation(rid, float(xy[0]), float(xy[1]),
                                     wrap_deg(math.degrees(math.atan2(hy, hx))), [i[3] for i in items]))
     return out
+
+
+def estimate_marker_positions(markers, specs, geometry):
+    """Display-only robot reference from visible marker centers, including tilted/top markers.
+
+    PnP uses measured black-square size rather than an assumed marker height plane. These are not
+    chassis centers: unknown head offsets are not compensated, and no chassis heading is invented.
+    """
+    by_marker = {mid: spec for spec in specs for mid in spec.faces}
+    groups = {}
+    for marker in markers:
+        spec = by_marker.get(marker.id)
+        if spec is None:
+            continue
+        half = spec.marker_size_m / 2
+        obj = np.array([[-half, half, 0], [half, half, 0], [half, -half, 0], [-half, -half, 0]], float)
+        ok, rvec, tvec = cv2.solvePnP(obj, marker.corners, geometry.camera.K, geometry.camera.dist,
+                                    flags=cv2.SOLVEPNP_IPPE_SQUARE)
+        if not ok or not np.isfinite(tvec).all() or tvec[2, 0] <= .1:
+            continue
+        projected = cv2.projectPoints(obj, rvec, tvec, geometry.camera.K, geometry.camera.dist)[0].reshape(4, 2)
+        if np.sqrt(np.mean((projected - marker.corners) ** 2)) > max(3, marker.side_px * .05):
+            continue
+        world = (geometry.pose.R.T @ (tvec - geometry.pose.tvec)).ravel()
+        if not np.isfinite(world).all():
+            continue
+        groups.setdefault(spec.id, []).append((world[:2], marker.side_px, marker.id))
+    return [RobotObservation(rid, *map(float, np.average([i[0] for i in items], axis=0,
+                             weights=[i[1] for i in items])), None, [i[2] for i in items])
+            for rid, items in groups.items()]

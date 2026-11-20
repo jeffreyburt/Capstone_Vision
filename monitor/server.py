@@ -67,6 +67,8 @@ def main_camera_view(message, heartbeat_age, now):
                 user=msg.get("user") if (msg.get("user") or {}).get("age", 0) <= 1 else None,
                 people_count=vision.get("people_count"), fps=vision.get("fps"),
                 calibrated=bool(vision.get("calibrated")), detection_error=vision.get("detection_error"))
+    view["position_quality"] = msg.get("position_quality")
+    view["approximation"] = msg.get("approximation")
     return view
 
 

@@ -42,6 +42,11 @@ camera:
 calibration:
   intrinsics: calib/camera_intrinsics.yaml   # written by tools/calibrate_camera.py
   floor_pose: calib/floor_pose_36cm.yaml     # pending calibration after camera move; old 1 m pose is preserved
+  approximate:             # display-only fallback until the measured floor_pose above exists
+    enabled: true
+    height_m: 0.395         # lens height supplied by owner
+    tilt_deg: 10.0          # provisional: side-marker size/height suggest 9–10 degrees down
+    tilt_source: estimated from side markers assuming configured 0.30 m marker-center height; roll assumed zero
 
 markers:
   dictionary: DICT_4X4_50   # any cv2.aruco dictionary name, e.g. DICT_APRILTAG_36h11

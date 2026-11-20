@@ -6,7 +6,7 @@ from .geometry import load_geometry
 from .joint_pose import JointFeedback
 from .markers import MarkerDetector
 from .output import make_message
-from .robots import estimate_robots, robot_specs_from_config
+from .robots import estimate_marker_positions, estimate_robots, robot_specs_from_config
 from .tracking import RobotTracker, UserTracker
 
 
@@ -89,7 +89,9 @@ class VisionPipeline:
         observations = []
         if self.geometry is not None:
             joints = self.joints.positions_at(t) if self.joints is not None else None
-            observations = [o for o in estimate_robots(markers, self.specs, self.geometry, joints)
+            estimates = (estimate_marker_positions(markers, self.specs, self.geometry) if self.geometry.approximation
+                         else estimate_robots(markers, self.specs, self.geometry, joints))
+            observations = [o for o in estimates
                             if self._in_area(o.x, o.y)]
         self.tracker.update(t, observations)
 
@@ -99,11 +101,19 @@ class VisionPipeline:
             t_det, self.last_people = got
             if self.geometry is not None:
                 from .people import locate_person
-                cands = [locate_person(d, self.geometry, frame.shape[0], self.head_height_m) for d in self.last_people]
+                detections = self.last_people
+                if self.geometry.approximation:
+                    detections = [d for d in detections if d.box[3] < frame.shape[0] - 3]
+                cands = [locate_person(d, self.geometry, frame.shape[0], self.head_height_m) for d in detections]
                 cands = [c for c in cands if c is not None and self._in_area(c.x, c.y)]
                 user_obs = self.user_tracker.update(t_det, cands)
 
         message = make_message(t, self.frame_index, self.tracker.state(t), self.user_tracker.state(t))
+        if self.geometry is not None and self.geometry.approximation:
+            message.update(position_quality="approximate", driving_allowed=False,
+                           approximation=self.geometry.approximation)
+            for robot in message["robots"]:
+                robot.update(heading=None, reference="visible_marker_centers")
         if self.compensated_ids:
             observed = {o.robot_id for o in observations}
             for robot in message["robots"]:

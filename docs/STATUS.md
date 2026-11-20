@@ -31,6 +31,22 @@ master Pi camera ──Ethernet──► laptop: vision.main ──UDP 5005─�
 
 ## 2. Machines
 
+**2026-11-20 approximate position trial:** Owner supplied 0.395 m lens height and confirmed 10 cm black
+marker squares. Enabled the explicit approximate fallback with provisional 10° downward tilt and zero
+roll. Visible side-marker PnP centers suggest 9–10° if their configured 0.30 m mounting height is correct;
+this remains an assumption, not a measured calibration. The historical 1.006 m pose is still unused.
+Robot positions now use marker-size PnP for visible tag centers, including tilted/top tags, rather than
+intersecting their corners with assumed height planes. Head/chassis offsets are uncorrected; heading
+is unknown. Initial live estimates: R1 roughly (-0.40, 2.57) m and R2 (0.46, 2.54) m relative to the floor
+point under the camera (+X right, +Y forward). No person was in the observed frame. Person localization
+is available when feet are visible, with synthetic projection tests; no head-height fallback is used in
+this mode. Main dashboard/map/overlay label estimates and show robot-to-person distances only when both
+tracks are fresh. Protocol metadata rejects driving in the controller even with --arm; current robot 2
+controller is unarmed and reports zero commands / approximate positions—driving disabled. Full suite:
+119 tests plus 10 subtests pass, including tilted marker positions, measured-calibration precedence,
+visible/cropped feet, and drive rejection. Only Mac passive processes reloaded; no servo/wheel commands.
+
+
 **2026-11-20 main camera restored after reboot:** The main Pi was online but its manually launched
 camera publisher had not restarted; TCP 5600 was closed and the laptop retained an old frame. Installed
 and enabled the existing `camstream-birdseye.service` using

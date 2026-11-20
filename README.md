@@ -72,9 +72,20 @@ which adds YOLO.
 
 `control.formation.distance_m` is 2.0 m. Only robot 2 is selected in the current **unarmed** controller
 preview (`python -m control.main --robots 2`); it sends no wheel commands. The main camera was moved to
-about 0.36 m high, so its previous 1.006 m floor pose is no longer used. The configured replacement
-`calib/floor_pose_36cm.yaml` must be measured before metric positions or follow targets are available.
-Marker and person image detections continue while calibration is pending.
+a measured 0.395 m lens height, so its previous 1.006 m floor pose is no longer used. While the configured
+replacement `calib/floor_pose_36cm.yaml` is missing, the enabled `calibration.approximate` fallback provides
+**display-only estimated positions** using the confirmed 10 cm marker size, a provisional 10° downward
+tilt and zero roll. Tilt was inferred from visible side-marker positions assuming their configured 0.30 m
+center height; it is not a measured floor calibration. A measured floor pose takes precedence when saved.
+
+In approximate mode robot X/Y is the weighted location of visible marker centers obtained with PnP;
+top and tilted tags can contribute, but head/chassis offsets remain uncorrected and chassis heading is
+left unknown. Person X/Y uses detected feet and the approximate floor plane; no floor position is claimed
+when the feet are cropped out. The main dashboard shows X/Y, robot-to-person distances when both are fresh,
+and explicit approximate/no-driving labels. Errors grow near the horizon. Compare estimates with a tape
+measure. The UDP output carries `position_quality: approximate` and `driving_allowed: false`; the controller
+rejects this data for driving even if started with `--arm`. This fallback does not provide the calibrated
+3D top-marker model or moving-head compensation needed for later autonomous chassis navigation.
 
 For floor calibration, generate two sheets with
 `python tools/generate_markers.py --ids 40-41 --size-cm 15 --out markers/floor-36cm`, print at 100%,

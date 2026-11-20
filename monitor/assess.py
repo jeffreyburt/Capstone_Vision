@@ -156,7 +156,9 @@ def assess_laptop(vision_msg, vision_age, control_msg, control_age, now):
                                 f"running on {vision.get('camera')}"))
         checks.append(check("Markers", OK if markers else WARN,
                             f"seeing IDs {', '.join(map(str, markers))}" if markers else "no markers in view"))
-        if vision.get("calibrated"):
+        if (vision.get("message") or {}).get("position_quality") == "approximate":
+            checks.append(check("Floor calibration", WARN, "approximate height/tilt model; driving disabled"))
+        elif vision.get("calibrated"):
             checks.append(check("Floor calibration", OK, "loaded"))
         else:
             checks.append(check("Floor calibration", BAD, "missing: no floor positions (tools/calibrate_floor.py)"))

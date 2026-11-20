@@ -98,6 +98,7 @@
     <p id="main-camera-status" role="status">Checking the main camera…</p>
     <img id="main-camera-image" alt="Main camera with person boxes, ArUco marker IDs and robot center overlays" hidden>
     <p id="main-camera-targets"></p>
+    <p id="main-camera-positions" style="padding:0 12px 10px;color:var(--warn)" role="status"></p>
     <div class="legend"><span><i style="background:#ff5a5a"></i>person box and confidence</span>
       <span><i style="background:#3fae5a"></i>robot marker outline and ID</span>
       <span><i style="background:var(--cam)"></i>estimated robot center (R1 / R2)</span>
@@ -441,6 +442,7 @@ function drawMap(st) {
   }
 
   const notes = [];
+  if (msg?.position_quality === "approximate") notes.push("Approximate positions · driving disabled");
   if (!st.vision) notes.push("vision.main not running: no positions");
   else if (!cam) notes.push("no floor calibration from vision.main");
   if (st.vision && !robots.length && !user) notes.push("no robots or user in view");
@@ -465,16 +467,23 @@ function drawMainCamera(st) {
     mainCameraURL = null;
     $("main-camera-status").textContent = c.status || "Waiting for vision";
     $("main-camera-targets").textContent = "No current tracking data";
+    $("main-camera-positions").textContent = "";
     return;
   }
   const stats = [c.status, c.fps ? `${c.fps.toFixed(1)} fps` : null,
     c.frame_age_s != null ? `frame ${c.frame_age_s.toFixed(1)} s ago` : null,
-    c.calibrated ? "Floor calibration loaded" : "No floor calibration: image detections only"];
+    c.position_quality === "approximate" ? `Approximate model: ${c.approximation.height_m * 100} cm high, ${c.approximation.tilt_deg}° estimated tilt · driving disabled` :
+      c.calibrated ? "Floor calibration loaded" : "No floor calibration: image detections only"];
   if (c.detection_error) stats.push(`Person detector error: ${c.detection_error}`);
   $("main-camera-status").textContent = stats.filter(Boolean).join(" · ");
   const markers = (c.markers || []).join(", ") || "none";
   const robots = (c.robots || []).map(r => `R${r.id}`).join(", ") || "none located";
   $("main-camera-targets").textContent = `People detected: ${c.people_count ?? "unknown"} · Marker IDs: ${markers} · Robots: ${robots} · Listener track: ${c.user ? "present" : "none"}`;
+  const positions = (c.robots || []).map(r => `R${r.id} ≈ (${r.x.toFixed(2)}, ${r.y.toFixed(2)}) m` +
+    (c.user ? ` · person distance ≈ ${Math.hypot(r.x - c.user.x, r.y - c.user.y).toFixed(2)} m` : ""));
+  if (c.user) positions.push(`Person ≈ (${c.user.x.toFixed(2)}, ${c.user.y.toFixed(2)}) m`);
+  $("main-camera-positions").textContent = positions.length ? positions.join(" | ") +
+    " · X right / Y forward from beneath the camera" + (c.position_quality === "approximate" ? " · Robot reference: visible marker centers; head offsets uncorrected" : "") : "";
   if (mainCameraURL !== c.url && Date.now() >= mainCameraRetry) {
     mainCameraURL = c.url;
     img.src = `${c.url}?t=${Date.now()}`;

@@ -97,7 +97,8 @@ def main(argv=None):
                            "markers": sorted({int(m.id) for m in result.markers}), "message": result.message,
                            "people_count": len(result.people),
                            "detection_error": str(pipeline.async_people.error) if pipeline.async_people and pipeline.async_people.error else None,
-                           "calibrated": pipeline.geometry is not None, "scene": scene})
+                           "calibrated": pipeline.geometry is not None and pipeline.geometry.approximation is None,
+                           "scene": scene})
 
             if now - last_publish >= publish_period:
                 publisher.send(result.message)
@@ -107,7 +108,8 @@ def main(argv=None):
 
             if now - last_status >= 1.0:
                 fps = frames_since_status / (now - last_status) if last_status else None
-                robots = ", ".join(f"R{r['id']} ({r['x']:.2f}, {r['y']:.2f}) {r['heading'] or 0:.0f}deg age {r['age']:.1f}s"
+                robots = ", ".join(f"R{r['id']} ({r['x']:.2f}, {r['y']:.2f}) " +
+                                   ("heading unknown" if r['heading'] is None else f"{r['heading']:.0f}deg") + f" age {r['age']:.1f}s"
                                    for r in result.message["robots"]) or "no robots"
                 u = result.message["user"]
                 user = f"user ({u['x']:.2f}, {u['y']:.2f}) age {u['age']:.1f}s" if u else "no user"

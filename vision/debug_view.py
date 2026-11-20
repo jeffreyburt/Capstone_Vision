@@ -49,6 +49,8 @@ def draw_overlay(frame, result, geometry=None, fps=None):
         text = f"{fps:.1f} fps   " + text
     if geometry is None:
         text += "   (no floor calibration)"
+    elif getattr(geometry, "approximation", None):
+        text += "   APPROXIMATE POSITIONS - NO DRIVING"
     cv2.putText(img, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, WHITE, 2)
     return img
 

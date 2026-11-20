@@ -42,6 +42,10 @@ def compute_commands(msg, msg_age_s, planner, controllers, timing=None, compensa
         return {}, {rid: (STOP, "no vision") for rid in controllers}
 
     robots = {r["id"]: r for r in msg.get("robots", [])}
+    if msg.get("position_quality") == "approximate" or msg.get("driving_allowed") is False:
+        for ctrl in controllers.values():
+            ctrl.reset()
+        return {}, {rid: (STOP, "approximate positions — driving disabled") for rid in controllers}
     u = msg.get("user")
     user = (u["x"], u["y"]) if u is not None and u["age"] <= timing["user_lost_s"] else None
     targets = planner.update(user)
@@ -93,7 +97,8 @@ def _fmt_status(mode, msg, targets, results, link_ages):
     robots = {r["id"]: r for r in (msg or {}).get("robots", [])}
     for rid, (cmd, reason) in results.items():
         r, t = robots.get(rid), targets.get(rid)
-        pose = f"({r['x']:.2f}, {r['y']:.2f}, {r['heading'] or 0:.0f}deg)" if r else "(unseen)"
+        heading = "heading unknown" if not r or r.get("heading") is None else f"{r['heading']:.0f}deg"
+        pose = f"({r['x']:.2f}, {r['y']:.2f}, {heading})" if r else "(unseen)"
         goal = f" -> ({t.x:.2f}, {t.y:.2f}, {t.heading_deg:.0f}deg)" if t else ""
         age = link_ages.get(rid)
         link = "no reply" if age is None else ("link ok" if age < 1.0 else f"link {age:.0f}s old")

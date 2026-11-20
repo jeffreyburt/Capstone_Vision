@@ -108,6 +108,7 @@ class Geometry:
 
     def __init__(self, camera: CameraModel, pose: FloorPose):
         self.camera, self.pose = camera, pose
+        self.approximation = None
 
     @property
     def camera_position(self):
@@ -191,6 +192,19 @@ def load_geometry(cfg, frame_size):
 
     pose_path = resolve_path(cfg, cal.get("floor_pose"))
     if not (pose_path and pose_path.exists()):
+        rough = cal.get("approximate") or {}
+        if rough.get("enabled"):
+            height, tilt = float(rough["height_m"]), float(rough["tilt_deg"])
+            if not (math.isfinite(height) and height > 0 and math.isfinite(tilt) and -45 < tilt < 90):
+                raise ValueError("Invalid approximate camera height/tilt")
+            angle = math.radians(tilt)
+            pose = FloorPose.look_at([0, 0, height], [0, math.cos(angle), height - math.sin(angle)])
+            geometry = Geometry(camera, pose)
+            geometry.approximation = {"height_m": height, "tilt_deg": tilt,
+                                      "tilt_source": rough.get("tilt_source", "assumed"),
+                                      "roll_deg": 0, "driving_allowed": False}
+            print(f"APPROXIMATE positions only: height {height} m, tilt {tilt} deg; driving disabled")
+            return geometry
         print(f"NOTE: no floor calibration at {pose_path}; run tools/calibrate_floor.py. "
               "Only pixel detections will be shown.")
         return None

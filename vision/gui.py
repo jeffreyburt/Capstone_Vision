@@ -34,6 +34,7 @@ def scene_info(cfg, geometry, frame_size):
     }
     if geometry is None:
         return info
+    info["approximation"] = geometry.approximation
     w, h = frame_size
     corners = np.array([[0, 0], [w - 1, 0], [w - 1, h - 1], [0, h - 1]], float)
     rays = geometry.camera.pixels_to_rays(corners) @ geometry.pose.R  # world-frame directions
