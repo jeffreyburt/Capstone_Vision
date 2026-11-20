@@ -31,6 +31,17 @@ master Pi camera ──Ethernet──► laptop: vision.main ──UDP 5005─�
 
 ## 2. Machines
 
+**2026-11-20 neutral-head capture (pending, not navigation calibration):** Owner placed both heads
+level, facing chassis front, and confirmed remaining robot black squares are 10 cm. Read-only Robot 2
+feedback: pan 391, tilt 770, torque [0,0], tracking/sweep stopped. Robot 1 has no servo replies.
+Only upright rear IDs 2/6 were detected in the captured neutral frame; camera-estimated center heights
+were ~0.295/0.294 m. Top/front markers were not required. Saved raw neutral observations, both PnP
+alternatives, and outstanding geometry requirements in calib/head_neutral_pending.json. No head_pose
+was activated; no torque or movement commands sent. Need fixed-left-head verification, measured tag
+and axis offsets relative to wheelbase center, joint sign/scale, mount hierarchy, and clock/transport
+validation before driving with these markers. Robot 2 dashboard currently publishes no pose-host feed.
+
+
 **2026-11-20 measured floor calibration and duplicate-ID fix:** Owner placed 15 cm floor tags 0/1,
 measured approximately 1.03 m center spacing, and confirmed lens height 0.395 m. Initial calibration
 was invalid because ID 0 appeared both on the floor and on Robot 1's head; the collection code averaged

@@ -1,0 +1,156 @@
+{
+  "status": "pending_geometry_measurements_not_for_navigation",
+  "recorded_on": "2026-11-20",
+  "marker_size_m": 0.1,
+  "operator_reference": "both heads level and facing chassis front; top/front tags not visible",
+  "robot1": {
+    "servo_feedback_available": false,
+    "neutral_units": null,
+    "visible_rear_marker_id": 2,
+    "requires_fixed_head": true
+  },
+  "robot2": {
+    "servo_feedback_available": true,
+    "neutral_units": [
+      391,
+      770
+    ],
+    "torque_at_capture": [
+      0,
+      0
+    ],
+    "visible_rear_marker_id": 6
+  },
+  "camera_observations": {
+    "capture_t": 1792294742.7694764,
+    "markers": [
+      {
+        "id": 6,
+        "corners_px": [
+          [
+            2607.26171875,
+            957.1398315429688
+          ],
+          [
+            2683.76611328125,
+            964.0028076171875
+          ],
+          [
+            2674.178955078125,
+            1042.0673828125
+          ],
+          [
+            2597.90869140625,
+            1035.0257568359375
+          ]
+        ],
+        "solutions": [
+          {
+            "center_world_m": [
+              1.2713433745422988,
+              2.191225484627918,
+              0.29388691581349097
+            ],
+            "normal_world": [
+              -0.29599173698057785,
+              -0.954941595625596,
+              -0.021804600048180935
+            ],
+            "up_world": [
+              0.03758892677235429,
+              -0.03445472151741943,
+              0.9986991262383578
+            ]
+          },
+          {
+            "center_world_m": [
+              1.2709697600896233,
+              2.1914352414715244,
+              0.2939918019556086
+            ],
+            "normal_world": [
+              -0.6802158128878774,
+              -0.7278152729170826,
+              0.08712850512844082
+            ],
+            "up_world": [
+              0.08217401837713795,
+              0.04239970267000206,
+              0.9957156702177831
+            ]
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "corners_px": [
+          [
+            1900.283203125,
+            925.2122802734375
+          ],
+          [
+            1969.724365234375,
+            929.4757080078125
+          ],
+          [
+            1967.537353515625,
+            1001.1934814453125
+          ],
+          [
+            1898.1619873046875,
+            996.7108764648438
+          ]
+        ],
+        "solutions": [
+          {
+            "center_world_m": [
+              0.46367517106274336,
+              2.7550836609024896,
+              0.2952609205636474
+            ],
+            "normal_world": [
+              -0.42927543424021086,
+              -0.9031631100673138,
+              0.004358689185498945
+            ],
+            "up_world": [
+              0.021457333885600446,
+              -0.0053738727325739295,
+              0.9997553222235809
+            ]
+          },
+          {
+            "center_world_m": [
+              0.46411608779614605,
+              2.754869615722461,
+              0.2953071115161576
+            ],
+            "normal_world": [
+              0.11023580002066785,
+              -0.9924796419212604,
+              0.05321868812409888
+            ],
+            "up_world": [
+              0.03196462958977158,
+              0.05705748941883768,
+              0.9978590608680203
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "required_measurements": [
+    "Confirm left head is mechanically secured against shifting during driving",
+    "For each robot: horizontal fore/aft and left/right offset of rear tag center from midpoint of wheelbase",
+    "For right robot: pan-axis fore/aft and left/right location relative to wheelbase midpoint",
+    "For right robot: tilt-axis fore/aft and left/right location and height above floor",
+    "Identify whether rear marker follows pan, tilt, both, or neither",
+    "Measure joint angle changes against encoder changes to establish signs and scales"
+  ],
+  "limitations": [
+    "neutral units are one read-only capture, not an engaged hold",
+    "clock alignment and feedback transport require validation before dynamic compensation",
+    "PnP returns ambiguous alternatives; these observations are not active chassis geometry"
+  ]
+}
