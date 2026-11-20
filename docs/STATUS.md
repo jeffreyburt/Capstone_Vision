@@ -31,6 +31,35 @@ master Pi camera ──Ethernet──► laptop: vision.main ──UDP 5005─�
 
 ## 2. Machines
 
+**2026-11-20 measured floor calibration and duplicate-ID fix:** Owner placed 15 cm floor tags 0/1,
+measured approximately 1.03 m center spacing, and confirmed lens height 0.395 m. Initial calibration
+was invalid because ID 0 appeared both on the floor and on Robot 1's head; the collection code averaged
+corners from the two physical tags. It now rejects duplicate IDs within the selected calibration region.
+Added --min-y-fraction to isolate floor tags; all corners must be below the configured image fraction.
+
+Recaptured 20 samples per tag with --ids 0 1 --forward-id 0 --size-cm 15 --min-y-fraction 0.5.
+The isolated fit estimates height 0.379 m, downward pitch 11.23 degrees, spacing 1.036 m versus owner's
+1.03 m, tag-plane deviations 0.2/0.4 degrees. Height differs from tape by 1.6 cm; no forced rescaling.
+Saved active calib/floor_pose_36cm.yaml with owner validation measurements; old 1 m pose preserved.
+IDs 0/1 are excluded from robot observations through calibration.floor_marker_ids, including the duplicate
+head ID 0, but remain visible in camera overlays. Re-enable robot IDs only after removing floor copies
+and validating their actual robot-tag size/mount geometry. Robot-tag configuration remains 10 cm pending
+measurement; floor calibration's 15 cm size does not change the size of other robot tags.
+
+Validation: 145 tests and 10 subtests passed, including duplicate-ID rejection, floor-only selection,
+and moving-head heading suppression. Live dashboard verified calibrated floor, heading=null for both
+robots, uncalibrated_head_markers references, and both navigation readiness checks blocked.
+
+Both robots explicitly declare moving_head_markers=true. Until each has measured head_pose geometry,
+vision labels their reference uncalibrated_head_markers, suppresses chassis heading, and reports
+pose_compensated=false. Main floor calibration loaded and live; controller remains DRY RUN and both
+navigation readiness checks remain blocked. Floor calibration alone does not enable driving.
+
+Robot 1 previous three-wheel forward correction visually confirmed by owner. Bounded floor tests at
+4 counts/10ms then ramped to 10 counts/10ms for one second produced movement; owner confirmed increased
+motion. Normal three-wheel cap remains 6; no persistent Robot 1 drive service installed.
+
+
 **2026-11-20 waypoint camera feedback:** Main dashboard now includes per-robot camera position,
 destination, X/Y error, distance error, tracking age/quality, navigation-block reason, and a 60-second
 distance-error chart. Existing grid selection supports separate robot destinations; cancel clears both.

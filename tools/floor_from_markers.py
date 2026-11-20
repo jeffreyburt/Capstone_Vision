@@ -25,7 +25,7 @@ from vision.geometry import CameraModel, FloorPose
 from vision.markers import MarkerDetector
 
 
-def collect_corners(source, detector, ids, frames, timeout_s=30):
+def collect_corners(source, detector, ids, frames, timeout_s=30, min_y_fraction=0.):
     """Average each marker's corners over several frames (the markers are still, so this cuts noise)."""
     seen = {i: [] for i in ids}
     t0, size = time.time(), None
@@ -34,9 +34,15 @@ def collect_corners(source, detector, ids, frames, timeout_s=30):
         if got is None:
             break
         size = (got[0].shape[1], got[0].shape[0])
-        for d in detector.detect(got[0]):
-            if d.id in seen:
-                seen[d.id].append(d.corners)
+        detections = [d for d in detector.detect(got[0])
+                      if d.id in seen and np.min(d.corners[:, 1]) >= min_y_fraction * size[1]]
+        for mid in ids:
+            matches = [d for d in detections if d.id == mid]
+            if len(matches) > 1:
+                raise SystemExit(f"duplicate marker ID {mid} in the calibration region; cover extra copies "
+                                 "or use --min-y-fraction to select only floor markers")
+            if matches:
+                seen[mid].append(matches[0].corners)
     missing = [i for i, v in seen.items() if not v]
     if missing:
         raise SystemExit(f"marker(s) {missing} not seen; check they're in view, flat and well lit")
@@ -93,9 +99,15 @@ def main():
     ap.add_argument("--forward-id", type=int, help="marker that defines +y (default: the first of --ids)")
     ap.add_argument("--size-cm", type=float, required=True, help="black-square edge of the floor markers")
     ap.add_argument("--source", help="camera source (default from config)")
+    ap.add_argument("--min-y-fraction", type=float, default=0.,
+                    help="only use marker corners below this fraction of image height (0..1)")
     ap.add_argument("--frames", type=int, default=10, help="frames to average")
     ap.add_argument("--out", default=str(resolve_path(cfg, cfg["calibration"]["floor_pose"])))
     args = ap.parse_args()
+    if not 0 <= args.min_y_fraction < 1:
+        ap.error('--min-y-fraction must be between 0 (inclusive) and 1 (exclusive)')
+    if len(set(args.ids)) != len(args.ids) or args.frames < 1 or not np.isfinite(args.size_cm) or args.size_cm <= 0:
+        ap.error('Need distinct marker IDs, positive frames, and a positive finite marker size')
     forward = args.forward_id if args.forward_id is not None else args.ids[0]
     if forward not in args.ids:
         raise SystemExit("--forward-id must be one of --ids")
@@ -107,7 +119,7 @@ def main():
     try:
         corners, size = collect_corners(source, MarkerDetector(cfg["markers"]["dictionary"],
                                        adaptive_thresh_constant=cfg["markers"].get("adaptive_thresh_constant", 3)),
-                                       args.ids, args.frames)
+                                       args.ids, args.frames, min_y_fraction=args.min_y_fraction)
     finally:
         source.close()
     camera = CameraModel.load(intr).scaled_to(*size)

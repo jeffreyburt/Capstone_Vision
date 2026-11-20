@@ -27,6 +27,7 @@ class VisionPipeline:
         person_detector: any object with detect(frame) -> [PersonDetection]; default from config `people:`."""
         self.cfg = cfg
         self.specs = robot_specs_from_config(cfg)
+        self.floor_marker_ids = set((cfg.get("calibration") or {}).get("floor_marker_ids", []))
         marker_ids = [mid for s in self.specs for mid in s.faces]
         marker_cfg = cfg.get("markers", {})
         self.detector = MarkerDetector(marker_cfg.get("dictionary", "DICT_4X4_50"), marker_ids,
@@ -52,6 +53,8 @@ class VisionPipeline:
                    for spec in self.specs if spec.head is not None}
         self.joints = JointFeedback(cfg.get("joint_feedback_port", 5006), sources) if sources else None
         self.compensated_ids = set(sources)
+        self.pending_head_ids = {int(r["id"]) for r in cfg.get("robots", [])
+                                 if r.get("moving_head_markers") and r.get("head_pose") is None}
 
     @staticmethod
     def _make_person_detector(p):
@@ -87,10 +90,11 @@ class VisionPipeline:
 
         markers = self.detector.detect(frame)
         observations = []
+        robot_markers = [m for m in markers if m.id not in self.floor_marker_ids]
         if self.geometry is not None:
             joints = self.joints.positions_at(t) if self.joints is not None else None
-            estimates = (estimate_marker_positions(markers, self.specs, self.geometry) if self.geometry.approximation
-                         else estimate_robots(markers, self.specs, self.geometry, joints))
+            estimates = (estimate_marker_positions(robot_markers, self.specs, self.geometry) if self.geometry.approximation
+                         else estimate_robots(robot_markers, self.specs, self.geometry, joints))
             observations = [o for o in estimates
                             if self._in_area(o.x, o.y)]
         self.tracker.update(t, observations)
@@ -119,6 +123,9 @@ class VisionPipeline:
             for robot in message["robots"]:
                 if robot["id"] in self.compensated_ids:
                     robot["pose_compensated"] = robot["id"] in observed and robot["age"] == 0
+        for robot in message['robots']:
+            if robot['id'] in self.pending_head_ids:
+                robot.update(heading=None, pose_compensated=False, reference='uncalibrated_head_markers')
         result = FrameResult(t, self.frame_index, markers, observations, self.last_people, user_obs, message)
         self.frame_index += 1
         return result

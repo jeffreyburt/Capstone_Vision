@@ -503,7 +503,7 @@ function drawNavigationFeedback(st) {
     const ready = st.navigation?.readiness?.[id];
     const controller = st.control?.robots?.[id];
     const estimated = f.quality === "approximate";
-    const label = !f.actual ? "Not seen" : !f.fresh ? "Tracking stale" : estimated ? "Estimated marker position" : "Camera chassis position";
+    const label = !f.actual ? "Not seen" : !f.fresh ? "Tracking stale" : f.reference === "uncalibrated_head_markers" ? "Head geometry pending" : estimated ? "Estimated marker position" : "Camera chassis position";
     const reason = !ready?.ready ? ready?.reason : controller?.reason;
     rows += `<tr><td>R${esc(id)}</td><td>${coord(f.actual)}<br>${esc(label)}</td><td>${coord(f.target)}</td><td>${f.distance_m == null ? "—" : `${estimated ? "≈ " : ""}${f.distance_m.toFixed(2)} m`}<br>${f.error ? `Δx ${f.error[0].toFixed(2)}, Δy ${f.error[1].toFixed(2)}` : ""}</td><td>${f.tracking_age_s == null ? "—" : `${f.tracking_age_s.toFixed(2)} s`}<br>${esc(reason || "No destination")}</td></tr>`;
     let history = errorHistory.get(id);

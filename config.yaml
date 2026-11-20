@@ -41,7 +41,8 @@ camera:
 
 calibration:
   intrinsics: calib/camera_intrinsics.yaml   # written by tools/calibrate_camera.py
-  floor_pose: calib/floor_pose_36cm.yaml     # pending calibration after camera move; old 1 m pose is preserved
+  floor_pose: calib/floor_pose_36cm.yaml     # measured floor tags; moving-head chassis calibration still pending
+  floor_marker_ids: [0, 1]  # exclude borrowed floor IDs from robot poses, including duplicate head ID 0
   approximate:             # display-only fallback until the measured floor_pose above exists
     enabled: true
     height_m: 0.395         # lens height supplied by owner
@@ -59,9 +60,11 @@ robots:
   #        (0 = front, 90 = left side, 180 = back, 270 = right side)
   # center_offset_m: distance from the marker surface to the robot's center (half of a 30 cm robot)
   - id: 1
+    moving_head_markers: true  # chassis heading unavailable until head_pose calibration
     faces: {0: 0, 1: 90, 2: 180, 3: 270}
     center_offset_m: 0.15
   - id: 2
+    moving_head_markers: true
     faces: {4: 0, 5: 90, 6: 180, 7: 270}
     center_offset_m: 0.15
   # Optional per-robot overrides: marker_size_m, marker_center_height_m.
