@@ -13,7 +13,7 @@ the affected calibration; normal travel and power cycles do not.
 | [robot1_head_pose.yaml](robot1_head_pose.yaml) | Secured fixed left head, rear tag 2; no working servos or feedback required. |
 | [robot2_head_pose.yaml](robot2_head_pose.yaml) | Camera-fitted right pan/tilt geometry, tag mounting angles, tested range and live validation. |
 | [head_neutral_pending.json](head_neutral_pending.json) | Historical filename; now records active calibration, owner measurements, original neutral observations and validation provenance. |
-| [../robot/config/robot1_three_wheels.json](../robot/config/robot1_three_wheels.json) | Left wheel mapping/signs; M1 disabled; six-count speed cap. M1 motor must remain disconnected. |
+| [../robot/config/robot1_three_wheels.json](../robot/config/robot1_three_wheels.json) | Left wheel mapping/signs; M1 disabled; ten-count speed cap (previously tested on the floor). M1 motor must remain disconnected. |
 | [../robot/config/robot2_wheels.json](../robot/config/robot2_wheels.json) | Existing right wheel mapping/board settings. |
 | [floor_pose.yaml](floor_pose.yaml) | Historical ~1 m camera pose; not active. |
 
@@ -40,7 +40,10 @@ Independent offline validation: about 1.56 px corner-coordinate RMS, p95 positio
 p95 heading deviation ~4.6°. Separate **live** validation while the chassis stayed forward/stationary:
 62 valid compensated frames, p95 position deviation ~4.0 cm, maximum ~5.8 cm, p95 heading deviation ~2.4°.
 These describe relative chassis stability, not absolute survey accuracy. The navigation stopping tolerance
-is 10 cm, with conservative per-robot speeds. No autonomous floor waypoint move was performed here.
+is 10 cm. Current speed limits are 0.075 m/s for the three-wheel left robot and 0.12 m/s for the
+four-wheel right robot; turn-rate limits are 0.20/0.30 rad/s. Position gain is 0.6, retaining slowdown
+near destinations and the existing wheel acceleration ramp. The higher-speed profile has not yet had a measured floor waypoint test; calibration validation itself
+used no wheel movement.
 
 ## Dashboard operation
 

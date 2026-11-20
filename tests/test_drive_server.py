@@ -146,12 +146,12 @@ def test_rejects_commands_from_other_hosts():
 
 def test_three_wheel_mode_masks_failed_channel_and_caps_active_wheels():
     p = DriveParams([3, 1, 4, 2], [1, 1, -1, 1], disabled_channels=[1])
-    assert p.max_counts == 6
+    assert p.max_counts == 10
     for velocity in ((1, 0, 0), (0, 1, 0), (0, 0, 1), (1, -1, 1)):
         wheels = wheel_counts(*velocity, p)
         motors = to_motors(wheels, p)
         assert motors[0] == 0
-        assert max(abs(v) for v in motors) <= 6
+        assert max(abs(v) for v in motors) <= 10
     # The final output gate also blocks stale or unexpected wheel values.
     assert to_motors([5, 100, 5, 5], p) == [0, 5, 5, -5]
 
@@ -173,7 +173,7 @@ def test_three_wheel_ramping_and_watchdog_keep_failed_output_zero():
             srv.tick(clock())
             assert motors.values[0] == 0
             clock.t += 0.05
-        assert motors.values == (0, 6, 6, -6)
+        assert motors.values == (0, 10, 10, -10)
         assert srv._status_reply(None, clock())['disabled_channels'] == [1]
         clock.t += 1
         srv.tick(clock())
@@ -190,3 +190,9 @@ def test_robot1_deployed_config_forward_directions():
     disabled = json.loads(path.read_text())['disabled_channels']
     p = DriveParams(hw['wheel_channels'], hw['motor_signs'], disabled_channels=disabled)
     assert to_motors(wheel_counts(0.03, 0, 0, p), p) == [0, 4, 4, -4]
+
+
+def test_three_wheel_speed_increase_respects_lower_explicit_limits():
+    p = DriveParams([3,1,4,2],[1,1,-1,1],max_counts=6,disabled_channels=[1])
+    assert p.max_counts==6
+    assert max(abs(v) for v in to_motors(wheel_counts(.2,0,0,p),p))<=6

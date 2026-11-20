@@ -64,7 +64,7 @@ class DriveParams:
         self.motor_signs = list(motor_signs)
         self.counts_per_meter = float(counts_per_meter)
         self.turn_radius_m = float(turn_radius_m)
-        self.max_counts = min(int(max_counts), 6) if disabled_channels else int(max_counts)
+        self.max_counts = min(int(max_counts), 10) if disabled_channels else int(max_counts)
         self.accel_counts_per_s = float(accel_counts_per_s)
 
 

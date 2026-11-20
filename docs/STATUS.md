@@ -31,6 +31,27 @@ master Pi camera ──Ethernet──► laptop: vision.main ──UDP 5005─�
 
 ## 2. Machines
 
+**2026-11-20 faster click-navigation profile:** Owner requested substantially faster travel. Robot 2
+was actively navigating; disabled dashboard driving and cleared the goal before deployment so it could
+not resume at a new speed. Raised left/Robot 1 limit from 0.04 to 0.075 m/s, yaw 0.15 to 0.20 rad/s;
+right/Robot 2 from 0.04 to 0.12 m/s, yaw 0.15 to 0.30 rad/s. Both position gains 0.4 -> 0.6; existing
+10 cm tolerance, near-target proportional slowdown, wheel acceleration ramp, frame/joint checks,
+keep-outs, disabled M1 and watchdogs retained. Raised three-wheel software and JSON cap from 6 to
+10 counts/10ms, matching the earlier successful bounded floor diagnostic. No new speed above 10 counts
+was enabled on the three-wheel board. Right board retains its 25-count server cap.
+
+Deployed server code on both robots and Robot 1 mapping/cap JSON; restarted both wheel services, then
+reloaded waypoint controller PID 68229. Dashboard driving OFF and targets cleared. Gateway status-only
+checks verified both hardware services healthy, all outputs zero, compensation required, Robot 1
+max_counts=10 and disabled_channels=[1]. No movement test was sent after changing limits. User must
+select a fresh destination through the dashboard to try the new profile. These are configured limits,
+not measured chassis speeds; full higher-speed floor waypoint behavior remains unverified.
+
+Validation: focused drive/control/waypoint tests passed, followed by 158 tests and 10 subtests in the
+full simulated suite. Regression explicitly verifies a lower user-supplied wheel cap is still honored.
+See calib/README.md and config.yaml for current settings; older 0.04 m/s/six-count notes below are history.
+
+
 **2026-11-20 ACTIVE calibrated click-navigation profile (supersedes earlier pending/rejected notes):**
 Owner confirmed chassis stationary and requested minimal intervention; no temporary chassis tag or
 chassis repositioning was used. Refined the model to fit actual neutral tag mounting angles. Offline

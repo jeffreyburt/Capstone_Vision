@@ -193,20 +193,20 @@ control:
       host: 192.168.50.105
       port: 5700
       side: left
-      limits:  # experimental three-wheel robot: slow turn-then-drive correction
-        max_speed_m_s: 0.04
-        max_yaw_rad_s: 0.15
-        position_gain: 0.4
+      limits:  # three-wheel profile; wheel commands capped at the previously tested 10 counts/10ms
+        max_speed_m_s: 0.075
+        max_yaw_rad_s: 0.20
+        position_gain: 0.6
         position_tolerance_m: 0.10
         allow_strafe: false
     2:
       host: 192.168.50.12
       port: 5700
       side: right
-      limits:  # initial camera-guided mode: same conservative camera-delay allowance
-        max_speed_m_s: 0.04
-        max_yaw_rad_s: 0.15
-        position_gain: 0.4
+      limits:  # faster four-wheel profile; proportional slowdown near the destination
+        max_speed_m_s: 0.12
+        max_yaw_rad_s: 0.30
+        position_gain: 0.6
         position_tolerance_m: 0.10
         allow_strafe: false
   formation:                # listening triangle: user at one corner, the speakers at the other two
