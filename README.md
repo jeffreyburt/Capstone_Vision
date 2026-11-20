@@ -95,6 +95,25 @@ with a tape measure and restart vision. Camera height alone does not establish a
 tracking while following, also measure the moving-marker geometry described in
 [docs/HEAD_TRACKER.md](docs/HEAD_TRACKER.md), or mount the tracking markers rigidly on the chassis.
 
+### Drive-server startup
+
+Motor-controller power and an I2C reply do not start the UDP wheel server. Robot 2 now runs the
+boot-enabled `capstone-drive-2.service` using its previously measured wheel map; inspect it with
+`systemctl status capstone-drive-2.service` and `journalctl -u capstone-drive-2.service -f`.
+
+To install a server after verifying that robot's wheel map, run the following **as the robot user**:
+
+```bash
+bash scripts/install_drive_service.sh 2   /home/capstone-pi2/capstone-base/.venv/bin/python   /home/capstone-pi2/capstone-drive/drive_server.py   /home/capstone-pi2/capstone-base/config/robot2_wheels.json   192.168.1.10 0.16
+```
+
+The arguments are robot ID, Python interpreter, current server file, tested wheel JSON, allowed laptop
+IP, and optional turn radius (default 0.2 m). The installer checks imports/configuration without opening
+I2C first. Hardware startup sends zero speed, and the service requires compensated-pose commands and
+uses a 0.5-second watchdog. It never starts the laptop controller. Do not reuse another robot's wheel
+map without testing it. Robot 1's runtime is staged, but its wheel mapping and hardware startup remain
+pending a supported, wheels-lifted single-channel test.
+
 ### Grid targets for both robots
 
 On the system dashboard, select **Robot 1** or **Robot 2** below the floor map, then click the grid to

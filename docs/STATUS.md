@@ -31,6 +31,28 @@ master Pi camera ──Ethernet──► laptop: vision.main ──UDP 5005─�
 
 ## 2. Machines
 
+**2026-11-20 drive-server diagnosis and Robot 1 mapping preparation:** Both Pis answer I2C scans at
+0x34 on bus 1. Neither had a UDP 5700 listener or a drive startup service after reboot. Robot 1 had only
+the head dashboard: no motor runtime, capstone-base or drive_server.py. Robot 2 retained its previously
+measured mapping and runtime but the manually started wheel server had not restarted.
+
+Restored Robot 2 with current isolated code at `~/capstone-drive/drive_server.py` and the existing,
+unchanged `~/capstone-base/config/robot2_wheels.json`. Installed/enabled `capstone-drive-2.service`:
+hardware mode, allow-from 192.168.1.10, require-compensated-pose, turn radius 0.16 m, watchdog 0.5 s.
+Verified unit syntax, active/enabled state, UDP listener and dashboard status hardware=true, motors all
+zero, received/rejected counts zero. No nonzero motor commands were sent. The laptop remains unarmed
+and approximate position data remains blocked from driving.
+
+Prepared Robot 1's missing `~/capstone-base` runtime from the proven Robot 2 NateMG4/NEU-capstone-robot
+source snapshot (source/hash recorded in deployment-source.json), with a system-package virtualenv;
+smbus2 and pyserial were already available. Staged current server/installer in `~/capstone-drive` and
+verified motor-test imports/help without opening motor hardware. No wheel mapping was copied from Robot
+2 and no Robot 1 drive service was started. Owner requested a mapping test; waiting for confirmation
+that all four Robot 1 wheels are lifted and the robot is stable before any channel pulse. Planned first
+pulse: M1, +2 counts/10 ms, 0.5 seconds, then zero; identify physical wheel and top-of-tire direction
+relative to the chassis's intended forward direction. Existing drive-server regression tests: 13 pass.
+
+
 **2026-11-20 grid navigation preparation:** Owner requested click-to-go for both robots. Dashboard now
 has robot selection, independent in-memory grid targets and cancellation. Targets are preview-only while
 readiness is blocked and cannot later execute merely because calibration recovers. Current facts:
