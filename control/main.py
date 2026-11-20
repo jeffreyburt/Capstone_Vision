@@ -23,7 +23,7 @@ from vision.config import load_config
 from .controller import Limits, RobotController
 from .link import RobotLink, VisionListener
 from .planner import FormationPlanner
-from .waypoints import WaypointMotion, WaypointProgress, compute_waypoints, read_waypoints
+from .waypoints import WaypointMotion, frame_current, WaypointProgress, compute_waypoints, read_waypoints
 
 STOP = (0.0, 0.0, 0.0)
 TIMING_DEFAULTS = {"vision_timeout_s": 1.0, "max_pose_age_s": 0.7, "user_lost_s": 2.0}
@@ -42,7 +42,7 @@ def compute_commands(msg, msg_age_s, planner, controllers, timing=None, compensa
             c.reset()
         return {}, {rid: (STOP, "no vision") for rid in controllers}
 
-    if msg.get('frame_clock') == 'local' and not 0 <= time.time()-msg['t'] <= min(.65,msg.get('max_frame_age_s',.25)):
+    if msg.get('frame_clock') == 'local' and not frame_current(msg, msg_age_s):
         for ctrl in controllers.values():
             ctrl.reset()
         return {}, {rid: (STOP, 'camera capture too old') for rid in controllers}
@@ -64,7 +64,7 @@ def compute_commands(msg, msg_age_s, planner, controllers, timing=None, compensa
             out[rid] = (STOP, "no user")
             continue
         pose_expired = (msg.get('frame_clock') == 'local' and
-                        not 0 <= time.time()-msg['t']+(pose or {}).get('age',0) <= min(.65,msg.get('max_frame_age_s',.25)))
+                        not frame_current(msg, msg_age_s, (pose or {}).get('age',0)))
         if rid in compensated_ids and ((pose or {}).get("pose_compensated") is not True or pose_expired or
                                       (msg.get('frame_clock') != 'local' and msg_age_s > .25)):
             ctrl.reset()

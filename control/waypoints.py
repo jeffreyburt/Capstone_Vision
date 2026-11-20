@@ -11,6 +11,21 @@ from .planner import Target
 from .controller import remove_approach, world_to_body
 
 STOP = (0., 0., 0.)
+FRAME_HARD_LIMIT_S = 1.0   # total age of the newest camera frame beyond which motion always stops
+
+
+def frame_current(msg, age_s, extra=0.):
+    """True when the newest camera frame is usable for driving.
+
+    Frames arrive at ~4-5 Hz, so between them the newest frame naturally gets older. What indicates a
+    problem is (a) the lag the frame already had when it reached us (capture + stream + processing),
+    which must stay within the configured max_frame_age_s (capped at 0.65 s), and (b) the total age,
+    which must stay under FRAME_HARD_LIMIT_S. Judging the total age against 0.65 s halted the robot on
+    every late tick between frames, which showed up as stop-start motion. `extra` is the pose's own age.
+    """
+    total = time.time() - msg['t'] + extra
+    lag = total - (age_s or 0.)
+    return 0 <= lag <= min(.65, msg.get('max_frame_age_s', .25)) and 0 <= total <= FRAME_HARD_LIMIT_S
 
 
 class WaypointStore:
@@ -159,7 +174,7 @@ def waypoint_feedback(msg, frame_age, goals, robot_ids):
                                          for k in ('x', 'y'))
         capture_age = None
         if (msg or {}).get('frame_clock') == 'local' and isinstance((msg or {}).get('t'),(int,float)):
-            capture_age=time.time()-msg['t']
+            capture_age=time.time()-msg['t']  # total age of the newest frame
         observed_age=frame_age
         if capture_age is not None:
             observed_age=max(frame_age or 0.,capture_age)
@@ -169,7 +184,9 @@ def waypoint_feedback(msg, frame_age, goals, robot_ids):
         output[str(rid)] = dict(actual=[pose['x'], pose['y']] if valid else None,
             target=[goal['x'], goal['y']] if goal else None, error=error,
             distance_m=math.hypot(*error) if error else None, tracking_age_s=age,
-            fresh=age is not None and age <= cutoff and (capture_age is None or capture_age>=0) and (pose or {}).get('pose_compensated') is not False,
+            fresh=age is not None and (capture_age is None or capture_age>=0) and (pose or {}).get('pose_compensated') is not False and
+                  (age <= cutoff if capture_age is None else
+                   age-(frame_age or 0.) <= cutoff and age <= FRAME_HARD_LIMIT_S),
             quality=(msg or {}).get('position_quality', 'calibrated' if valid else 'unavailable'),
             reference=(pose or {}).get('reference', 'chassis'),
             heading=(pose or {}).get('heading'), revision=(goal or {}).get('revision'))
@@ -193,7 +210,7 @@ def compute_waypoints(msg, age, navigation, controllers, timing=None, *, progres
         blocked = "dashboard driving disabled"
     elif msg is None or age is None or age > timing['vision_timeout_s']:
         blocked = "no vision"
-    elif msg.get('frame_clock') == 'local' and not 0 <= time.time()-msg['t'] <= min(.65,msg.get('max_frame_age_s',.25)):
+    elif msg.get('frame_clock') == 'local' and not frame_current(msg, age):
         blocked = 'camera capture too old'
     elif msg.get('position_quality') == 'approximate' or msg.get('driving_allowed') is False:
         blocked = "approximate positions — driving disabled"
@@ -225,7 +242,7 @@ def compute_waypoints(msg, age, navigation, controllers, timing=None, *, progres
             results[rid] = (STOP, reason)
             continue
         # Recheck compensated pose on the controller's own fresh vision input.
-        pose_expired = msg.get('frame_clock') == 'local' and not 0 <= time.time()-msg['t']+pose.get('age',0) <= min(.65,msg.get('max_frame_age_s',.25))
+        pose_expired = msg.get('frame_clock') == 'local' and not frame_current(msg, age, pose.get('age',0))
         if not pose.get('pose_compensated') or pose_expired or (msg.get('frame_clock') != 'local' and age > .25):
             if progress is not None:
                 progress[rid].pause()

@@ -252,3 +252,18 @@ def test_recent_observation_cannot_outlive_total_capture_plus_observation_budget
     _,commands=compute_waypoints(msg,0,nav,controllers)
     assert commands[1][0]==(0,0,0)  # .5 frame age + .2 observation age exceeds .65
     assert commands[2][0]!=(0,0,0)
+
+
+def test_frames_between_updates_do_not_halt_motion(monkeypatch):
+    """Frames arrive ~4 Hz with ~0.45 s lag: the newest frame ages past 0.65 s between updates. That is normal
+    and must not stop the robot (it caused stop-start motion); real lag or a long gap still must."""
+    msg, nav, controllers = inputs()
+    msg.update(frame_clock='local', t=100., max_frame_age_s=.65)
+    def moving(now, age):
+        monkeypatch.setattr('control.waypoints.time.time', lambda: now)
+        _, results = compute_waypoints(msg, age, nav, controllers)
+        return results[2][0] != (0, 0, 0)
+    assert moving(100.45, 0.0)          # fresh frame with 0.45 s lag
+    assert moving(100.80, 0.35)         # same frame 0.35 s later: total 0.8 s, still current
+    assert not moving(101.10, 0.65)     # over the 1.0 s hard limit
+    assert not moving(100.80, 0.0)      # arrived 0.8 s late: real lag

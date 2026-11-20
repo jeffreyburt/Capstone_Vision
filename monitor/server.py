@@ -242,7 +242,7 @@ class SystemMonitor:
         poses = {r['id']: r for r in ((vision or {}).get('message') or {}).get('robots', [])}
         message = (vision or {}).get('message') or {}
         local_clock = message.get('frame_clock') == 'local'
-        capture_age = now-message.get('t',now) if local_clock else 0.
+        capture_age = max(0., now-message.get('t',now)-(vage or 0.)) if local_clock else 0.  # lag when the frame arrived
         pose_timeout = min(.65,message.get('max_frame_age_s',.25)) if local_clock else .25
         for node in self.nodes:
             if node.kind != 'robot':
