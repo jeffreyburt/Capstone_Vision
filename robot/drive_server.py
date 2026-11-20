@@ -51,16 +51,20 @@ class DriveParams:
     """
 
     def __init__(self, wheel_channels, motor_signs, counts_per_meter=13000.0, turn_radius_m=0.2,
-                 max_counts=25, accel_counts_per_s=40.0):
+                 max_counts=25, accel_counts_per_s=40.0, disabled_channels=()):
         if sorted(wheel_channels) != [1, 2, 3, 4]:
             raise ValueError("wheel_channels must be a permutation of 1, 2, 3, 4 (FL, FR, RL, RR order)")
         if any(s not in (-1, 1) for s in motor_signs) or len(motor_signs) != 4:
             raise ValueError("motor_signs must be four values of +1 or -1")
+        disabled_channels = tuple(disabled_channels)
+        if len(disabled_channels) > 1 or any(type(c) is not int or c not in (1, 2, 3, 4) for c in disabled_channels):
+            raise ValueError("disabled_channels must be empty or contain one channel from 1 to 4")
+        self.disabled_channels = disabled_channels
         self.wheel_channels = list(wheel_channels)
         self.motor_signs = list(motor_signs)
         self.counts_per_meter = float(counts_per_meter)
         self.turn_radius_m = float(turn_radius_m)
-        self.max_counts = int(max_counts)
+        self.max_counts = min(int(max_counts), 6) if disabled_channels else int(max_counts)
         self.accel_counts_per_s = float(accel_counts_per_s)
 
 
@@ -73,6 +77,9 @@ def wheel_counts(vx, vy, wz, p):
     k = p.turn_radius_m * wz
     speeds = (vx - vy - k, vx + vy + k, vx + vy - k, vx - vy + k)  # wheel surface speed, m/s
     counts = [s * p.counts_per_meter / 100.0 for s in speeds]  # per 10 ms
+    # An unpowered wheel is free to roll; command only the remaining wheel constraints.
+    counts = [0.0 if channel in p.disabled_channels else value
+              for value, channel in zip(counts, p.wheel_channels)]
     peak = max(abs(c) for c in counts)
     if peak > p.max_counts:
         counts = [c * p.max_counts / peak for c in counts]
@@ -83,7 +90,8 @@ def to_motors(wheels, p):
     """FL, FR, RL, RR floats -> M1..M4 signed integers, using the board's channel mapping and signs."""
     motors = [0, 0, 0, 0]
     for value, channel, sign in zip(wheels, p.wheel_channels, p.motor_signs):
-        motors[channel - 1] = int(round(value)) * sign
+        if channel not in p.disabled_channels:
+            motors[channel - 1] = int(round(value)) * sign
     return motors
 
 
@@ -156,7 +164,9 @@ class DriveServer:
                 "last_cmd_age_s": None if self.last_cmd is None else round(now - self.last_cmd, 2),
                 "target": [round(v, 3) for v in self.target], "received": self.received,
                 "rejected": self.rejected, "timeout_s": self.timeout_s,
-                "require_compensated_pose": self.require_compensated_pose}
+                "require_compensated_pose": self.require_compensated_pose,
+                "disabled_channels": list(self.p.disabled_channels),
+                "max_counts": self.p.max_counts}
 
     def handle(self, data, addr, now):
         """Process one datagram (also used directly by tests)."""
@@ -301,14 +311,21 @@ def main(argv=None, *, before_motor_tick=None):
         ap.error("--require-compensated-pose needs --allow-from and the standalone drive server")
 
     hw = load_hiwonder_json(args.hiwonder_config)
+    with open(args.hiwonder_config) as f:
+        disabled_channels = json.load(f).get("disabled_channels", [])
     if hw.get("wheel_channels") is None or hw.get("motor_signs") is None:
         ap.error(f"{args.hiwonder_config} needs wheel_channels and motor_signs")
     cap = min(args.max_counts, int(hw.get("max_speed_counts", args.max_counts)))
     params = DriveParams(hw["wheel_channels"], hw["motor_signs"], args.counts_per_meter, args.turn_radius,
-                         cap, args.accel)
+                         cap, args.accel, disabled_channels=disabled_channels)
+    cap = params.max_counts
     print(f"{'HARDWARE' if args.hardware else 'SIMULATION (no I2C)'}: robot {args.robot_id}, "
           f"FL/FR/RL/RR channels {params.wheel_channels}, signs {params.motor_signs}, "
           f"{params.counts_per_meter:g} counts/m, turn radius {params.turn_radius_m:g} m, cap {cap} counts/10ms")
+
+    if params.disabled_channels:
+        print(f"Experimental three-wheel mode: disabled channels {params.disabled_channels}; "
+              "faulty motor must be physically disconnected")
 
     for sig in (signal.SIGINT, signal.SIGTERM, getattr(signal, "SIGHUP", None)):
         if sig is not None:

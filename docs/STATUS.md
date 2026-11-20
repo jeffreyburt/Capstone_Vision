@@ -31,6 +31,27 @@ master Pi camera ──Ethernet──► laptop: vision.main ──UDP 5005─�
 
 ## 2. Machines
 
+**2026-11-20 Robot 1 three-wheel preparation (hardware observations):** Wheel tests associate
+FL=M3 (positive top toward front), FR=M1 (direction unverified), RL=M4 and RR=M2
+(positive top toward rear). M1 showed near-zero encoder feedback with both FR and a swapped RL motor,
+while the connected wheel spun rapidly in speed mode. Suspect M1 connector/encoder input; not a proven
+board diagnosis. Owner disconnected M1 and restored the remaining motor connections.
+
+Added experimental `robot/config/robot1_three_wheels.json`: disabled_channels=[1], FL/FR/RL/RR mapping
+[3,1,4,2], signs [1,1,-1,-1], cap 6 counts/10ms. The drive server masks disabled outputs both before
+scaling and at the final channel mapping, advertises disabled channels in status, and retains ramp/watchdog.
+This uses the remaining ideal mecanum wheel constraints; floor traction, free-wheel drag, and actual
+body motion remain unverified. It does not compensate for a mechanically resisting unpowered wheel.
+
+Deployed files in Robot 1 `~/capstone-drive/`. One-second lifted forward test requested raw speeds
+[0,-4,4,-4]; M1 stayed zero and the 0.5-second watchdog stopped all output commands. Encoder deltas
+including watchdog delay were [0,-562,590,421]. **M4 feedback was opposite the negative command**;
+resolve that discrepancy and visually verify all remaining wheel directions before ground driving.
+No Robot 1 persistent drive service was installed or started. Autonomous vision guards remain unchanged.
+Drive-server simulated regression suite: 20 passed. The disabled FR sign is a placeholder, not a measured
+mapping; remove this experimental configuration only after repairing and remapping all four channels.
+
+
 **2026-11-20 drive-server diagnosis and Robot 1 mapping preparation:** Both Pis answer I2C scans at
 0x34 on bus 1. Neither had a UDP 5700 listener or a drive startup service after reboot. Robot 1 had only
 the head dashboard: no motor runtime, capstone-base or drive_server.py. Robot 2 retained its previously

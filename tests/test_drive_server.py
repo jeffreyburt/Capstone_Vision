@@ -142,3 +142,41 @@ def test_rejects_commands_from_other_hosts():
         assert not math.isnan(srv.received)
     finally:
         srv.sock.close()
+
+
+def test_three_wheel_mode_masks_failed_channel_and_caps_active_wheels():
+    p = DriveParams([3, 1, 4, 2], [1, 1, -1, -1], disabled_channels=[1])
+    assert p.max_counts == 6
+    for velocity in ((1, 0, 0), (0, 1, 0), (0, 0, 1), (1, -1, 1)):
+        wheels = wheel_counts(*velocity, p)
+        motors = to_motors(wheels, p)
+        assert motors[0] == 0
+        assert max(abs(v) for v in motors) <= 6
+    # The final output gate also blocks stale or unexpected wheel values.
+    assert to_motors([5, 100, 5, 5], p) == [0, -5, 5, -5]
+
+
+@pytest.mark.parametrize('disabled', [[0], [5], [True], [1, 2], [1, 1]])
+def test_invalid_disabled_channels_rejected(disabled):
+    with pytest.raises(ValueError):
+        params(disabled_channels=disabled)
+
+
+def test_three_wheel_ramping_and_watchdog_keep_failed_output_zero():
+    clock = FakeClock()
+    motors = PrintMotors()
+    p = DriveParams([3, 1, 4, 2], [1, 1, -1, -1], disabled_channels=[1])
+    srv = DriveServer(motors, p, robot_id=1, port=0, host='127.0.0.1', clock=clock, log=lambda s: None)
+    try:
+        for _ in range(10):
+            send(srv, clock, type='drive', vx=0.1, vy=0, wz=0)
+            srv.tick(clock())
+            assert motors.values[0] == 0
+            clock.t += 0.05
+        assert motors.values == (0, -6, 6, -6)
+        assert srv._status_reply(None, clock())['disabled_channels'] == [1]
+        clock.t += 1
+        srv.tick(clock())
+        assert motors.values == (0, 0, 0, 0)
+    finally:
+        srv.sock.close()
