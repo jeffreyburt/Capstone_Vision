@@ -209,7 +209,8 @@ control:
       port: 5700
       side: right
       limits:  # faster four-wheel profile; proportional slowdown near the destination
-        max_speed_m_s: 0.23  # 30 counts/10ms (robot2_wheels.json max_speed_counts) at 13000 counts/m is ~0.231 m/s
+        max_speed_m_s: 0.23  # waypoint/autonomous driving
+        keyboard_max_speed_m_s: 0.97  # WASD only: 127 counts/10ms (Hiwonder byte limit) at 13000 counts/m
         max_yaw_rad_s: 0.60
         position_gain: 0.6
         position_tolerance_m: 0.10

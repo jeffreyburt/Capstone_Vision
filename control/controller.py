@@ -28,6 +28,7 @@ from dataclasses import dataclass
 @dataclass
 class Limits:
     max_speed_m_s: float = 0.15
+    keyboard_max_speed_m_s: float = 0.0  # WASD-only cap; 0 means use max_speed_m_s
     max_yaw_rad_s: float = 0.4
     position_gain: float = 0.8      # (m/s) per m of error
     yaw_gain: float = 1.0           # (rad/s) per rad of error

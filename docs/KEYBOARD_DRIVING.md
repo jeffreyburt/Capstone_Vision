@@ -1,7 +1,7 @@
 # Individual robot keyboard control
 
 Open http://localhost:8090/ and use **Keyboard driving** at the top. Select Robot 1 or Robot 2,
-choose a speed (default 0.23 m/s, the maximum), and press **Enable keyboard control**.
+choose a speed (default 0.23 m/s; up to 0.97 m/s), and press **Enable keyboard control**.
 
 - W: chassis forward; S: backward; A: sideways left; D: sideways right.
 - Hold two keys for diagonals: W+A, W+D, S+A, or S+D. Diagonal speed is normalized.
@@ -11,7 +11,7 @@ choose a speed (default 0.23 m/s, the maximum), and press **Enable keyboard cont
 
 Only the selected robot is commanded to move. The other robot receives stops. Changing robots
 requires enabling again. Direction is relative to the robot chassis, not the camera or room grid.
-Speed is capped by each robot's existing limit (Robot 1: 0.038 m/s; Robot 2: 0.23 m/s).
+Speed is capped by each robot's existing limit (Robot 1: 0.038 m/s; Robot 2: 0.97 m/s for WASD).
 Typing in input fields does not move a robot. Leaving the tab, losing browser focus, or losing
 the dashboard connection disables the keyboard session; it must be enabled again to resume.
 
@@ -110,3 +110,29 @@ Robot 2 now runs at its configured motor ceiling. **Not yet tested with the robo
   still caps every wheel at 5.
 - Robot 2 uses the new 30-count cap only after `capstone-drive-2.service` is restarted (needs sudo);
   until then its old file caps it at 25 counts, about 0.19 m/s.
+
+## 2026-11-21: Robot 2 WASD cap raised to 0.97 m/s
+
+User-requested. **Not yet tested with the robot moving; Robot 2's real top speed under load is unknown.**
+
+| Setting | Before | After | File |
+| --- | --- | --- | --- |
+| Keyboard speed range | 0.02–0.23 m/s | 0.02–0.97 m/s (dashboard default stays 0.23) | `control/manual.py`, `monitor/page.html` |
+| New `keyboard_max_speed_m_s` limit | none | Robot 2: 0.97; unset (0) means use `max_speed_m_s` | `control/controller.py`, `config.yaml` |
+| Robot 2 `max_speed_m_s` (waypoints/autonomous) | 0.23 | 0.23, unchanged | `config.yaml` |
+| Robot 2 `max_speed_counts` | 30 | 127 | `robot/config/robot2_wheels.json` and the live `~/capstone-base/config/robot2_wheels.json` |
+| Drive server `--max-counts` default | 30 | 127 | `robot/drive_server.py` |
+| Drive server body clamp | hard-coded 0.3 m/s | new `--max-speed`, default 1.0 m/s | `robot/drive_server.py` |
+
+- **Why 0.97, not 1.0:** the Hiwonder board takes wheel speed as a signed byte, so 127 counts/10 ms is the most it
+  accepts. At 13000 counts/m (an estimate) that is about 0.977 m/s.
+- **Motor saturation:** the JGB37-520 motors may top out below 127 counts/10 ms. If they do, the wheels can't all
+  reach their targets, and fast diagonals or strafes may drift. Forward/back is least affected.
+- **Stopping distance:** the browser lease (0.4 s) plus the robot watchdog (0.5 s) means at full speed the robot
+  can travel roughly 0.5–0.9 m after input is lost. Space/Stop/key release stop sooner.
+- **Ramp:** at the 100 counts/10 ms per s acceleration it takes about 1.3 s to reach full speed.
+- Waypoint and autonomous driving keep their old limits; only WASD uses the new cap. Robot 1 is unchanged
+  (0.038 m/s; calibration caps it at 5 counts).
+- The live `robot2_wheels.json` on Robot 2 was backed up as `robot2_wheels.json.bak-2026-11-21-prespeed`.
+- Robot 2 needs `sudo systemctl restart capstone-drive-2.service` before any of the new robot-side limits take
+  effect. Until then it runs the original file (25-count cap, about 0.19 m/s).
