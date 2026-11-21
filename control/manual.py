@@ -26,7 +26,7 @@ class ManualControl:
             raise ValueError('Select a configured robot')
         with self.lock:
             self.data=dict(enabled=True,robot_id=robot_id,token=uuid.uuid4().hex,seq=-1,
-                           keys=[],speed=.05,expires_at=self.clock()+.5)
+                           keys=[],speed=.15,expires_at=self.clock()+.5)
             return self.snapshot()
 
     def command(self,data):
@@ -41,8 +41,8 @@ class ManualControl:
                 raise ValueError('Out-of-order keyboard command')
             if not isinstance(keys,list) or len(keys)>4 or any(k not in ('w','a','s','d') for k in keys):
                 raise ValueError('Keys must be W, A, S, or D')
-            if type(speed) not in (int,float) or not math.isfinite(speed) or not .02<=speed<=.12:
-                raise ValueError('Keyboard speed must be 0.02–0.12 m/s')
+            if type(speed) not in (int,float) or not math.isfinite(speed) or not .02<=speed<=.19:
+                raise ValueError('Keyboard speed must be 0.02–0.19 m/s')
             self.data.update(seq=seq,keys=sorted(set(keys)),speed=speed,expires_at=self.clock()+.4)
             return self.snapshot()
 
@@ -68,7 +68,7 @@ def manual_commands(navigation,controllers,now=None):
     forward=int('w' in keys)-int('s' in keys)
     left=int('a' in keys)-int('d' in keys)
     length=math.hypot(forward,left)
-    speed=min(float(manual.get('speed',0)),controllers[rid].limits.max_speed_m_s,.12)
+    speed=min(float(manual.get('speed',0)),controllers[rid].limits.max_speed_m_s,.19)
     command=(speed*forward/length,speed*left/length,0.) if length else STOP
     result[rid]=(command,'keyboard driving' if length else 'keyboard ready')
     return result

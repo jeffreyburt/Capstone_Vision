@@ -1,7 +1,7 @@
 # Individual robot keyboard control
 
 Open http://localhost:8090/ and use **Keyboard driving** at the top. Select Robot 1 or Robot 2,
-choose a speed (default 0.05 m/s), and press **Enable keyboard control**.
+choose a speed (default 0.15 m/s), and press **Enable keyboard control**.
 
 - W: chassis forward; S: backward; A: sideways left; D: sideways right.
 - Hold two keys for diagonals: W+A, W+D, S+A, or S+D. Diagonal speed is normalized.
@@ -11,7 +11,7 @@ choose a speed (default 0.05 m/s), and press **Enable keyboard control**.
 
 Only the selected robot is commanded to move. The other robot receives stops. Changing robots
 requires enabling again. Direction is relative to the robot chassis, not the camera or room grid.
-Speed is capped by each robot's existing limit (Robot 1: 0.038 m/s; Robot 2: 0.12 m/s).
+Speed is capped by each robot's existing limit (Robot 1: 0.038 m/s; Robot 2: 0.19 m/s).
 Typing in input fields does not move a robot. Leaving the tab, losing browser focus, or losing
 the dashboard connection disables the keyboard session; it must be enabled again to resume.
 
@@ -51,3 +51,25 @@ sole armed controller were restarted with keyboard and waypoint driving disabled
 exercised a zero-key browser session and zero-velocity manual packets to both robots, then disabled
 the session. No nonzero physical movement commands were sent while implementing this feature.
 The Enable button waits for a connected, armed controller and a robot advertising keyboard support.
+
+## 2026-11-21: higher keyboard speed limits
+
+Change made to allow much faster WASD driving. **Not yet deployed to the robots or run on hardware;
+unit tests could not be run in the authoring environment (missing numpy/cv2/pytest).**
+
+| Setting | Before | After | File |
+| --- | --- | --- | --- |
+| Keyboard speed range | 0.02–0.12 m/s | 0.02–0.19 m/s | `control/manual.py`, `monitor/page.html` |
+| Dashboard default speed | 0.05 m/s | 0.15 m/s | `control/manual.py`, `monitor/page.html` |
+| Robot 2 `max_speed_m_s` | 0.12 | 0.19 (~0.192 m/s = 25 counts/10 ms at 13000 counts/m) | `config.yaml` |
+| Robot 2 `max_yaw_rad_s` | 0.30 | 0.60 | `config.yaml` |
+| Drive server `--accel` default | 40 counts/10 ms per s | 100 | `robot/drive_server.py` |
+
+- **Robot 1 is unchanged (0.038 m/s).** Its replacement FR motor is only calibrated for command units 2–5, and
+  all wheels are capped together at 5; going faster needs a new calibration at higher speeds first.
+- Robot 2's real ceiling is the drive server wheel cap (`--max-counts`, default 25; its wheel config allows 30,
+  about 0.23 m/s). To go faster, raise `--max-counts` on its service and `max_speed_m_s` together.
+- The `--accel` default also applies to autonomous driving on both robots.
+- Deploy: copy `robot/drive_server.py` to `~/capstone-drive/` on each robot, restart
+  `capstone-drive-<id>.service`, and restart the local monitor/controller. Do the first test with the
+  robot lifted or in open space.

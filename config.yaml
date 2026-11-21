@@ -209,8 +209,8 @@ control:
       port: 5700
       side: right
       limits:  # faster four-wheel profile; proportional slowdown near the destination
-        max_speed_m_s: 0.12
-        max_yaw_rad_s: 0.30
+        max_speed_m_s: 0.19  # 25 counts/10ms at 13000 counts/m is ~0.192 m/s, the drive server cap
+        max_yaw_rad_s: 0.60
         position_gain: 0.6
         position_tolerance_m: 0.10
         yaw_tolerance_deg: 2.0   # holonomic mecanum: straight-line moves while holding the heading from the click
