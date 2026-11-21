@@ -43,6 +43,7 @@ from .calibration import CalibrationManager
 from .probes import find_ssh, gateway_probe, network_probe, parse_health, run_ssh, tcp_check
 from .tunnels import CameraTunnels
 from .heads import HeadRelay, aim_from_main_camera
+from .autocal import AutoCalibration
 from .motors import MotorTests
 from control.waypoints import WaypointStore, waypoint_feedback
 from control.manual import ManualControl
@@ -50,6 +51,7 @@ from control.manual import ManualControl
 PAGE = Path(__file__).with_name("page.html")
 REPO = Path(__file__).resolve().parent.parent
 CALIBRATION_PAGE = Path(__file__).with_name("calibration.html")
+CALIBRATION_ADVANCED_PAGE = Path(__file__).with_name("calibration_advanced.html")
 HEAD_ASSETS = (REPO / "head_tracker" / "assets").resolve()
 ASSET_TYPES = {".mjs": "text/javascript", ".js": "text/javascript", ".wasm": "application/wasm",
                ".tflite": "application/octet-stream"}
@@ -426,6 +428,8 @@ def make_server(monitor, relay, host, port, calibration=None, heads=None):
     motor_tests = MotorTests(monitor)
     heads = heads or HeadRelay(monitor.cfg, lambda host, port: relay.tunnels.endpoint(host, port))
 
+    autocal = AutoCalibration(monitor, heads, calibration)
+
     def head_node(key):
         return next((n for n in monitor.nodes if n.key == key and n.kind == "robot" and n.dashboard_port), None)
 
@@ -451,6 +455,11 @@ def make_server(monitor, relay, host, port, calibration=None, heads=None):
                 self._send(200, "application/json", json.dumps(monitor.snapshot()).encode())
             elif path == "/calibration":
                 self._send(200, "text/html; charset=utf-8", CALIBRATION_PAGE.read_bytes())
+            elif path == "/calibration/advanced":
+                self._send(200, "text/html; charset=utf-8", CALIBRATION_ADVANCED_PAGE.read_bytes())
+            elif path == "/api/autocal":
+                self._send(200, "application/json", json.dumps(
+                    {**autocal.snapshot(), "current": calibration.collect()}, default=str).encode())
             elif path == "/api/calibration":
                 self._send(200, "application/json", json.dumps(calibration.state(), default=str).encode())
             elif path == "/api/calibration/lens":
@@ -584,7 +593,38 @@ def make_server(monitor, relay, host, port, calibration=None, heads=None):
             self._send(200 if code < 300 else code, 'application/json',
                        json.dumps({'ok': code < 300, 'message': message}).encode())
 
+        def _autocal_post(self):
+            origin = self.headers.get('Origin')
+            if origin and origin != 'http://' + self.headers.get('Host', ''):
+                self.send_error(403)
+                return
+            try:
+                size = int(self.headers.get('Content-Length', '0'))
+                if not 0 <= size <= 4096:
+                    raise ValueError('Oversized JSON request')
+                data = json.loads(self.rfile.read(size) or b'{}')
+                if not isinstance(data, dict):
+                    raise ValueError('JSON object required')
+                step = self.path.rsplit('/', 1)[-1]
+                if step == 'floor':
+                    autocal.start_floor(data)
+                elif step == 'robots':
+                    if monitor.waypoints.follow or monitor.waypoints.armed or monitor.manual.snapshot()['enabled']:
+                        raise ValueError('Turn off Follow, click driving and keyboard control first')
+                    autocal.start_robots(data)
+                elif step == 'stop':
+                    autocal.stop()
+                else:
+                    self.send_error(404)
+                    return
+                self._send(200, 'application/json', json.dumps(autocal.snapshot(), default=str).encode())
+            except (ValueError, RuntimeError) as error:
+                self._send(400, 'application/json', json.dumps({'error': str(error)}).encode())
+
         def do_POST(self):
+            if self.path.startswith('/api/autocal/'):
+                self._autocal_post()
+                return
             if self.path.startswith('/api/head/'):
                 self._head_post()
                 return

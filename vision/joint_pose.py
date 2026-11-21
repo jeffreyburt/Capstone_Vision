@@ -113,7 +113,23 @@ class HeadGeometry:
         return corners
 
 
-def tag_center_world(marker, size_m, geometry):
+def tag_pose_world(marker, size_m, geometry, blur_px=0.0):
+    """World corners (4, 3) of a square tag from its own image (PnP), with the distance corrected for corner blur:
+    detected squares look `blur_px` pixels larger than they are, which matters more the smaller the tag looks."""
+    h = size_m / 2
+    obj = np.array([[-h, h, 0], [h, h, 0], [h, -h, 0], [-h, -h, 0]], float)
+    ok, rvec, tvec = cv2.solvePnP(obj, np.asarray(marker.corners, dtype=float), geometry.camera.K, geometry.camera.dist,
+                                  flags=cv2.SOLVEPNP_IPPE_SQUARE)
+    if not ok or not np.isfinite(tvec).all() or tvec[2, 0] <= .1:
+        return None
+    side = marker.side_px
+    scale = side / (side - blur_px) if 0 <= blur_px < side * .5 else 1.0
+    cam = (cv2.Rodrigues(rvec)[0] @ obj.T).T + tvec.ravel() * scale
+    world = (geometry.pose.R.T @ (cam - geometry.pose.tvec.ravel()).T).T
+    return world if np.isfinite(world).all() else None
+
+
+def tag_center_world(marker, size_m, geometry, blur_px=0.0):
     """World (x, y, z) of a tag's centre from its own image: direction from the pixel, distance from its size.
 
     The main camera sits barely above the tags, so intersecting the ray with an assumed tag height is badly
@@ -125,17 +141,19 @@ def tag_center_world(marker, size_m, geometry):
                                   flags=cv2.SOLVEPNP_IPPE_SQUARE)
     if not ok or not np.isfinite(tvec).all() or tvec[2, 0] <= .1:
         return None
-    world = geometry.pose.R.T @ (tvec.ravel() - geometry.pose.tvec.ravel())
+    side = marker.side_px
+    scale = side / (side - blur_px) if 0 <= blur_px < side * .5 else 1.0
+    world = geometry.pose.R.T @ (tvec.ravel() * scale - geometry.pose.tvec.ravel())
     return world if np.isfinite(world).all() else None
 
 
-def center_ray_position(marker, corners, geometry, heading, size_m=0.10):
+def center_ray_position(marker, corners, geometry, heading, size_m=0.10, blur_px=0.0):
     """Chassis (x, y) from a single tag's centre in the world and the tag's offset on the chassis.
 
     Robust to head wobble and oblique views: the tag centre moves little, and an error in the assumed heading only
     swings the small tag-to-chassis offset."""
     center = np.asarray(corners, dtype=float).mean(axis=0)
-    world = tag_center_world(marker, size_m, geometry)
+    world = tag_center_world(marker, size_m, geometry, blur_px)
     if world is None:
         return None
     point = world[:2]

@@ -28,7 +28,8 @@ class RobotSpec:
     marker_size_m: float
     marker_center_height_m: float
     head: HeadGeometry | None = None
-    size_distance_scale: float = 1.0  # tag-size (PnP) distances x this; corrects corner blur at low resolution
+    size_distance_scale: float = 1.0  # tag-size (PnP) distances x this (legacy; corner_blur_px is the calibrated model)
+    corner_blur_px: float = 0.0       # detected squares look this many px larger (calibrated from the floor tags)
 
 
 @dataclass
@@ -58,6 +59,7 @@ def robot_specs_from_config(cfg):
             marker_size_m=float(r.get("marker_size_m", m.get("size_m", 0.10))),
             marker_center_height_m=float(r.get("marker_center_height_m", m.get("center_height_m", 0.30))),
             size_distance_scale=float(r.get("size_distance_scale", m.get("size_distance_scale", 1.0))),
+            corner_blur_px=float(r.get("corner_blur_px", m.get("corner_blur_px", 0.0))),
         )
         if r.get("head_pose") is not None:
             spec.head = HeadGeometry.from_config(r["head_pose"], spec)
@@ -87,7 +89,7 @@ def face_on_floor(marker, spec, geometry):
     return center, normal
 
 
-def _two_tag_heading(tags, geometry, size_m=0.10):
+def _two_tag_heading(tags, geometry, size_m=0.10, blur_px=0.0):
     """Chassis heading (radians) from two visible tags' centre rays: the world direction between the two tag
     centres minus the same direction in the chassis frame. None unless two tags are far enough apart."""
     best = None
@@ -95,7 +97,7 @@ def _two_tag_heading(tags, geometry, size_m=0.10):
         for j in range(i + 1, len(tags)):
             (ma, ca, *_), (mb, cb, *_) = tags[i], tags[j]
             ca, cb = np.asarray(ca).mean(axis=0), np.asarray(cb).mean(axis=0)
-            wa, wb = tag_center_world(ma, size_m, geometry), tag_center_world(mb, size_m, geometry)
+            wa, wb = tag_center_world(ma, size_m, geometry, blur_px), tag_center_world(mb, size_m, geometry, blur_px)
             if wa is None or wb is None:
                 continue
             pa, pb = wa[:2], wb[:2]
@@ -148,7 +150,8 @@ def estimate_robots(markers, specs, geometry, joint_positions=None, prior_headin
     for rid, tags in head_tags.items():
         head = tags[0][2].head
         size = tags[0][2].marker_size_m * tags[0][2].size_distance_scale
-        heading, source = _two_tag_heading(tags, geometry, size), "two tags"
+        blur = tags[0][2].corner_blur_px
+        heading, source = _two_tag_heading(tags, geometry, size, blur), "two tags"
         if heading is not None and head.heading_window is not None and abs(
                 (math.degrees(heading) - head.heading_window[0] + 180) % 360 - 180) > head.heading_window[1]:
             heading = None
@@ -171,7 +174,7 @@ def estimate_robots(markers, specs, geometry, joint_positions=None, prior_headin
             else:
                 continue
         for m, corners, *_ in tags:
-            xy = center_ray_position(m, corners, geometry, heading, size)
+            xy = center_ray_position(m, corners, geometry, heading, size, blur)
             if xy is not None:
                 groups.setdefault(rid, []).append((xy, heading if source == "two tags" else None, m.side_px, m.id))
                 sources[rid] = source

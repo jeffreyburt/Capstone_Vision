@@ -128,7 +128,8 @@ def test_http_routes(cfg):
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     base = f"http://127.0.0.1:{httpd.server_address[1]}"
     try:
-        assert b"Calibration checklist" in urllib.request.urlopen(base + "/calibration").read()
+        assert b"Calibration checklist" in urllib.request.urlopen(base + "/calibration/advanced").read()
+        assert b"Calibrate floor" in urllib.request.urlopen(base + "/calibration").read()
         state = json.loads(urllib.request.urlopen(base + "/api/calibration").read())
         assert len(state["steps"]) == 8 and state["data"]["intrinsics"]
 

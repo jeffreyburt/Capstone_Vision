@@ -16,6 +16,26 @@ confirmations (left head secured, wheel directions verified) and an event histor
 `active` is the runtime head geometry and overrides the copy embedded in `config.yaml`. Restart
 `python -m vision.main --gui` after applying a floor or head calibration. The page never drives wheels.
 
+## One-button calibration (dashboard, 2026-11-21)
+
+Open <http://localhost:8090/calibration>. The old step-by-step checklist is still at `/calibration/advanced`.
+
+1. **Floor** (robots off the floor): enter the floor tags' distance in front of the camera, their distance left/right
+   of centre, and the lens height; press **Calibrate floor**. The tag fit sets the floor plane and direction (+y toward
+   the tags' midpoint, +x to the camera's right); the tape fixes the scale. The scale also gives the *corner blur*
+   (detected squares look a few pixels larger than they are), saved as `markers.corner_blur_px` and used to correct
+   distances measured from robot tag sizes. Rejected if tags and tape disagree by more than 15 cm / 5 cm of height,
+   tags are not flat, or the left/right IDs are swapped. Vision restarts afterwards.
+2. **Robots** (both on the floor, chassis and heads facing forward, away from the camera): press **Calibrate robots**.
+   Robot 2's current servo reading becomes its head's forward (neutral). Every visible head tag is measured in the
+   chassis frame, assuming heading 90° and the rear tag `rear_offset_m` (0.14 m) behind the chassis centre. Robot 2's
+   head is then moved through ~12 pan/tilt positions (wheels never move) and its pan/tilt pivots and degrees-per-unit
+   are least-squares fitted to every visible tag; rejected if the model error exceeds 3 cm. Writes
+   `calib/robot<N>_head_pose.yaml` (status `active_dashboard_calibration_<date>`) and the matching `config.yaml` block.
+
+Every write first copies the replaced file to `calib/history/`; the calibration record and a snapshot are updated.
+Code: `monitor/autocal.py` (pure geometry functions are unit-tested in `tests/test_autocal.py`).
+
 ## Floor recalibration — 2026-11-21
 
 The main camera had moved (now 36.3 cm high and 12.6° down; it was 37.9 cm and 11.2°), so head poses failed with

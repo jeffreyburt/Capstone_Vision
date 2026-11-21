@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Calibration checklist</title>
+<title>Calibration</title>
 <style>
   :root { --bg:#111418; --panel:#1b1f25; --panel2:#161a1f; --line:#2c323b; --text:#d8dde3; --muted:#8a939e;
           --ok:#3fae5a; --warn:#e09a2b; --bad:#e5484d; --accent:#2f8cff; }
@@ -11,206 +11,146 @@
   body { margin:0; background:var(--bg); color:var(--text); font:14px/1.45 system-ui,sans-serif; }
   header { display:flex; gap:14px; align-items:center; flex-wrap:wrap; padding:10px 16px; border-bottom:1px solid var(--line);
            position:sticky; top:0; background:var(--bg); z-index:5; }
-  header h1 { font-size:16px; margin:0; }
-  header a { color:var(--muted); } header .grow { flex:1; }
-  main { max-width:1200px; margin:0 auto; padding:14px 16px 60px; display:grid; gap:14px; }
-  .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; }
-  .panel > h2 { margin:0; padding:9px 14px; font-size:14px; border-bottom:1px solid var(--line); display:flex; gap:10px; align-items:center; }
-  .step { border-top:1px solid var(--line); padding:12px 14px; }
-  .step:first-of-type { border-top:0; }
-  .step h3 { margin:0; font-size:15px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; } header a { color:var(--muted); } header .grow { flex:1; }
+  main { max-width:1000px; margin:0 auto; padding:14px 16px 60px; display:grid; gap:14px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px 14px; }
+  h2 { margin:0 0 6px; font-size:15px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
   .num { width:24px; height:24px; border-radius:50%; background:var(--line); display:inline-flex; align-items:center; justify-content:center; font-size:13px; }
   .pill { padding:1px 9px; border-radius:999px; font-size:12px; font-weight:600; background:var(--line); }
-  .pill.done { background:#1d4a2a; color:#c9f5d5; } .pill.attention { background:#5c1f22; color:#ffd9da; }
-  .pill.todo, .pill.manual { background:#5a3d10; color:#ffe4b8; }
-  .why { color:var(--muted); margin:4px 0 6px; }
-  .detail { margin:6px 0; } ol { margin:6px 0 8px 20px; padding:0; } li { margin:2px 0; }
-  .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; align-items:center; }
-  button { background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:5px 12px; cursor:pointer; font:inherit; font-size:13px; }
-  button:hover { border-color:var(--muted); } button.primary { background:#1c3f6e; border-color:var(--accent); }
-  button.danger { border-color:var(--warn); } button:disabled { opacity:.5; cursor:default; }
-  .tool { margin-top:10px; padding:10px; background:var(--panel2); border:1px solid var(--line); border-radius:6px; }
-  .tool[hidden] { display:none; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:8px 14px; }
-  label { display:flex; flex-direction:column; gap:2px; font-size:12px; color:var(--muted); }
-  input { background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:5px; padding:4px 7px; font:inherit; }
-  pre.log { margin:8px 0 0; padding:8px; background:#0b0d10; border:1px solid var(--line); border-radius:6px; max-height:240px; overflow:auto; font:12px ui-monospace,monospace; white-space:pre-wrap; }
-  img.live { width:100%; max-height:420px; object-fit:contain; background:#000; border-radius:6px; margin-top:8px; }
+  .pill.done { background:#1d4a2a; color:#c9f5d5; } .pill.bad { background:#5c1f22; color:#ffd9da; } .pill.run { background:#1c3f6e; color:#d7e7ff; }
+  p, li { color:var(--muted); } p { margin:4px 0 8px; } ol { margin:4px 0 8px 20px; padding:0; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:8px 14px; margin:8px 0; }
+  label { display:flex; flex-direction:column; gap:3px; font-size:12.5px; color:var(--muted); }
+  input { background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:5px; padding:6px 8px; font:inherit; }
+  button { background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:7px 14px; cursor:pointer; font:inherit; }
+  button.primary { background:#1c3f6e; border-color:var(--accent); font-weight:600; } button:disabled { opacity:.5; cursor:default; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:8px; }
+  details { margin-top:6px; } summary { cursor:pointer; color:var(--muted); font-size:12.5px; }
+  pre.log { margin:8px 0 0; padding:8px; background:#0b0d10; border:1px solid var(--line); border-radius:6px; max-height:260px; overflow:auto; font:12px ui-monospace,monospace; white-space:pre-wrap; }
+  .error { color:var(--bad); font-weight:600; margin:6px 0 0; }
+  img.live { width:100%; max-height:380px; object-fit:contain; background:#000; border-radius:6px; margin-top:8px; }
   table { border-collapse:collapse; width:100%; font-size:12.5px; } th,td { text-align:left; padding:4px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
-  th { color:var(--muted); font-weight:500; width:30%; } td { font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
-  .data { padding:4px 14px 12px; } .data h3 { font-size:13px; margin:12px 0 4px; color:var(--muted); }
-  #msg { position:fixed; bottom:14px; left:50%; transform:translateX(-50%); background:#222831; border:1px solid var(--line); padding:8px 14px; border-radius:8px; display:none; max-width:90vw; z-index:9; }
-  .note { color:var(--muted); font-size:12px; }
+  th { color:var(--muted); font-weight:500; width:34%; } td { font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
 </style>
 </head>
 <body>
-<header>
-  <h1>Calibration checklist</h1><span id="progress" class="pill">…</span><span class="grow"></span>
-  <button id="snap">Export snapshot</button>
-  <a href="/api/calibration" target="_blank">All values (JSON)</a>
-  <a href="/">← System dashboard</a>
-</header>
+<header><h1>Calibration</h1><span class="grow"></span><a href="/">← Dashboard</a><a href="/calibration/advanced">Advanced (individual steps)</a></header>
 <main>
-  <section class="panel"><h2>Setup steps <span class="note">work top to bottom; green steps are already valid. Nothing here drives the wheels.</span></h2><div id="steps"></div></section>
-  <section class="panel"><h2>Stored calibration data <span class="note" id="gen"></span></h2><div class="data" id="data"></div></section>
-  <section class="panel"><h2>History</h2><div class="data" id="history"></div></section>
+  <section class="panel">
+    <h2><span class="num">1</span> Floor <span class="pill" id="floor-pill">not run</span></h2>
+    <p>Take the robots off the floor. Lay the two floor tags flat, the same distance in front of the camera, one to each side.
+       Measure along the floor from directly below the lens.</p>
+    <div class="grid">
+      <label>Tags: distance in front of the camera (m)<input id="distance" type="number" step="0.01" min="0.5" max="8" placeholder="2.00"></label>
+      <label>Tags: distance left / right of centre (m)<input id="offset" type="number" step="0.01" min="0.1" max="3" placeholder="0.70"></label>
+      <label>Camera lens height above the floor (m)<input id="lens" type="number" step="0.005" min="0.1" max="2" placeholder="0.37"></label>
+    </div>
+    <details><summary>Advanced: tag size and IDs, robot rear-tag offset</summary>
+      <div class="grid">
+        <label>Floor tag black-square size (m)<input id="tag-size" type="number" step="0.005" value="0.15"></label>
+        <label>Tag on the camera's left (ID)<input id="left-id" type="number" step="1" value="1"></label>
+        <label>Tag on the camera's right (ID)<input id="right-id" type="number" step="1" value="0"></label>
+        <label>Robot rear tag behind chassis centre (m)<input id="rear-offset" type="number" step="0.005" value="0.14"></label>
+      </div>
+    </details>
+    <div class="row"><button class="primary" id="run-floor">Calibrate floor</button><span id="floor-result"></span></div>
+  </section>
+
+  <section class="panel">
+    <h2><span class="num">2</span> Robots <span class="pill" id="robots-pill">not run</span></h2>
+    <ol>
+      <li>Put both robots back on the floor, in view, about 1–2.5 m from the camera and at least 0.5 m apart.</li>
+      <li>Face each chassis and head straight forward, away from the camera (rear tags toward the camera). Robot 2's
+          current head angle becomes "forward".</li>
+      <li>Keep everything still and out of the way while it runs (about a minute). Robot 2's head will look around;
+          the wheels never move.</li>
+    </ol>
+    <div class="row"><button class="primary" id="run-robots">Calibrate robots</button><span id="robots-result"></span></div>
+  </section>
+
+  <section class="panel">
+    <h2>Progress <span class="pill" id="run-pill">idle</span><span style="flex:1"></span><button id="stop" disabled>Stop</button></h2>
+    <p class="error" id="error" hidden></p>
+    <pre class="log" id="log">Nothing running.</pre>
+    <img class="live" id="cam" alt="Main camera with detected tags">
+  </section>
+
+  <section class="panel">
+    <h2>Current calibration</h2>
+    <table id="current"></table>
+    <p>Every calibration backs up the files it replaces to <code>calib/history/</code> first; nothing measured earlier is deleted.</p>
+  </section>
 </main>
-<div id="msg" role="status"></div>
 <script>
-const esc = s => String(s ?? '—').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fix = (v, n=3) => typeof v === 'number' ? (Number.isInteger(v) ? v : Math.abs(v) >= 1000 ? v.toFixed(1) : +v.toFixed(n)) : esc(v);
-const arr = a => Array.isArray(a) ? a.map(x => Array.isArray(x) ? '[' + arr(x) + ']' : fix(x, 4)).join(', ') : esc(a);
-let S = null, open = {}, lensTimer = null, lastSteps = '';
 const $ = id => document.getElementById(id);
-
-function toast(t, bad) { const m = $('msg'); m.textContent = t; m.style.borderColor = bad ? 'var(--bad)' : 'var(--ok)'; m.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => m.style.display = 'none', 6000); }
-async function api(name, body) {
-  const r = await fetch('/api/calibration/' + name, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body || {})});
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) { toast(j.error || 'Request failed', true); throw new Error(j.error); }
-  return j;
+const store = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+                set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+for (const id of ["distance", "offset", "lens", "tag-size", "left-id", "right-id", "rear-offset"]) {
+  const v = store.get("autocal-" + id, null); if (v !== null) $(id).value = v;
+  $(id).onchange = () => store.set("autocal-" + id, $(id).value);
 }
-async function act(name, body, okText) { try { const j = await api(name, body); if (j.restart) toast((okText||'Done') + ' — ' + j.restart); else if (okText) toast(okText); refresh(); return j; } catch(e) {} }
-
-const ORDER = ['network','measure','lens','floor','head1','head2','verify','wheels'];
-function stepHTML(s, i) {
-  const o = open[s.id];
-  const label = {done:'Done', attention:'Needs attention', todo:'To do', manual:'Needs your confirmation'}[s.status] || s.status;
-  const btn = a => {
-    if (a.id.startsWith('confirm:')) { const st = a.id.slice(8); return s.confirmed ? `<button data-un="${st}">Undo confirmation (${esc(s.confirmed.at.slice(0,16))})</button>` : `<button class="primary" data-conf="${st}">${a.label}</button>`; }
-    return `<button data-act="${a.id}">${a.label}</button>`;
-  };
-  return `<div class="step" id="step-${s.id}"><h3><span class="num">${i+1}</span>${esc(s.title)}<span class="pill ${s.status}">${label}</span></h3>
-    <div class="why">${esc(s.why)}</div><div class="detail">${esc(s.detail)}</div>
-    <details ${o ? 'open' : ''} data-how="${s.id}"><summary class="note">Instructions</summary><ol>${s.how.map(h => `<li>${esc(h)}</li>`).join('')}</ol></details>
-    <div class="actions">${s.actions.map(btn).join('')}</div>
-    <div class="tool" id="tool-${s.id}" hidden></div></div>`;
+async function post(path, body) {
+  const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const data = await r.json();
+  if (!r.ok) throw Error(data.error || "request failed");
+  return data;
 }
-
-function render() {
-  const el = $('steps'), sig = JSON.stringify(S.steps);
-  const done = S.steps.filter(s => s.status === 'done').length;
-  $('progress').textContent = `${done} of ${S.steps.length} steps done`;
-  $('progress').className = 'pill ' + (done === S.steps.length ? 'done' : 'todo');
-  if (sig !== lastSteps) {
-    const keepTools = {}; document.querySelectorAll('.tool').forEach(t => keepTools[t.id] = [t.hidden, t.innerHTML]);
-    el.innerHTML = S.steps.map(stepHTML).join('');
-    document.querySelectorAll('.tool').forEach(t => { if (keepTools[t.id]) { t.hidden = keepTools[t.id][0]; t.innerHTML = keepTools[t.id][1]; } });
-    lastSteps = sig;
-  }
-  renderTools(); renderData();
-}
-
-document.addEventListener('toggle', e => { const id = e.target.dataset && e.target.dataset.how; if (id) open[id] = e.target.open; }, true);
-document.addEventListener('click', async e => {
-  const b = e.target.closest('button'); if (!b) return;
-  if (b.dataset.conf) return act('confirm', {step:b.dataset.conf, value:true}, 'Confirmed');
-  if (b.dataset.un) return act('confirm', {step:b.dataset.un, value:false}, 'Confirmation removed');
-  if (b.dataset.lens) { const j = await act('lens', {command:b.dataset.lens}); return pollLens(); }
-  const a = b.dataset.act; if (!a) return;
-  const tool = id => { const t = $('tool-' + id); t.hidden = !t.hidden; return t; };
-  if (a === 'measurements') { tool('measure').innerHTML = measForm(); fillMeas(); tool('measure').hidden = false; }
-  else if (a === 'lens') { const t = $('tool-lens'); t.hidden = !t.hidden; if (!t.hidden) { t.innerHTML = lensHTML(); pollLens(); } }
-  else if (a === 'floor_measure') { await act('floor_measure', {}, 'Measuring floor…'); showJob('floor'); }
-  else if (a === 'floor_apply') { if (confirm('Replace the active floor calibration with the measured candidate? The old file is backed up.')) act('floor_apply', {}, 'Floor applied'); }
-  else if (a === 'head_capture') headCaptureUI();
-  else if (a === 'head_fit') { await act('head_fit', {}, 'Fitting…'); showJob('head2'); }
-  else if (a === 'head_apply') { if (confirm('Activate the fitted Robot 2 head geometry? The old file is backed up.')) act('head_apply', {confirmed:true}, 'Head fit applied'); }
-  else if (a === 'verify_run') { await act('verify_run', {}, 'Sampling for 15 seconds…'); showJob('verify'); }
-  else if (a === 'save_meas') saveMeas();
-  else if (a === 'stop_job') act('stop_job', {}, 'Stopping');
-  else if (a === 'rec_train' || a === 'rec_validation') {
-    if (confirm('The RIGHT HEAD WILL MOVE through its tested range. Wheels stay off. Is Robot 2 stationary on clear floor with hands clear?'))
-      { await act('head_capture', {role:a.slice(4), confirmed:true}, 'Recording started'); showJob('head2'); }
-  }
-});
-$('snap').onclick = () => act('snapshot', {}, 'Snapshot saved under calib/snapshots');
-
-// ---- tool panels
-let jobTarget = null;
-function showJob(step) { jobTarget = step; const t = $('tool-' + step); if (t) t.hidden = false; renderTools(); }
-function jobHTML() {
-  const j = S.job; if (!j) return '<div class="note">No job has run this session.</div>';
-  const state = j.running ? 'running…' : (j.returncode === 0 ? 'finished OK' : 'failed (exit ' + j.returncode + ')');
-  return `<div class="actions"><b>${esc(j.kind)}</b> ${state}${j.running ? '<button data-act="stop_job" class="danger">Stop</button>' : ''}</div><pre class="log">${esc(j.log.join('\n'))}</pre>`;
-}
-function renderTools() {
-  const set = (id, html) => { const t = $('tool-' + id); if (t && !t.hidden && t.dataset.h !== html) { t.dataset.h = html; t.innerHTML = html; } };
-  const f = S.candidates.floor;
-  set('floor', (f ? `<div>Candidate: camera height <b>${fix(f.height_m)}</b> m, pitch <b>${fix(f.pitch_deg, 2)}</b>° — ${esc(f.method)}. Compare the printed tag spacing in the log with a tape measure, then Apply.</div>` : '<div class="note">No candidate yet.</div>') + (jobTarget === 'floor' || (S.job && S.job.kind.startsWith('floor')) ? jobHTML() : ''));
-  const rec = S.recordings, c = S.candidates.head;
-  set('head2', `<div>Recordings: <b>${rec.train.length}</b> training, <b>${rec.validation.length}</b> validation.
-    <button data-act="rec_train" class="danger">Record training sweep</button> <button data-act="rec_validation" class="danger">Record validation sweep</button></div>` +
-    (c ? `<div class="detail">Fit candidate: training RMS <b>${fix(c.training_rms_px, 2)}</b> px, validation RMS <b>${fix(c.validation && c.validation.rms_px, 2)}</b> px, validation p95 drift <b>${fix(c.validation_stability && c.validation_stability.position_drift_p95_m)}</b> m, heading p95 <b>${fix(c.validation_stability && c.validation_stability.heading_deviation_p95_deg, 2)}</b>°. Acceptance: validation RMS ≤ 3 px and p95 drift ≤ 0.10 m.</div>` : '<div class="note">No fit candidate yet.</div>') +
-    (S.steps.find(s => s.id === 'head2').live_units ? `<div class="note">Live head: ${esc(S.steps.find(s => s.id === 'head2').live_units)}</div>` : '') + jobHTML());
-  const v = S.verify;
-  set('verify', v ? (v.running ? `<div>Sampling… ${v.frames} usable frames so far.</div>` : `<div>${v.p95_position_m == null ? 'Not enough compensated frames from both robots.' : 'p95 jitter ' + fix(v.p95_position_m * 100, 1) + ' cm over ' + v.frames + ' frames'}</div>`) : '<div class="note">Not run yet.</div>');
-  if (!$('tool-lens').hidden && !$('tool-lens').dataset.h) { /* lens panel keeps its own DOM */ }
-}
-function lensHTML() {
-  return `<img class="live" src="/video/birdseye" alt="main camera with checkerboard overlay"><div class="actions" id="lens-btns">
-    ${['start','capture','auto_on','auto_off','undo','reset','solve','stop'].map(c => `<button data-lens="${c}" ${c==='solve'?'class="primary"':''}>${{auto_on:'Auto-capture on',auto_off:'Auto-capture off',solve:'Calibrate',start:'Start',stop:'Stop',capture:'Capture now',undo:'Undo last',reset:'Clear all'}[c]}</button>`).join('')}</div>
-    <div id="lens-status" class="detail note">Connecting to the vision GUI…</div>`;
-}
-async function pollLens() {
-  clearTimeout(lensTimer); const t = $('tool-lens'); if (t.hidden) return;
+$("run-floor").onclick = async () => {
+  $("error").hidden = true;
+  const num = id => Number($(id).value);
   try {
-    const j = await (await fetch('/api/calibration/lens')).json(); const c = j.lens;
-    $('lens-status').innerHTML = c ? `${c.active ? 'Active' : 'Stopped'} · views <b>${c.views}</b> / ${c.good_views} recommended (min ${c.min_views}) · board ${c.board_visible ? '<b style="color:var(--ok)">visible</b>' : 'not visible'} · ${esc(c.message)}${c.result ? ` · <b>saved: RMS ${c.result.rms_px} px, ${c.result.views} views</b>` : ''}` : esc(j.error || 'Vision GUI not available');
-  } catch (e) {}
-  lensTimer = setTimeout(pollLens, 1500);
+    if (!$("distance").value || !$("offset").value || !$("lens").value) throw Error("Enter the three measurements first.");
+    await post("/api/autocal/floor", { distance_m: num("distance"), offset_m: num("offset"), lens_height_m: num("lens"),
+      tag_size_m: num("tag-size"), left_id: num("left-id"), right_id: num("right-id"), rear_offset_m: num("rear-offset") });
+  } catch (e) { $("error").textContent = e.message; $("error").hidden = false; }
+  poll();
+};
+$("run-robots").onclick = async () => {
+  $("error").hidden = true;
+  if (!confirm("Robots facing forward, away from the camera, and nothing in the way of Robot 2's head?")) return;
+  try { await post("/api/autocal/robots", { confirmed: true, rear_offset_m: Number($("rear-offset").value) }); }
+  catch (e) { $("error").textContent = e.message; $("error").hidden = false; }
+  poll();
+};
+$("stop").onclick = () => post("/api/autocal/stop", {}).catch(() => {});
+const esc = s => String(s ?? "").replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+let timer;
+async function poll() {
+  clearTimeout(timer);
+  try {
+    const s = await (await fetch("/api/autocal", { cache: "no-store" })).json();
+    $("run-pill").textContent = s.running ? `running: ${s.step}` : (s.error ? "stopped" : "idle");
+    $("run-pill").className = "pill " + (s.running ? "run" : s.error ? "bad" : "");
+    $("stop").disabled = !s.running;
+    $("run-floor").disabled = $("run-robots").disabled = s.running;
+    if (s.error && !s.running) { $("error").textContent = s.error; $("error").hidden = false; }
+    if (s.log?.length) { const atEnd = $("log").scrollTop + $("log").clientHeight >= $("log").scrollHeight - 4;
+      $("log").textContent = s.log.join("\n"); if (atEnd) $("log").scrollTop = $("log").scrollHeight; }
+    if (s.floor) {
+      $("floor-pill").textContent = "done"; $("floor-pill").className = "pill done";
+      $("floor-result").textContent = `camera ${s.floor.height_m.toFixed(3)} m high, ${s.floor.pitch_deg.toFixed(1)}° down · tag errors ` +
+        Object.values(s.floor.tags).map(t => (t.error_m * 100).toFixed(1) + " cm").join(", ");
+    }
+    if (s.robots) {
+      $("robots-pill").textContent = "done"; $("robots-pill").className = "pill done";
+      $("robots-result").textContent = Object.entries(s.robots).map(([id, r]) =>
+        `Robot ${id}: tags ${r.tags.join(", ")}` + (r.head_fit_rms_m != null ? `, head model ${(r.head_fit_rms_m * 100).toFixed(1)} cm` : "")).join(" · ");
+    }
+    const c = s.current || {}, rows = [];
+    const add = (k, v) => rows.push(`<tr><th>${esc(k)}</th><td>${v}</td></tr>`);
+    if (c.floor) add("Floor", esc(`camera ${c.floor.height_m} m high, ${c.floor.pitch_deg}° down · ${c.floor.method}`));
+    if (c.intrinsics) add("Lens", esc(`${(c.intrinsics.image_size || []).join(" × ")}, RMS ${Number(c.intrinsics.rms_px).toFixed(2)} px`));
+    for (const r of c.robots || []) {
+      const hp = r.head_pose || {};
+      add(`Robot ${r.id} head`, esc(`${r.source || ""} · tags ${Object.keys(hp.markers || {}).join(", ")}` +
+        (hp.valid_units ? ` · range pan ${hp.valid_units[0].join("–")}, tilt ${hp.valid_units[1].join("–")}` : "")));
+    }
+    $("current").innerHTML = rows.join("") || "<tr><td>Loading…</td></tr>";
+    if (!$("cam").getAttribute("src")) $("cam").src = "/video/birdseye";
+  } catch (e) { $("run-pill").textContent = "no connection"; }
+  timer = setTimeout(poll, 1000);
 }
-
-const MEAS = [['lens_height_m','Camera lens height (m)'],['robot_marker_size_m','Robot tag black square (m)'],['floor_marker_size_m','Floor tag black square (m)'],
-  ['floor_tag_spacing_owner_m','Floor tag spacing, measured (m)'],['marker_center_height_m','Tag center height (m)'],['robot_body_size_m','Robot body size (m)'],
-  ['floor_min_y_fraction','Floor tags: ignore image above this fraction (0–0.99)']];
-function measForm() {
-  return `<div class="grid">${MEAS.map(([k, l]) => `<label>${l}<input data-m="${k}" type="number" step="0.001"></label>`).join('')}
-    <label>Rear tag offset x (m)<input data-m="rear_x" type="number" step="0.001"></label><label>Rear tag offset y (m)<input data-m="rear_y" type="number" step="0.001"></label>
-    <label>Floor tag IDs (comma separated)<input data-m="floor_marker_ids"></label><label>Floor tag defining +y (ID)<input data-m="floor_forward_id" type="number" step="1"></label></div>
-    <div class="actions"><button class="primary" data-act="save_meas">Save measurements</button>
-    <button data-act="confirm_meas">Mark step done</button></div>`;
-}
-function fillMeas() { const m = S.data.measurements; document.querySelectorAll('[data-m]').forEach(i => { const k = i.dataset.m;
-  i.value = k === 'rear_x' ? m.rear_tag_offset_m.x : k === 'rear_y' ? m.rear_tag_offset_m.y : k === 'floor_marker_ids' ? m.floor_marker_ids.join(', ') : m[k]; }); }
-async function saveMeas() {
-  const v = {}; document.querySelectorAll('[data-m]').forEach(i => v[i.dataset.m] = i.value.trim());
-  const num = k => Number(v[k]);
-  const values = {}; MEAS.forEach(([k]) => values[k] = num(k));
-  values.rear_tag_offset_m = {x:num('rear_x'), y:num('rear_y')}; values.floor_forward_id = parseInt(v.floor_forward_id, 10);
-  values.floor_marker_ids = v.floor_marker_ids.split(',').map(s => parseInt(s.trim(), 10));
-  if (await act('measurements', {values}, 'Measurements saved')) {}
-}
-document.addEventListener('click', e => { const b = e.target.closest('[data-act="confirm_meas"]'); if (b) act('confirm', {step:'measure', value:true}, 'Step marked done'); });
-function headCaptureUI() { const t = $('tool-head2'); t.hidden = !t.hidden; renderTools(); }
-
-// ---- data tables
-const row = (k, v) => `<tr><th>${esc(k)}</th><td>${v}</td></tr>`;
-function renderData() {
-  const d = S.data, i = d.intrinsics, f = d.floor, m = d.measurements; $('gen').textContent = 'read from the stored files · ' + d.generated.slice(0, 19).replace('T', ' ');
-  let h = '<h3>Owner measurements</h3><table>' + row('Camera lens height', fix(m.lens_height_m) + ' m') + row('Robot tag size', fix(m.robot_marker_size_m) + ' m') + row('Floor tag size / IDs / +y tag', `${fix(m.floor_marker_size_m)} m / ${arr(m.floor_marker_ids)} / ${m.floor_forward_id}`) +
-    row('Floor tag spacing (tape)', fix(m.floor_tag_spacing_owner_m) + ' m') + row('Tag center height', fix(m.marker_center_height_m) + ' m') + row('Rear tag offset', `x ${fix(m.rear_tag_offset_m.x)} m, y ${fix(m.rear_tag_offset_m.y)} m`) + '</table>';
-  h += '<h3>Camera lens (intrinsics)</h3>' + (i ? '<table>' + row('File', esc(i.file) + ' · ' + esc(i.sha)) + row('Image size', arr(i.image_size)) + row('fx, fy', `${fix(i.fx, 1)}, ${fix(i.fy, 1)}`) + row('Principal point', `${fix(i.cx, 1)}, ${fix(i.cy, 1)}`) +
-    row('Distortion k1 k2 p1 p2 k3', arr(i.dist)) + row('RMS error / views', `${fix(i.rms_px)} px / ${i.views}`) + '</table>' : '<div class="note">Missing.</div>');
-  h += '<h3>Floor pose (camera to floor)</h3>' + (f ? '<table>' + row('File', esc(f.file) + ' · ' + esc(f.sha)) + row('Camera position', arr(f.camera_position_m) + ' m') + row('Height / pitch', `${fix(f.height_m)} m / ${fix(f.pitch_deg, 2)}° down`) + row('rvec', arr(f.rvec)) + row('tvec', arr(f.tvec)) + row('Method', esc(f.method)) + '</table>' : '<div class="note">Missing.</div>');
-  d.robots.forEach(r => { const hp = r.head_pose || {}; h += `<h3>Robot ${r.id} head</h3><table>` + row('File / status', `${esc(r.file)} · ${esc(r.status)} · ${esc(r.reference_date)}`) + row('Faces (tag → deg)', esc(JSON.stringify(r.faces))) +
-    row('Neutral pan/tilt', arr(hp.neutral_units)) + row('Degrees per unit', arr(hp.degrees_per_unit)) + row('Pan pivot (m)', arr(hp.pan_pivot_m)) + row('Tilt pivot (m)', arr(hp.tilt_pivot_m)) + row('Tested range (pan, tilt)', arr(hp.valid_units) || 'none (fixed head)');
-    Object.entries(hp.markers || {}).forEach(([id, mk]) => h += row('Tag ' + id, `${esc(mk.mount)} · center ${arr(mk.center_m)} · rotation ${arr(mk.rotation_vector_rad)}`));
-    if (r.live_validation) h += row('Last validation', Object.entries(r.live_validation).filter(([k]) => !k.includes('sha') && !k.includes('source')).map(([k, v]) => `${esc(k)}: ${fix(v)}`).join('<br>'));
-    h += '</table>'; });
-  h += '<h3>Wheel configuration (repo copies deployed to each robot)</h3><table>' + Object.entries(d.wheels).map(([n, w]) => row(n, `<code>${esc(JSON.stringify(w))}</code>`)).join('') + '</table>';
-  h += '<h3>Speed limits and motion</h3><table>' + Object.entries(d.limits).map(([id, l]) => row('Robot ' + id, esc(JSON.stringify(l)))).join('') + row('Waypoint motion', esc(JSON.stringify(d.waypoint_motion))) + '</table>';
-  h += '<h3>Marker detection</h3><table>' + row('Settings', esc(JSON.stringify(d.markers))) + '</table>';
-  h += '<h3>Files in calib/</h3><table>' + d.files.map(x => row(x.file, `${x.bytes} bytes · ${esc(x.modified)}`)).join('') + '</table>';
-  if ($('data').dataset.h !== h) { $('data').dataset.h = h; $('data').innerHTML = h; }
-  const hist = S.record.history.slice().reverse().map(x => row(x.at.slice(0, 19).replace('T', ' '), esc(x.event + (x.detail ? ' · ' + x.detail : '')))).join('');
-  $('history').innerHTML = hist ? '<table>' + hist + '</table>' : '<div class="note">Nothing yet.</div>';
-}
-
-async function refresh() {
-  try { S = await (await fetch('/api/calibration', {cache:'no-store'})).json(); render(); } catch (e) {}
-}
-refresh(); setInterval(refresh, 2500);
+poll();
 </script>
 </body>
 </html>
