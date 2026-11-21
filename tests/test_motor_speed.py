@@ -76,3 +76,13 @@ def test_fit_pools_inconsistent_raw_measurements():
     assert p['reference_counts_per_command']==100
     assert p['minimum_count_rate']==200
     assert p['positive']==[[0,.02],[245,.045],[600,.08]]
+
+
+def test_saved_robot1_calibration_reaches_shared_70_count_cap():
+    import json, math, pathlib
+    saved=json.loads((pathlib.Path(__file__).parent.parent/'calib'/'motor_speed.json').read_text())['tb6612_calibration']
+    ref=saved['reference_counts_per_command']
+    assert math.floor(saved['maximum_count_rate']/ref+1e-9)==70
+    for command in (70,-70):
+        match=SpeedMatch(saved,command)
+        assert .85<match.feedforward<1  # leaves PI headroom below full duty

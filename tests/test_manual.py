@@ -88,8 +88,8 @@ def test_http_keyboard_session_disarms_waypoints_and_blocks_conflicting_navigati
 def test_keyboard_limit_overrides_waypoint_limit_for_wasd_only():
     session=ManualControl([2],clock=lambda:100)
     token=session.enable(2)['token']
-    state=session.command(dict(token=token,robot_id=2,seq=1,keys=['w'],speed=.9))
-    ctrl={2:SimpleNamespace(limits=SimpleNamespace(max_speed_m_s=.23,keyboard_max_speed_m_s=.97))}
-    assert manual_commands({'manual':state},ctrl,now=100)[2][0]==pytest.approx((.9,0,0))
+    state=session.command(dict(token=token,robot_id=2,seq=1,keys=['w'],speed=.5))
+    ctrl={2:SimpleNamespace(limits=SimpleNamespace(max_speed_m_s=.23,keyboard_max_speed_m_s=.53))}
+    assert manual_commands({'manual':state},ctrl,now=100)[2][0]==pytest.approx((.5,0,0))
     ctrl={2:SimpleNamespace(limits=SimpleNamespace(max_speed_m_s=.23,keyboard_max_speed_m_s=0.))}
     assert manual_commands({'manual':state},ctrl,now=100)[2][0]==pytest.approx((.23,0,0))

@@ -199,7 +199,8 @@ control:
       port: 5700
       side: left
       limits:  # mixed four-wheel profile; all wheels capped at calibrated 5 counts/10ms
-        max_speed_m_s: 0.038
+        max_speed_m_s: 0.038  # waypoint/autonomous driving
+        keyboard_max_speed_m_s: 0.53  # WASD only: 70 counts/10ms, measured motor ceiling (lifted sweep 2026-11-21)
         max_yaw_rad_s: 0.20
         position_gain: 0.6
         position_tolerance_m: 0.10
@@ -210,7 +211,7 @@ control:
       side: right
       limits:  # faster four-wheel profile; proportional slowdown near the destination
         max_speed_m_s: 0.23  # waypoint/autonomous driving
-        keyboard_max_speed_m_s: 0.97  # WASD only: 127 counts/10ms (Hiwonder byte limit) at 13000 counts/m
+        keyboard_max_speed_m_s: 0.53  # WASD only: 70 counts/10ms, measured motor ceiling (lifted sweep 2026-11-21)
         max_yaw_rad_s: 0.60
         position_gain: 0.6
         position_tolerance_m: 0.10

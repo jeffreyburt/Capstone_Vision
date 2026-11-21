@@ -31,10 +31,11 @@ Default dashboard state after restart is disarmed, with no keyboard lease or way
 
 Robot 1 logical wheel routing is FL=M3, FR=M1, RL=M4, RR=M2, signs `[+,+,-,+]` in that order.
 **Logical M1 now means TB6612 channel A; damaged physical Hiwonder M1 remains zero.**
-The mixed profile has no disabled logical channels and caps all wheels to 5 counts/10ms.
-Robot 1 body speed is capped at 0.038 m/s; strafing is enabled. Commands requiring a nonzero
-FR speed below 2 units hold the whole chassis. Do not remove that guard or raise the cap
-without extending/revalidating the calibration.
+The mixed profile has no disabled logical channels and caps all wheels to 70 counts/10ms
+(calibration extended to full duty 2026-11-21, see FOUR_WHEEL_DRIVE.md). Robot 1 waypoint speed
+stays capped at 0.038 m/s; WASD may use up to 0.53 m/s; strafing is enabled. Commands requiring a
+nonzero FR speed below 2 units hold the whole chassis. Do not remove that guard or raise the cap
+above 70: the Hiwonder motors saturate near 75-80 counts/10ms. Robot 2 also caps at 70.
 
 Canonical files:
 

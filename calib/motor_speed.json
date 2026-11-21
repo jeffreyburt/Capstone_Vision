@@ -31,8 +31,52 @@
         0.08
       ],
       [
-        732.3688969258591,
+        771.4401268612596,
         0.1
+      ],
+      [
+        1218.6558218733612,
+        0.15
+      ],
+      [
+        1627.8301328727357,
+        0.2
+      ],
+      [
+        2057.8952722353047,
+        0.25
+      ],
+      [
+        2471.1156475730822,
+        0.3
+      ],
+      [
+        3331.4648953845567,
+        0.4
+      ],
+      [
+        4132.271739111607,
+        0.5
+      ],
+      [
+        4992.990243718198,
+        0.6
+      ],
+      [
+        5824.730310316821,
+        0.7
+      ],
+      [
+        6637.376478621693,
+        0.8
+      ],
+      [
+        7333.323582701992,
+        0.9
+      ],
+      [
+        8000.423825975093,
+        1.0
       ]
     ],
     "negative": [
@@ -57,12 +101,56 @@
         0.08
       ],
       [
-        782.3529411764706,
+        744.7812032595135,
         0.1
+      ],
+      [
+        1124.464460751618,
+        0.15
+      ],
+      [
+        1557.9832440791338,
+        0.2
+      ],
+      [
+        1993.7677166784426,
+        0.25
+      ],
+      [
+        2389.8291387258027,
+        0.3
+      ],
+      [
+        3205.999179938358,
+        0.4
+      ],
+      [
+        3983.734738899163,
+        0.5
+      ],
+      [
+        4795.0443806021985,
+        0.6
+      ],
+      [
+        5589.911046170887,
+        0.7
+      ],
+      [
+        6333.36460000295,
+        0.8
+      ],
+      [
+        7130.52738194002,
+        0.9
+      ],
+      [
+        7821.636674438676,
+        1.0
       ]
     ],
     "minimum_count_rate": 207.4369553084899,
-    "maximum_count_rate": 518.5923882712248,
+    "maximum_count_rate": 7260.293435797146,
     "validation": {
       "condition": "all wheels lifted, five-second individual runs",
       "status": "validated_limited_range",
@@ -118,6 +206,7 @@
       ],
       "lowest_speed_note": "10% stalled intermittently; excluded from reliable operating range",
       "previous_manual_trim": 0.23
-    }
+    },
+    "high_speed_extension": "2026-11-21 lifted-wheel open-loop sweep, duty 0.10-1.00 at 12.6 V, replaces the 0.10 point; see calib/recordings/robot1_top_speed_sweep_2026-11-21.jsonl. Hiwonder wheels on the same robot track commands to 70 counts/10ms and saturate near 7,800-7,900 counts/s, so the shared cap is 70."
   }
 }

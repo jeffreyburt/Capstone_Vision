@@ -313,7 +313,7 @@ def main(argv=None, *, before_motor_tick=None):
     ap.add_argument("--counts-per-meter", type=float, default=13000.0,
                     help="encoder counts per meter of wheel travel (measure with control.drive_test)")
     ap.add_argument("--turn-radius", type=float, default=0.2, help="(wheelbase + track) / 2 in meters")
-    ap.add_argument("--max-counts", type=int, default=127, help="wheel speed cap in counts/10ms")
+    ap.add_argument("--max-counts", type=int, default=70, help="wheel speed cap in counts/10ms")
     ap.add_argument("--max-speed", type=float, default=1.0, help="body speed clamp in m/s")
     ap.add_argument("--accel", type=float, default=100.0, help="wheel acceleration in counts/10ms per second")
     ap.add_argument("--timeout", type=float, default=0.5, help="stop if no command for this many seconds")

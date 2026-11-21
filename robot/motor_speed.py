@@ -23,7 +23,7 @@ class SpeedMatch:
         self.points=profile[direction]
         if len(self.points)<2 or any(len(p)!=2 or any(type(v) not in (int,float) or not math.isfinite(v) for v in p) for p in self.points):
             raise ValueError('Invalid measured speed curve')
-        if any(a[0]>=b[0] for a,b in zip(self.points,self.points[1:])) or any(x<0 or not 0<=y<=.5 for x,y in self.points):
+        if any(a[0]>=b[0] for a,b in zip(self.points,self.points[1:])) or any(x<0 or not 0<=y<=1 for x,y in self.points):
             raise ValueError('Speed curve must have increasing rates and bounded PWM duty')
         self.target=abs(command)*profile['reference_counts_per_command']*trim
         if not 0<self.target<=self.points[-1][0]:

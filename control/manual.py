@@ -41,8 +41,8 @@ class ManualControl:
                 raise ValueError('Out-of-order keyboard command')
             if not isinstance(keys,list) or len(keys)>4 or any(k not in ('w','a','s','d') for k in keys):
                 raise ValueError('Keys must be W, A, S, or D')
-            if type(speed) not in (int,float) or not math.isfinite(speed) or not .02<=speed<=.97:
-                raise ValueError('Keyboard speed must be 0.02–0.97 m/s')
+            if type(speed) not in (int,float) or not math.isfinite(speed) or not .02<=speed<=.53:
+                raise ValueError('Keyboard speed must be 0.02–0.53 m/s')
             self.data.update(seq=seq,keys=sorted(set(keys)),speed=speed,expires_at=self.clock()+.4)
             return self.snapshot()
 
@@ -70,7 +70,7 @@ def manual_commands(navigation,controllers,now=None):
     length=math.hypot(forward,left)
     limits=controllers[rid].limits
     cap=getattr(limits,'keyboard_max_speed_m_s',0.) or limits.max_speed_m_s
-    speed=min(float(manual.get('speed',0)),cap,.97)
+    speed=min(float(manual.get('speed',0)),cap,.53)
     command=(speed*forward/length,speed*left/length,0.) if length else STOP
     result[rid]=(command,'keyboard driving' if length else 'keyboard ready')
     return result

@@ -45,10 +45,12 @@ and redeploy/restart; do not swap encoder phases to try to reverse the motor.
 - Same saved positive/negative measured curves, x4 count convention, and PI gains as diagnostics.
 - Reference: 103.718477654 counts/second per command unit, assuming identical encoder resolution
   and gear ratios on all installed motors.
-- Reliable replacement command magnitudes: **2–5** (about 207–519 counts/s). The 1-unit region
-  stalled during lifted-wheel calibration and remains excluded.
-- All four wheel commands are capped together at **5**, preserving wheel ratios when scaling.
-  Robot 1's configured body speed cap is now **0.038 m/s** (13000 counts/m is still an estimate).
+- Reliable replacement command magnitudes: **2–70** (about 207–7260 counts/s). The 1-unit region
+  stalled during lifted-wheel calibration and remains excluded. Up to 2026-11-21 this was 2–5;
+  see "High-speed extension" below.
+- All four wheel commands are capped together at **70**, preserving wheel ratios when scaling.
+  Waypoint driving keeps Robot 1 at **0.038 m/s**; WASD may use up to **0.53 m/s** (13000 counts/m
+  is still an estimate).
 - If logical M1 would be ±1 after rounding, the **whole chassis command is zero** for that tick.
   Other wheels are not allowed to continue with an uncalibrated FR speed. Ramping can therefore
   have a short initial deadband, and combined motions with a very small FR component can hold.
@@ -144,3 +146,38 @@ Simulated tests cover routing, a permanently zero physical M1, whole-vector low-
 watchdog shutdown, fault latching, and reversal dead time. Deployment verification uses only
 read-only status and zero commands. **No physical wheel movement or floor test is part of
 this deployment.** The earlier speed sweep recordings remain the calibration evidence.
+
+## High-speed extension (2026-11-21)
+
+Measured with Robot 1 lifted, battery 12.6 V, using `robot/speed_sweep.py` (raw data in
+`calib/recordings/robot1_top_speed_sweep_2026-11-21.jsonl`).
+
+- **TB6612 FR motor, open loop:** near-linear, about 8,000 counts/s forward and 7,820 reverse at
+  100% duty. The saved curves keep the earlier points below 10% duty and use the sweep from 10–100%.
+  `SpeedMatch` now accepts curve duties up to 1.0 (was 0.5).
+- **Hiwonder M2–M4, closed loop:** track their command exactly up to 70 counts/10 ms (about 7,250
+  counts/s), then saturate near 7,800–8,000 counts/s; 80, 100 and 127 give the same speed.
+- So the shared cap is **70 counts/10 ms** (`maximum_count_rate` = 70 × 103.718 counts/s). This is
+  about 0.54 m/s straight ahead at 13000 counts/m.
+
+Closed-loop validation through `MixedMotors` (`speed_sweep.py --validate`, all four logical wheels at
+the same command, still lifted; `calib/recordings/robot1_top_speed_validation_2026-11-21.jsonl`):
+
+| Command | FR error forward | FR error reverse | FR duty fwd / rev |
+| ---: | ---: | ---: | ---: |
+| 20 | +0.3% | -0.6% | 26% / 27% |
+| 40 | +0.5% | -0.6% | 51% / 53% |
+| 60 | +0.1% | -0.6% | 76% / 80% |
+| 70 | -0.1% | -1.6% | 90% / 94% |
+
+FR stayed within 1.6% of the Hiwonder wheels at every speed. At 70 in reverse it uses 94% duty,
+leaving only about 6% for extra floor load. **Not yet validated on the floor:** under load FR may
+fall short at the top speed, which would show as a slight curve. If it does, lower the cap (for example
+to 65) rather than removing the guard.
+
+Deployed files on Robot 1 were backed up to `~/capstone-drive/bak-2026-11-21-topspeed/` first.
+Rollback: copy them back and `sudo systemctl stop/start capstone-drive-1.service`.
+
+`speed_sweep.py` stops the drive service, holds the motor diagnostic lock, and stops every output on
+error, Ctrl+C, SIGTERM/SIGHUP, or stdin EOF. An earlier run without the SIGTERM handler was cut off
+by `timeout` mid-sweep; the wheels were found stopped afterwards, but that is why the handler exists.

@@ -11,7 +11,7 @@ choose a speed (default 0.23 m/s; up to 0.97 m/s), and press **Enable keyboard c
 
 Only the selected robot is commanded to move. The other robot receives stops. Changing robots
 requires enabling again. Direction is relative to the robot chassis, not the camera or room grid.
-Speed is capped by each robot's existing limit (Robot 1: 0.038 m/s; Robot 2: 0.97 m/s for WASD).
+Speed is capped by each robot's existing limit (WASD: 0.53 m/s on both robots; see the 2026-11-21 sections below).
 Typing in input fields does not move a robot. Leaving the tab, losing browser focus, or losing
 the dashboard connection disables the keyboard session; it must be enabled again to resume.
 
@@ -42,7 +42,7 @@ robot and its `capstone-drive-<id>.service` restarted. Restart the local monitor
 updated Python code. Opening the dashboard or restarting these programs does not enable driving.
 
 Robot 1 now uses [calibrated mixed four-wheel driving](FOUR_WHEEL_DRIVE.md). Its replacement
-front-right motor follows the saved speed profile. All wheels are capped at 5 command units,
+front-right motor follows the saved speed profile. All wheels are capped at 70 command units (was 5),
 and a requested nonzero FR speed below 2 holds the whole chassis. Robot 2 is unchanged.
 
 2026-11-21: deployed to both robot Pis after the main Pi was power cycled to restore SSH.
@@ -142,3 +142,23 @@ User-requested. **Not yet tested with the robot moving; Robot 2's real top speed
   `Restart=on-failure` brought it back 3 s later. Never do this while the wheels are moving: the motor board
   keeps its last speed with no watchdog until the service is back. The earlier notes saying Robot 2 still
   needs a sudo restart are superseded.
+
+## 2026-11-21: both robots matched at 0.53 m/s
+
+**This replaces the 0.97 m/s cap above.** A lifted top-speed sweep of Robot 1 (see
+[FOUR_WHEEL_DRIVE.md](FOUR_WHEEL_DRIVE.md#high-speed-extension-2026-11-21)) showed the Hiwonder
+JGB37-520 motors track commands only up to about 70 counts/10 ms and saturate near 75-80. Robot 2
+uses the same motor type, so its 127 cap was asking for speed the wheels can't deliver, and fast
+diagonals would drift because different wheels saturate at different points.
+
+| Setting | Before | After |
+| --- | --- | --- |
+| WASD cap (`keyboard_max_speed_m_s`) | Robot 1 none (0.038), Robot 2 0.97 | both 0.53 m/s |
+| Keyboard speed range | 0.02–0.97 m/s | 0.02–0.53 m/s (default 0.23) |
+| Robot 1 wheel cap | 5 counts/10 ms | 70 (calibration extended to full duty) |
+| Robot 2 `max_speed_counts` (repo and live) | 127 | 70 |
+| Drive server `--max-counts` default | 127 | 70 |
+| Waypoint caps | Robot 1 0.038, Robot 2 0.23 | unchanged |
+
+Robot 2's top speed was inferred from Robot 1's identical Hiwonder motors, not measured on Robot 2.
+Neither robot has been driven at top speed on the floor.
