@@ -489,7 +489,7 @@ def make_server(monitor, relay, host, port, calibration=None):
                 self._send(400, 'application/json', json.dumps({'error': str(error)}).encode())
 
         def do_POST(self):
-            if self.path in ('/api/motors/start', '/api/motors/stop'):
+            if self.path in ('/api/motors/start', '/api/motors/stop', '/api/motors/settings'):
                 origin = self.headers.get('Origin')
                 if origin and origin != 'http://' + self.headers.get('Host', ''):
                     self.send_error(403)
@@ -501,7 +501,10 @@ def make_server(monitor, relay, host, port, calibration=None):
                     data = json.loads(self.rfile.read(size))
                     if not isinstance(data, dict):
                         raise ValueError('JSON object required')
-                    result = motor_tests.start(data) if self.path.endswith('/start') else motor_tests.stop()
+                    if self.path.endswith('/settings'):
+                        result = motor_tests.save_settings(data)
+                    else:
+                        result = motor_tests.start(data) if self.path.endswith('/start') else motor_tests.stop()
                     self._send(200, 'application/json', json.dumps(result).encode())
                 except (ValueError, TypeError, KeyError, OSError, StopIteration) as error:
                     self._send(400, 'application/json', json.dumps({'error': str(error)}).encode())

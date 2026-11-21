@@ -108,8 +108,10 @@
 <label>Speed <input id="motor-speed" type="number" min="1" max="50" value="25" style="width:65px">%</label>
 <label>Duration <input id="motor-seconds" type="number" min="0.2" max="5" step="0.1" value="3" style="width:65px">s</label>
 <button id="motor-start">Run selected motor</button> <button id="motor-stop">Stop test</button>
+<p><label>TB6612 speed trim <input id="motor-trim" type="number" min="10" max="100" step="1" value="50" style="width:65px">%</label>
+<button id="motor-save-trim">Save trim</button> <span id="motor-trim-saved">50% starting adjustment</span></p>
 <p id="motor-status" role="status">Select one motor to test.</p>
-<p>Hiwonder speed is a percentage of the configured speed cap, in counts/10 ms. TB6612 speed is PWM duty. Positive/negative describe electrical direction.</p>
+<p>Hiwonder speed is a percentage of the configured speed cap, in counts/10 ms. TB6612 PWM duty is the speed setting multiplied by its saved trim. Positive/negative describe electrical direction.</p>
 <table style="width:100%;text-align:left"><thead><tr><th>Encoder</th><th>Change since start</th><th>Rate / second</th><th>GPIO level</th></tr></thead><tbody id="motor-readings"></tbody></table>
 <canvas id="motor-chart" width="1000" height="180" style="width:100%;height:180px" aria-label="Encoder counts over time"></canvas>
 </div></section>
@@ -634,6 +636,7 @@ async function motorAction(action){
   document.getElementById('motor-start').disabled=true;
   const data={robot_id:Number(document.getElementById('motor-robot').value),channel:document.getElementById('motor-channel').value,
     speed:Number(document.getElementById('motor-speed').value)*Number(document.getElementById('motor-direction').value),seconds:Number(document.getElementById('motor-seconds').value)};
+  if(action==='settings')data.tb6612_scale=Number(document.getElementById('motor-trim').value)/100;
   try{
     const response=await fetch('/api/motors/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
     const state=await response.json();
@@ -644,12 +647,18 @@ async function motorAction(action){
 }
 document.getElementById('motor-start').onclick=()=>motorAction('start');
 document.getElementById('motor-stop').onclick=()=>motorAction('stop');
+document.getElementById('motor-save-trim').onclick=()=>motorAction('settings');
+let motorTrimLoaded=false;
 function renderMotors(state){
+  const trim=Number(state.settings?.tb6612_scale??0.5)*100;
+  if(!motorTrimLoaded){document.getElementById('motor-trim').value=Math.round(trim);motorTrimLoaded=true;}
+  document.getElementById('motor-trim-saved').textContent='Saved: '+Math.round(trim)+'% · 25% speed gives '+(25*trim/100).toFixed(1)+'% PWM duty';
+  document.getElementById('motor-save-trim').disabled=state.running||motorRequestPending;
   document.getElementById('motor-start').disabled=motorRequestPending||state.running;
   document.getElementById('motor-stop').disabled=!state.running;
   const stale=state.running&&state.sample_age_s>1;
   document.getElementById('motor-status').textContent=[state.robot_id?'Robot '+state.robot_id+' · '+state.channel:'',state.state,
-    state.elapsed!=null?state.elapsed.toFixed(1)+' s':'',stale?'Waiting for fresh encoder data':'',state.error||'',state.elapsed>=1&&(state.counts||[]).every(n=>n===0)?'No encoder pulses detected':''].filter(Boolean).join(' · ');
+    state.elapsed!=null?state.elapsed.toFixed(1)+' s':'',state.applied_duty_percent!=null?'Applied PWM: '+state.applied_duty_percent.toFixed(1)+'%':'',stale?'Waiting for fresh encoder data':'',state.error||'',state.elapsed>=1&&(state.counts||[]).every(n=>n===0)?'No encoder pulses detected':''].filter(Boolean).join(' · ');
   const rows=document.getElementById('motor-readings');rows.replaceChildren();
   (state.labels||[]).forEach((label,i)=>{
     const row=document.createElement('tr');

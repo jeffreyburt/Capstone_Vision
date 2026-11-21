@@ -3,6 +3,7 @@ import argparse
 from contextlib import ExitStack
 import fcntl
 import json
+import math
 import os
 import select
 import subprocess
@@ -26,6 +27,13 @@ def request(data):
     return rid, channel, speed, duration
 
 
+def tb6612_scale(data):
+    scale = data.get('tb6612_scale', 0.5)
+    if type(scale) not in (int, float) or not math.isfinite(scale) or not 0.1 <= scale <= 1:
+        raise ValueError('TB6612 speed trim must be between 10% and 100%')
+    return float(scale)
+
+
 def emit(**data):
     print(json.dumps(data), flush=True)
 
@@ -34,7 +42,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('request')
     args = ap.parse_args()
-    rid, channel, speed, duration = request(json.loads(args.request))
+    data = json.loads(args.request)
+    rid, channel, speed, duration = request(data)
+    scale = tb6612_scale(data)
     service = f'capstone-drive-{rid}.service'
     with open('/tmp/capstone-motor-diagnostic.lock', 'a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -74,11 +84,12 @@ def main():
                         pwm.off(); standby.off(); a1.off(); a2.off()
                     def read():
                         return dict(counts=edges.copy(), levels=[int(a.pin.state), int(b.pin.state)],
-                                    labels=['C1 edges', 'C2 edges'], units='edges', command=speed)
+                                    labels=['C1 edges', 'C2 edges'], units='edges', command=speed, tb6612_scale=scale,
+                                    applied_duty_percent=abs(speed) * scale)
                     stack.callback(stop)
                     def drive():
                         a1.value = speed > 0; a2.value = speed < 0
-                        standby.on(); pwm.value = abs(speed) / 100
+                        standby.on(); pwm.value = abs(speed) / 100 * scale
                 else:
                     board.initialize()
                     baseline = board.read_encoder_counts()

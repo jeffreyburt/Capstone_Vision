@@ -57,3 +57,18 @@ Robot 2 reports the SSH connection error. No physical motor runs were performed 
 Earlier diagnostics confirmed both Pi GPIO inputs respond to internal pulls and jumper-to-ground
 tests. Powered motor tests still returned zero encoder pulses; encoder supply, ground, wiring,
 and encoder electronics remain under investigation. See [TB6612 wiring](TB6612_TEST.md).
+
+## TB6612 speed compensation
+
+The dashboard now applies a saved TB6612 speed trim, initially **50%**. A requested 25% test
+therefore applies **12.5% PWM duty**, in either direction. Hiwonder commands are unchanged.
+Adjust **TB6612 speed trim** (10–100%) and press **Save trim** between tests; the dashboard
+reports both the saved trim and actual applied PWM duty. Settings persist on the Mac in
+`calib/motor_speed.json` and are passed to the Pi with each test. Direct runner calls default
+to the same initial 50% unless `tb6612_scale` is supplied explicitly.
+
+This is a provisional reduction, not a measured speed calibration or encoder speed regulator.
+PWM duty and Hiwonder's closed-loop counts/10ms commands are different quantities; equal
+percentages do not imply equal shaft speed. This adjustment affects motor diagnostics only:
+Robot 1's navigation remains in its existing three-wheel mode. Do not interpret the trim as
+integrating the replacement motor into chassis driving.

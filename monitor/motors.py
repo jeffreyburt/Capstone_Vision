@@ -5,7 +5,8 @@ import shlex
 import subprocess
 import threading
 import time
-from robot.motor_diagnostic import request
+from pathlib import Path
+from robot.motor_diagnostic import request, tb6612_scale
 
 
 class MotorTests:
@@ -13,14 +14,33 @@ class MotorTests:
         self.monitor = monitor
         self.lock = threading.RLock()
         self.process = None
+        self.settings_path = Path(__file__).resolve().parent.parent / 'calib' / 'motor_speed.json'
         self.state = {'state': 'idle', 'samples': [], 'message': 'Select one motor to test.'}
 
     def snapshot(self):
         with self.lock:
             data = copy.deepcopy(self.state)
+            data['settings'] = self.settings()
             data['running'] = self.process is not None
             data['sample_age_s'] = time.time()-data['received_at'] if 'received_at' in data else None
             return data
+
+    def settings(self):
+        try:
+            data = json.loads(self.settings_path.read_text())
+        except FileNotFoundError:
+            data = {}
+        return {'tb6612_scale': tb6612_scale(data)}
+
+    def save_settings(self, data):
+        scale = tb6612_scale(data)
+        with self.lock:
+            if self.process is not None:
+                raise ValueError('Stop the motor test before changing the speed trim')
+            temporary = self.settings_path.with_suffix('.tmp')
+            temporary.write_text(json.dumps({'tb6612_scale': scale}, indent=2) + '\n')
+            temporary.replace(self.settings_path)
+            return self.snapshot()
 
     def start(self, data):
         rid, channel, speed, seconds = request(data)
@@ -32,7 +52,7 @@ class MotorTests:
                 raise ValueError('Robot SSH username is not configured')
             self.monitor.waypoints.arm(False)
             self.monitor.waypoints.clear()
-            payload = dict(robot_id=rid, channel=channel, speed=speed, seconds=seconds)
+            payload = dict(robot_id=rid, channel=channel, speed=speed, seconds=seconds, **self.settings())
             command = 'python3 -u ~/capstone-drive/motor_diagnostic.py ' + shlex.quote(json.dumps(payload))
             self.state = {**payload, 'state':'connecting', 'samples':[], 'received_at':time.time()}
             self.process = subprocess.Popen([self.monitor.ssh, '-T', '-o', 'BatchMode=yes',

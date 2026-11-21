@@ -73,3 +73,22 @@ def test_dashboard_motor_endpoints_do_not_start_on_get(monkeypatch):
         assert not started
     finally:
         server.shutdown();server.server_close();thread.join()
+
+
+@pytest.mark.parametrize('value',[0,1.1,float('nan'),True,'0.5'])
+def test_reject_invalid_trim(value):
+    with pytest.raises(ValueError):
+        diagnostic.tb6612_scale({'tb6612_scale':value})
+
+
+def test_motor_trim_persists_and_cannot_change_during_test(tmp_path):
+    from monitor.motors import MotorTests
+    manager=MotorTests(None)
+    manager.settings_path=tmp_path/'motor_speed.json'
+    assert manager.settings()['tb6612_scale']==.5
+    manager.save_settings({'tb6612_scale':.3})
+    assert manager.settings()['tb6612_scale']==.3
+    assert json.loads(manager.settings_path.read_text())['tb6612_scale']==.3
+    manager.process=object()
+    with pytest.raises(ValueError,match='Stop the motor test'):
+        manager.save_settings({'tb6612_scale':.8})
