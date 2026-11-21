@@ -65,7 +65,7 @@ class GatewayRobotLink(RobotLink):
     def _send(self,rid,msg):
         ages=self.poll()
         # New or stalled SSH sessions must receive a stop acknowledgement before motion.
-        if msg.get('type')=='drive' and (ages.get(rid) is None or ages[rid]>.3):
+        if msg.get('type') in ('drive','manual') and (ages.get(rid) is None or ages[rid]>.3):
             msg={'type':'stop'}
         self.seq+=1
         packet=(json.dumps({'robot_id':rid,'seq':self.seq,**msg})+'\n').encode()

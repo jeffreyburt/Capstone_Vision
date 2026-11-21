@@ -98,6 +98,25 @@
 </header>
 <div id="lost">Lost connection to the system GUI. Is <code>python -m monitor</code> still running?</div>
 <main>
+<section class="panel" id="keyboard-panel" tabindex="0" style="grid-column:1/-1">
+<h2>Keyboard driving <span class="sub">WASD · combine keys for diagonals</span></h2>
+<div style="padding:12px;display:flex;gap:24px;flex-wrap:wrap;align-items:center">
+<div>
+<label>Robot <select id="keyboard-robot"><option value="1">1 · left (three-wheel drive)</option><option value="2">2 · right</option></select></label>
+<label>Speed <input id="keyboard-speed" type="number" min="0.02" max="0.12" step="0.01" value="0.05" style="width:75px"> m/s</label>
+<button id="keyboard-enable">Enable keyboard control</button>
+<button id="keyboard-disable" disabled>Stop / disable</button>
+<p>W forward · S backward · A left · D right. Hold W+A or W+D for diagonals. Space stops.</p>
+<p>Directions follow the robot’s chassis. Keyboard control pauses waypoint driving and works without camera tracking.</p>
+<p id="keyboard-status" role="status">Disabled. Select a robot and enable keyboard control.</p>
+</div>
+<div id="keyboard-pad" style="display:grid;grid-template-columns:repeat(3,52px);gap:5px;touch-action:none" aria-label="Hold a direction to drive">
+<button data-keys="wa" aria-label="Forward left">↖</button><button data-keys="w" aria-label="Forward">W ↑</button><button data-keys="wd" aria-label="Forward right">↗</button>
+<button data-keys="a" aria-label="Left">A ←</button><button data-keys="" aria-label="Stop">■</button><button data-keys="d" aria-label="Right">D →</button>
+<button data-keys="sa" aria-label="Backward left">↙</button><button data-keys="s" aria-label="Backward">S ↓</button><button data-keys="sd" aria-label="Backward right">↘</button>
+</div>
+</div></section>
+
 <section class="panel" style="grid-column:1/-1" id="motor-tests">
 <h2>Individual motor tests <span class="sub">Live encoder feedback</span></h2>
 <div style="padding:12px">
@@ -624,6 +643,102 @@ for (const [id, path, ask] of [["restart-camera", "/api/camera/restart", "Restar
 }
 
 
+
+let keyboardSession=null, keyboardSeq=0, keyboardPending=false;
+const keyboardKeys=new Set();
+function keyboardPaint(){
+  const active=Boolean(keyboardSession);
+  document.getElementById('keyboard-enable').disabled=active;
+  document.getElementById('keyboard-disable').disabled=!active;
+  for(const button of document.querySelectorAll('#keyboard-pad button')){
+    button.disabled=!active;
+    button.style.background=button.dataset.keys&&[...button.dataset.keys].every(k=>keyboardKeys.has(k))?'#285c85':'';
+  }
+}
+async function keyboardPost(action,data){
+  const response=await fetch('/api/manual/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data),signal:AbortSignal.timeout(1500)});
+  const result=await response.json();
+  if(!response.ok)throw Error(result.error||'Keyboard request failed');
+  return result;
+}
+function keyboardDisable(message='Keyboard control disabled.'){
+  const session=keyboardSession;keyboardSession=null;keyboardKeys.clear();keyboardPaint();
+  if(session){
+    const body=JSON.stringify({token:session.token});
+    navigator.sendBeacon('/api/manual/disable',new Blob([body],{type:'application/json'}));
+  }
+  document.getElementById('keyboard-status').textContent=message;
+}
+async function keyboardSend(){
+  if(!keyboardSession||keyboardPending)return;
+  const session=keyboardSession;
+  keyboardPending=true;
+  try{
+    await keyboardPost('command',{token:session.token,robot_id:session.robot_id,seq:++keyboardSeq,
+      keys:[...keyboardKeys],speed:Number(document.getElementById('keyboard-speed').value)});
+  }catch(error){if(keyboardSession===session)keyboardDisable(error.message);}
+  finally{keyboardPending=false;}
+}
+document.getElementById('keyboard-enable').onclick=async()=>{
+  const button=document.getElementById('keyboard-enable');button.disabled=true;
+  try{
+    keyboardKeys.clear();keyboardSeq=0;
+    keyboardSession=await keyboardPost('enable',{robot_id:Number(document.getElementById('keyboard-robot').value)});
+    keyboardSession.localStartedAt=Date.now()/1000;
+    keyboardPaint();document.getElementById('keyboard-panel').focus();keyboardSend();
+  }catch(error){document.getElementById('keyboard-status').textContent=error.message;keyboardPaint();}
+};
+document.getElementById('keyboard-disable').onclick=()=>keyboardDisable();
+document.getElementById('keyboard-robot').onchange=()=>keyboardDisable('Robot changed. Enable keyboard control for the selected robot.');
+document.getElementById('keyboard-speed').onchange=()=>{keyboardKeys.clear();keyboardPaint();keyboardSend();};
+function editing(target){return target?.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(target?.tagName);}
+document.addEventListener('keydown',event=>{
+  if(!keyboardSession||editing(event.target)||event.ctrlKey||event.metaKey||event.altKey)return;
+  const key=event.key.toLowerCase();
+  if(key===' '){event.preventDefault();keyboardKeys.clear();keyboardSend();keyboardPaint();return;}
+  if(!'wasd'.includes(key)||key.length!==1)return;
+  event.preventDefault();if(event.repeat)return;
+  keyboardKeys.add(key);keyboardPaint();keyboardSend();
+});
+document.addEventListener('keyup',event=>{
+  const key=event.key.toLowerCase();
+  if(keyboardKeys.delete(key)){event.preventDefault();keyboardPaint();keyboardSend();}
+});
+document.addEventListener('focusin',event=>{if(editing(event.target)){keyboardKeys.clear();keyboardPaint();keyboardSend();}});
+window.addEventListener('blur',()=>keyboardDisable('Page lost focus; robot stopped.'));
+window.addEventListener('pagehide',()=>keyboardDisable());
+document.addEventListener('visibilitychange',()=>{if(document.hidden)keyboardDisable('Page hidden; robot stopped.');});
+for(const button of document.querySelectorAll('#keyboard-pad button')){
+  button.addEventListener('pointerdown',event=>{
+    if(!keyboardSession)return;event.preventDefault();button.setPointerCapture(event.pointerId);
+    keyboardKeys.clear();for(const key of button.dataset.keys)keyboardKeys.add(key);
+    keyboardPaint();keyboardSend();
+  });
+  for(const name of ['pointerup','pointercancel','lostpointercapture'])button.addEventListener(name,()=>{keyboardKeys.clear();keyboardPaint();keyboardSend();});
+}
+function keyboardStatus(state){
+  if(!keyboardSession){
+    const selected=state.control?.robots?.[document.getElementById('keyboard-robot').value];
+    const supported=selected?.reply?.manual_control===true;
+    const connected=selected?.link_age_s!=null&&selected.link_age_s<1;
+    const ready=supported&&connected&&state.control?.mode==='ARMED';
+    document.getElementById('keyboard-enable').disabled=!ready;
+    if(ready)document.getElementById('keyboard-status').textContent='Robot '+document.getElementById('keyboard-robot').value+' ready. Enable keyboard control to drive.';
+    if(!ready)document.getElementById('keyboard-status').textContent=!connected?'Waiting for robot connection.':!supported?'Robot drive server needs the keyboard-control update.':'Keyboard controller is paused or not armed.';
+    return;
+  }
+  if(state.t<keyboardSession.localStartedAt)return;
+  const remote=state.navigation?.manual;
+  if(!remote?.enabled||remote.token!==keyboardSession.token){keyboardDisable('Keyboard session ended. Enable it again to drive.');return;}
+  const control=state.control;
+  const selected=control?.robots?.[String(keyboardSession.robot_id)];
+  const keys=[...keyboardKeys].join('+').toUpperCase()||'ready';
+  const reply=selected?.reply;
+  const link=selected?.link_age_s;
+  const feedback=reply?.error||((link==null||link>1)?'waiting for robot reply':selected?.reason||'');
+  document.getElementById('keyboard-status').textContent='Robot '+keyboardSession.robot_id+' · '+keys+' · '+(control?.navigation_mode==='keyboard'?feedback:'waiting for keyboard controller');
+}
+keyboardPaint();setInterval(keyboardSend,100);
 let motorRequestPending=false;
 const motorColors=['#2f8cff','#ff8c00','#3fae5a','#d882ef'];
 document.getElementById('motor-robot').onchange=()=>{
@@ -686,6 +801,7 @@ async function poll() {
     latest = await r.json();
     document.body.classList.remove("lost");
     drawHeader(latest);
+    keyboardStatus(latest);
     drawMainCamera(latest);
     drawDiagram(latest);
     drawCards(latest);
@@ -694,6 +810,7 @@ async function poll() {
   } catch (e) {
     drawMainCamera({ main_camera: { live: false, status: "Dashboard connection lost; waiting to reconnect" } });
     document.body.classList.add("lost");
+    keyboardDisable("Dashboard connection lost; robot stopped.");
     $("overall").className = "pill bad";
     $("overall").textContent = "no connection";
   }

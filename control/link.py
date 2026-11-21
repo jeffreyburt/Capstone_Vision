@@ -64,6 +64,9 @@ class RobotLink:
             msg["pose_compensated"] = True
         self._send(rid, msg)
 
+    def manual(self, rid, vx, vy, wz=0):
+        self._send(rid, {'type':'manual','vx':round(vx,4),'vy':round(vy,4),'wz':round(wz,4)})
+
     def stop(self, rid):
         self._send(rid, {"type": "stop"})
 

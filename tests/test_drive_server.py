@@ -196,3 +196,20 @@ def test_three_wheel_speed_increase_respects_lower_explicit_limits():
     p = DriveParams([3,1,4,2],[1,1,-1,1],max_counts=6,disabled_channels=[1])
     assert p.max_counts==6
     assert max(abs(v) for v in to_motors(wheel_counts(.2,0,0,p),p))<=6
+
+
+def test_keyboard_protocol_has_separate_pose_policy_but_same_sender_and_watchdog():
+    srv,motors,clock=make_server(require_compensated_pose=True,allow_from='127.0.0.1')
+    try:
+        send(srv,clock,type='drive',vx=.05,vy=0,wz=0)
+        assert 'requires a compensated pose' in srv.error
+        send(srv,clock,type='manual',vx=.05,vy=.05,wz=0)
+        srv.tick(clock())
+        assert any(motors.values)
+        assert srv.state=='driving (keyboard)'
+        clock.t+=1;srv.tick(clock())
+        assert motors.values==(0,0,0,0)
+        srv.handle(json.dumps(dict(type='manual',robot_id=1,vx=.05,vy=0,wz=0)).encode(),('192.0.2.1',9),clock())
+        assert 'ignoring commands' in srv.error
+        assert srv.last_cmd is None
+    finally:srv.sock.close()

@@ -23,6 +23,7 @@ from vision.config import load_config
 from .controller import Limits, RobotController
 from .link import RobotLink, VisionListener
 from .planner import FormationPlanner
+from .manual import manual_commands
 from .waypoints import WaypointMotion, frame_current, WaypointProgress, compute_waypoints, read_waypoints
 
 STOP = (0.0, 0.0, 0.0)
@@ -184,21 +185,30 @@ def main(argv=None):
             msg, received_at = vision.poll()
             now = time.time()
             msg_age = None if received_at is None else now - received_at
+            manual_mode = False
             if args.waypoints:
                 nav = read_waypoints(f"http://127.0.0.1:{int((cfg.get('system') or {}).get('gui_port',8090))}/api/navigation")
-                targets, results = compute_waypoints(msg, msg_age, nav, controllers, timing, progress=progress, motions=motions)
+                manual = manual_commands(nav, controllers)
+                if manual is not None:
+                    targets, results = {}, manual
+                    manual_mode = True
+                    for motion in motions.values():motion.halt()
+                else:
+                    targets, results = compute_waypoints(msg, msg_age, nav, controllers, timing, progress=progress, motions=motions)
             else:
                 targets, results = compute_commands(msg, msg_age, planner, controllers, timing, compensated_ids)
             if args.arm:
                 for rid, (cmd, _) in results.items():
                     if paused or cmd == STOP:
                         link.stop(rid)
+                    elif manual_mode:
+                        link.manual(rid, *cmd)
                     else:
                         link.drive(rid, *cmd, pose_compensated=args.waypoints or rid in compensated_ids)
             link_ages = link.poll()
             mode = "PAUSED" if paused else ("ARMED" if args.arm else "DRY RUN")
             report = status_report(mode, msg_age, targets, results, link_ages, link.status)
-            report['navigation_mode'] = 'waypoints' if args.waypoints else 'follow'
+            report['navigation_mode'] = 'keyboard' if manual_mode else ('waypoints' if args.waypoints else 'follow')
             beacon.update(report)
             if now - last_print >= 1.0:
                 print(_fmt_status(mode, msg, targets, results, link_ages))

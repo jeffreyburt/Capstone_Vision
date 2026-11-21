@@ -44,6 +44,7 @@ from .probes import find_ssh, gateway_probe, network_probe, parse_health, run_ss
 from .tunnels import CameraTunnels
 from .motors import MotorTests
 from control.waypoints import WaypointStore, waypoint_feedback
+from control.manual import ManualControl
 
 PAGE = Path(__file__).with_name("page.html")
 REPO = Path(__file__).resolve().parent.parent
@@ -137,6 +138,7 @@ class SystemMonitor:
     def __init__(self, cfg, *, ssh=True, ssh_runner=run_ssh, listener=True, start=True):
         self.cfg = cfg
         self.waypoints = WaypointStore(_int_keys((cfg.get('control') or {}).get('robots')), cfg.get('area'))
+        self.manual = ManualControl(self.waypoints.robot_ids)
         sysc = cfg.get("system") or {}
         self.nodes = build_nodes(cfg)
         self.probe_interval = float(sysc.get("probe_interval_s", 2.0))
@@ -276,6 +278,7 @@ class SystemMonitor:
             "main_camera": main_camera_view(vmsg, vage, now),
             "navigation": {"targets": self.waypoints.snapshot(), "readiness": readiness,
                            "armed": self.waypoints.armed, "session": self.waypoints.session,
+                           "manual": self.manual.snapshot(),
                            "feedback": waypoint_feedback((vision or {}).get('message'), vage, self.waypoints.snapshot(),
                                                          [n.robot_id for n in self.nodes if n.kind == 'robot'])},
             "nodes": out_nodes,
@@ -488,7 +491,35 @@ def make_server(monitor, relay, host, port, calibration=None):
             except (ValueError, TypeError, KeyError, RuntimeError, OSError) as error:
                 self._send(400, 'application/json', json.dumps({'error': str(error)}).encode())
 
+        def waypoint_manual_enable(self,data):
+            monitor.manual.enable(data['robot_id'])
+            monitor.waypoints.arm(False)
+
         def do_POST(self):
+            if self.path in ('/api/manual/enable','/api/manual/command','/api/manual/disable'):
+                origin=self.headers.get('Origin')
+                if origin and origin!='http://'+self.headers.get('Host',''):
+                    self.send_error(403)
+                    return
+                try:
+                    size=int(self.headers.get('Content-Length','0'))
+                    if not 0<size<=2048:raise ValueError('Missing or oversized JSON request')
+                    data=json.loads(self.rfile.read(size))
+                    if not isinstance(data,dict):raise ValueError('JSON object required')
+                    with motor_tests.lock:
+                        if motor_tests.snapshot()['running']:
+                            raise ValueError('Stop the motor test before enabling keyboard control')
+                        if self.path.endswith('/enable'):
+                            self.waypoint_manual_enable(data)
+                            result=monitor.manual.snapshot()
+                        elif self.path.endswith('/disable'):
+                            result=monitor.manual.disable(data.get('token',''))
+                        else:
+                            result=monitor.manual.command(data)
+                    self._send(200,'application/json',json.dumps(result).encode())
+                except (ValueError,TypeError,KeyError) as error:
+                    self._send(400,'application/json',json.dumps({'error':str(error)}).encode())
+                return
             if self.path in ('/api/motors/start', '/api/motors/stop', '/api/motors/settings'):
                 origin = self.headers.get('Origin')
                 if origin and origin != 'http://' + self.headers.get('Host', ''):
@@ -537,6 +568,8 @@ def make_server(monitor, relay, host, port, calibration=None):
                 data = json.loads(self.rfile.read(size))
                 if motor_tests.snapshot()['running']:
                     raise ValueError('Stop the motor test before changing navigation')
+                if monitor.manual.snapshot()['enabled']:
+                    raise ValueError('Disable keyboard control before changing navigation')
                 if self.path.endswith('/arm'):
                     monitor.waypoints.arm(data['enabled'])
                 elif self.path.endswith('/clear'):

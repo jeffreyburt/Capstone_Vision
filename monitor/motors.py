@@ -55,6 +55,7 @@ class MotorTests:
             node = next(n for n in self.monitor.nodes if n.robot_id == rid)
             if not node.ssh_user:
                 raise ValueError('Robot SSH username is not configured')
+            self.monitor.manual.disable()
             self.monitor.waypoints.arm(False)
             self.monitor.waypoints.clear()
             payload = dict(robot_id=rid, channel=channel, speed=speed, seconds=seconds, **self.settings())

@@ -14,6 +14,7 @@ same wheel mapping config his keyboard teleop uses:
 
 Protocol: UDP JSON on port 5700 (docs/NETWORK.md reserves 5700-5799 for robot commands).
     laptop -> robot   {"type": "drive", "robot_id": 1, "seq": 17, "vx": 0.10, "vy": 0.0, "wz": 0.2}
+                      {"type": "manual", "robot_id": 1, "vx": 0.05, "vy": 0.0, "wz": 0.0}
                       {"type": "stop",  "robot_id": 1}
     robot -> laptop   {"type": "status", "robot_id": 1, "seq": 17, "state": "driving",
                        "motors": [5, -5, -5, 5], "error": null}      (sent back to whoever sent the command)
@@ -22,6 +23,9 @@ Protocol: UDP JSON on port 5700 (docs/NETWORK.md reserves 5700-5799 for robot co
                                              "uptime_s", "last_cmd_age_s", "target", "received", "rejected"
 vx = forward m/s, vy = left m/s, wz = counter-clockwise rad/s, all in the robot's own (body) frame.
 "Forward" is the robot's front, which must be the same face the vision system calls the front.
+
+Manual commands use the same source-IP restriction, acceleration and watchdog; they explicitly
+do not require a camera pose. Autonomous drive commands retain their existing pose requirement.
 
 Only the Python standard library is needed, plus capstone_base (Nate's repo) with --hardware.
 """
@@ -109,9 +113,9 @@ def parse_command(data, robot_id, *, require_compensated_pose=False):
         raise ValueError(f"command for robot {msg.get('robot_id')!r}, this is robot {robot_id}")
     if kind == "stop":
         return "stop", None, seq
-    if kind != "drive":
+    if kind not in ("drive", "manual"):
         raise ValueError(f"unknown command type {kind!r}")
-    if require_compensated_pose and msg.get("pose_compensated") is not True:
+    if kind == "drive" and require_compensated_pose and msg.get("pose_compensated") is not True:
         raise ValueError("drive command requires a compensated pose")
     v = []
     for name in ("vx", "vy", "wz"):
@@ -119,7 +123,7 @@ def parse_command(data, robot_id, *, require_compensated_pose=False):
         if isinstance(x, bool) or not isinstance(x, (int, float)) or not math.isfinite(x):
             raise ValueError(f"{name} must be a finite number")
         v.append(float(x))
-    return "drive", tuple(v), seq
+    return kind, tuple(v), seq
 
 
 class DriveServer:
@@ -165,6 +169,7 @@ class DriveServer:
                 "target": [round(v, 3) for v in self.target], "received": self.received,
                 "rejected": self.rejected, "timeout_s": self.timeout_s,
                 "require_compensated_pose": self.require_compensated_pose,
+                "manual_control": True,
                 "disabled_channels": list(self.p.disabled_channels),
                 "max_counts": self.p.max_counts}
 
@@ -194,13 +199,13 @@ class DriveServer:
             else:
                 self.target = self._clamp(*v)
                 self.last_cmd = now
-                self.state = "driving"
+                self.state = "driving (keyboard)" if kind == "manual" else "driving"
             self.error = None
         except (ValueError, TypeError, UnicodeError) as e:
             self.rejected += 1
             self.error = str(e)
         reply = {"type": "status", "robot_id": self.robot_id, "seq": seq, "state": self.state,
-                 "motors": self.last_motors, "error": self.error}
+                 "motors": self.last_motors, "error": self.error, "manual_control": True}
         try:
             self.sock.sendto(json.dumps(reply).encode(), addr)
         except OSError:
