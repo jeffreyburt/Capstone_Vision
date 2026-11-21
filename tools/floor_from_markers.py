@@ -5,7 +5,8 @@
 Needs the lens calibration (tools/calibrate_camera.py or the GUI) first. Each flat marker's four corners
 give the floor plane relative to the camera; with two or more markers spread apart it's well determined.
 The world frame it writes: origin on the floor directly below the camera, z up, +y along the floor
-towards the --forward-id marker, +x to the right. Measure a marker's distance along the floor with a
+towards the --forward-id marker (or, with --forward-mid, towards the midpoint of all the markers, e.g. two
+tags placed symmetrically left and right of straight ahead), +x to the right. Measure a marker's distance along the floor with a
 tape to check the printed numbers.
 """
 
@@ -50,7 +51,8 @@ def collect_corners(source, detector, ids, frames, timeout_s=30, min_y_fraction=
 
 
 def floor_pose_from_markers(camera, corners, size_m, forward_id):
-    """FloorPose plus per-marker results, from {id: (4, 2) corner pixels} of markers lying flat on the floor."""
+    """FloorPose plus per-marker results, from {id: (4, 2) corner pixels} of markers lying flat on the floor.
+    forward_id None: +y points at the midpoint of all the markers."""
     s = size_m / 2
     obj = np.array([[-s, s, 0], [s, s, 0], [s, -s, 0], [-s, -s, 0]])  # ArUco corner order, marker frame
     pts, centers, normals = [], {}, {}
@@ -76,7 +78,7 @@ def floor_pose_from_markers(camera, corners, size_m, forward_id):
         v = p - foot
         return v - (v @ n) * n
 
-    y = along_floor(centers[forward_id])
+    y = along_floor(centers[forward_id] if forward_id is not None else np.mean(list(centers.values()), axis=0))
     y /= np.linalg.norm(y)
     x = np.cross(y, n)
     R_wc = np.column_stack([x, y, n])  # world axes expressed in camera coordinates (world -> camera rotation)
@@ -97,6 +99,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--ids", type=int, nargs="+", required=True, help="IDs of the markers lying on the floor")
     ap.add_argument("--forward-id", type=int, help="marker that defines +y (default: the first of --ids)")
+    ap.add_argument("--forward-mid", action="store_true", help="+y towards the midpoint of all the markers")
     ap.add_argument("--size-cm", type=float, required=True, help="black-square edge of the floor markers")
     ap.add_argument("--source", help="camera source (default from config)")
     ap.add_argument("--min-y-fraction", type=float, default=0.,
@@ -108,8 +111,8 @@ def main():
         ap.error('--min-y-fraction must be between 0 (inclusive) and 1 (exclusive)')
     if len(set(args.ids)) != len(args.ids) or args.frames < 1 or not np.isfinite(args.size_cm) or args.size_cm <= 0:
         ap.error('Need distinct marker IDs, positive frames, and a positive finite marker size')
-    forward = args.forward_id if args.forward_id is not None else args.ids[0]
-    if forward not in args.ids:
+    forward = None if args.forward_mid else args.forward_id if args.forward_id is not None else args.ids[0]
+    if forward is not None and forward not in args.ids:
         raise SystemExit("--forward-id must be one of --ids")
 
     intr = resolve_path(cfg, cfg["calibration"]["intrinsics"])
@@ -134,7 +137,8 @@ def main():
         for b in ids[i + 1:]:
             ma, mb = rep["markers"][a], rep["markers"][b]
             print(f"  marker {a} to {b}: {np.hypot(ma['x'] - mb['x'], ma['y'] - mb['y']):.3f} m apart")
-    pose.save(args.out, method=f"floor markers {args.ids} ({args.size_cm} cm), +y towards marker {forward}",
+    toward = "the midpoint of the markers" if forward is None else f"marker {forward}"
+    pose.save(args.out, method=f"floor markers {args.ids} ({args.size_cm} cm), +y towards {toward}",
               height_m=round(rep["height_m"], 4), pitch_deg=round(rep["pitch_deg"], 3))
     print(f"Saved {args.out}")
 

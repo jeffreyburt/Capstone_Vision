@@ -1,7 +1,7 @@
 {
   "version": 1,
   "measurements": {
-    "lens_height_m": 0.395,
+    "lens_height_m": 0.37,
     "robot_marker_size_m": 0.1,
     "floor_marker_size_m": 0.15,
     "floor_marker_ids": [
@@ -9,8 +9,9 @@
       1
     ],
     "floor_forward_id": 0,
+    "floor_forward_mid": true,
     "floor_min_y_fraction": 0.0,
-    "floor_tag_spacing_owner_m": 1.03,
+    "floor_tag_spacing_owner_m": 1.4,
     "marker_center_height_m": 0.3,
     "rear_tag_offset_m": {
       "x": -0.14,
@@ -37,6 +38,21 @@
       "at": "2026-11-20T16:42:42-05:00",
       "event": "seeded",
       "detail": "initial values from 2026-11-20 setup"
+    },
+    {
+      "at": "2026-11-21T14:42:23-05:00",
+      "event": "measurements",
+      "detail": "floor_forward_mid, floor_tag_spacing_owner_m, lens_height_m"
+    },
+    {
+      "at": "2026-11-21T14:42:23-05:00",
+      "event": "floor-layout",
+      "detail": "2026-11-21 owner: 15 cm tags 2.0 m ahead, ID 1 0.70 m left, ID 0 0.70 m right; lens 0.37 m; camera had moved"
+    },
+    {
+      "at": "2026-11-21T14:42:23-05:00",
+      "event": "floor-applied",
+      "detail": "height 0.363 m"
     }
   ],
   "verification": null,

@@ -43,6 +43,7 @@ DEFAULT_MEASUREMENTS = {
     "floor_marker_size_m": 0.15,       # borrowed floor tags
     "floor_marker_ids": [0, 1],
     "floor_forward_id": 0,             # marker that defines +y
+    "floor_forward_mid": False,        # true: +y points at the tags' midpoint (tags placed left/right of straight ahead)
     "floor_min_y_fraction": 0.0,       # ignore marker copies above this image fraction (duplicate IDs on robots)
     "floor_tag_spacing_owner_m": 1.03,
     "marker_center_height_m": 0.30,
@@ -169,6 +170,9 @@ class CalibrationManager:
             elif key == "floor_forward_id":
                 if not isinstance(value, int):
                     raise ValueError("floor_forward_id must be an integer marker ID")
+            elif key == "floor_forward_mid":
+                if not isinstance(value, bool):
+                    raise ValueError("floor_forward_mid must be true or false")
             else:
                 if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
                     raise ValueError(f"{key} must be a finite number")
@@ -437,8 +441,9 @@ class CalibrationManager:
         out = self.dir / "candidates" / "floor_pose_candidate.yaml"
         out.parent.mkdir(parents=True, exist_ok=True)
         out.unlink(missing_ok=True)
+        forward = ["--forward-mid"] if m.get("floor_forward_mid") else ["--forward-id", str(m["floor_forward_id"])]
         argv = [str(ROOT / "tools" / "floor_from_markers.py"), "--ids", *map(str, m["floor_marker_ids"]),
-                "--forward-id", str(m["floor_forward_id"]), "--size-cm", f"{m['floor_marker_size_m'] * 100:.3f}",
+                *forward, "--size-cm", f"{m['floor_marker_size_m'] * 100:.3f}",
                 "--min-y-fraction", str(m["floor_min_y_fraction"]), "--out", str(out)]
         self._start("floor_measure", argv)
 

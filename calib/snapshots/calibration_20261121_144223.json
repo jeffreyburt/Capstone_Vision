@@ -1,0 +1,412 @@
+{
+  "generated": "2026-11-21T14:42:23-05:00",
+  "measurements": {
+    "lens_height_m": 0.37,
+    "robot_marker_size_m": 0.1,
+    "floor_marker_size_m": 0.15,
+    "floor_marker_ids": [
+      0,
+      1
+    ],
+    "floor_forward_id": 0,
+    "floor_forward_mid": true,
+    "floor_min_y_fraction": 0.0,
+    "floor_tag_spacing_owner_m": 1.4,
+    "marker_center_height_m": 0.3,
+    "rear_tag_offset_m": {
+      "x": -0.14,
+      "y": 0.0
+    },
+    "robot_body_size_m": 0.3
+  },
+  "intrinsics": {
+    "file": "calib/camera_intrinsics.yaml",
+    "image_size": [
+      4608,
+      2592
+    ],
+    "fx": 1933.5388362699807,
+    "fy": 1928.6607652907371,
+    "cx": 2308.8118172773334,
+    "cy": 1299.55407302796,
+    "dist": [
+      -0.07277557714677091,
+      0.14969925483848512,
+      0.0014218958280190358,
+      5.608238685240661e-05,
+      -0.0914401289250165
+    ],
+    "rms_px": 0.8741259778733476,
+    "views": 12,
+    "sha": "d8da62fdea7b"
+  },
+  "floor": {
+    "file": "calib/floor_pose_36cm.yaml",
+    "rvec": [
+      1.7889933418671196,
+      0.07210011464532978,
+      0.010188428259016979
+    ],
+    "tvec": [
+      -0.016797466415521024,
+      0.35425248952897176,
+      0.0791719105122566
+    ],
+    "camera_position_m": [
+      0.0,
+      -0.0,
+      0.363
+    ],
+    "height_m": 0.3634,
+    "pitch_deg": 12.584,
+    "method": "floor markers [0, 1] (15.0 cm), +y towards the midpoint of the markers",
+    "sha": "973557b1729b"
+  },
+  "robots": [
+    {
+      "id": 1,
+      "faces": {
+        "0": 0,
+        "1": 90,
+        "2": 180,
+        "3": 270
+      },
+      "center_offset_m": 0.15,
+      "file": "calib/robot1_head_pose.yaml",
+      "status": "active_fixed_secured_head",
+      "reference_date": "2026-11-20",
+      "head_pose": {
+        "neutral_units": [
+          0,
+          0
+        ],
+        "degrees_per_unit": [
+          1,
+          1
+        ],
+        "pan_pivot_m": [
+          0,
+          0,
+          0
+        ],
+        "tilt_pivot_m": [
+          0,
+          0,
+          0
+        ],
+        "markers": {
+          "2": {
+            "mount": "fixed",
+            "center_m": [
+              -0.14,
+              0,
+              0.2952609205636474
+            ],
+            "rotation_vector_rad": [
+              0.02168821587013519,
+              0.004358532131393825,
+              -4.726632047745827e-05
+            ]
+          }
+        }
+      },
+      "live_validation": null,
+      "sha": "3cc3327a98c3"
+    },
+    {
+      "id": 2,
+      "faces": {
+        "4": 0,
+        "5": 90,
+        "6": 180,
+        "7": 270
+      },
+      "center_offset_m": 0.15,
+      "file": "calib/robot2_head_pose.yaml",
+      "status": "active_limited_range_live_validated",
+      "reference_date": "2026-11-20",
+      "head_pose": {
+        "neutral_units": [
+          391,
+          770
+        ],
+        "degrees_per_unit": [
+          0.27106635355867265,
+          0.22619580681950738
+        ],
+        "pan_pivot_m": [
+          -0.013451569635130712,
+          -0.07841484031480485,
+          0.0
+        ],
+        "tilt_pivot_m": [
+          -0.04719760585549351,
+          0.0,
+          0.3201280763228578
+        ],
+        "valid_units": [
+          [
+            331,
+            451
+          ],
+          [
+            710,
+            775
+          ]
+        ],
+        "markers": {
+          "6": {
+            "mount": "tilt",
+            "center_m": [
+              -0.14,
+              0.0,
+              0.2937034410485732
+            ],
+            "rotation_vector_rad": [
+              0.04043269929944133,
+              -0.03819042930693983,
+              0
+            ]
+          },
+          "5": {
+            "mount": "pan",
+            "center_m": [
+              -0.020838988000895932,
+              0.1083818550129793,
+              0.23903912263783259
+            ],
+            "rotation_vector_rad": [
+              0.04048336968790622,
+              -0.10513518773976117,
+              -0.03411309100077434
+            ]
+          }
+        }
+      },
+      "live_validation": {
+        "valid_frames": 62,
+        "position_drift_p95_m": 0.039531913503452094,
+        "position_drift_max_m": 0.05841232746604081,
+        "heading_deviation_p95_deg": 2.435000000000002,
+        "heading_span_deg": 5.6000000000000085,
+        "head_model_sha256": "f2d6fa85f208e716ad4425ebd2a5389132468c2d107445a93a030c128f8ed82c",
+        "chassis_stationary_source": "owner confirmation; chassis not repositioned",
+        "max_frame_age_s": 0.65,
+        "no_drive_commands_sent": true
+      },
+      "sha": "9b0b1c1d3f07"
+    }
+  ],
+  "wheels": {
+    "robot1_four_wheels.json": {
+      "disabled_channels": [],
+      "hiwonder": {
+        "motor_type": 3,
+        "encoder_polarity": 0,
+        "wheel_channels": [
+          3,
+          1,
+          4,
+          2
+        ],
+        "motor_signs": [
+          1,
+          1,
+          -1,
+          1
+        ],
+        "encoder_signs": [
+          1,
+          1,
+          -1,
+          1
+        ],
+        "max_speed_counts": 70,
+        "bus_number": 1,
+        "address": 52
+      },
+      "tb6612": {
+        "logical_channel": 1,
+        "direction": 1,
+        "calibration": "motor_speed.json",
+        "pins": {
+          "pwm": 18,
+          "standby": 25,
+          "in1": 23,
+          "in2": 24,
+          "encoder_a": 22,
+          "encoder_b": 27
+        }
+      }
+    },
+    "robot1_three_wheels.json": {
+      "disabled_channels": [
+        1
+      ],
+      "hiwonder": {
+        "motor_type": 3,
+        "encoder_polarity": 0,
+        "wheel_channels": [
+          3,
+          1,
+          4,
+          2
+        ],
+        "motor_signs": [
+          1,
+          1,
+          -1,
+          1
+        ],
+        "encoder_signs": [
+          1,
+          1,
+          -1,
+          1
+        ],
+        "max_speed_counts": 10,
+        "bus_number": 1,
+        "address": 52
+      }
+    },
+    "robot2_wheels.json": {
+      "motor_type": 3,
+      "encoder_polarity": 0,
+      "wheel_channels": [
+        3,
+        1,
+        4,
+        2
+      ],
+      "motor_signs": [
+        1,
+        -1,
+        -1,
+        1
+      ],
+      "encoder_signs": [
+        1,
+        -1,
+        -1,
+        1
+      ],
+      "max_speed_counts": 70,
+      "bus_number": 1,
+      "address": 52
+    }
+  },
+  "markers": {
+    "dictionary": "DICT_4X4_50",
+    "adaptive_thresh_constant": 3,
+    "size_m": 0.1,
+    "center_height_m": 0.3
+  },
+  "limits": {
+    "1": {
+      "max_speed_m_s": 0.038,
+      "keyboard_max_speed_m_s": 0.53,
+      "max_yaw_rad_s": 0.2,
+      "position_gain": 0.6,
+      "position_tolerance_m": 0.1,
+      "allow_strafe": true
+    },
+    "2": {
+      "max_speed_m_s": 0.23,
+      "keyboard_max_speed_m_s": 0.53,
+      "max_yaw_rad_s": 0.6,
+      "position_gain": 0.6,
+      "position_tolerance_m": 0.1,
+      "yaw_tolerance_deg": 2.0,
+      "allow_strafe": true
+    }
+  },
+  "waypoint_motion": {
+    "linear_accel": 0.12,
+    "linear_decel": 0.18,
+    "angular_accel": 0.6,
+    "filter_s": 0.2
+  },
+  "files": [
+    {
+      "file": "calib/README.md",
+      "bytes": 9965,
+      "modified": "2026-11-20T16:44:28"
+    },
+    {
+      "file": "calib/calibration_record.json",
+      "bytes": 1706,
+      "modified": "2026-11-21T14:42:23"
+    },
+    {
+      "file": "calib/camera_intrinsics.yaml",
+      "bytes": 317,
+      "modified": "2026-11-19T14:09:52"
+    },
+    {
+      "file": "calib/floor_points.yaml",
+      "bytes": 494,
+      "modified": "2026-11-19T14:09:52"
+    },
+    {
+      "file": "calib/floor_pose.yaml",
+      "bytes": 277,
+      "modified": "2026-11-19T14:09:52"
+    },
+    {
+      "file": "calib/floor_pose_36cm.yaml",
+      "bytes": 299,
+      "modified": "2026-11-21T14:41:41"
+    },
+    {
+      "file": "calib/head_neutral_pending.json",
+      "bytes": 6997,
+      "modified": "2026-11-20T15:28:20"
+    },
+    {
+      "file": "calib/motor_speed.json",
+      "bytes": 4608,
+      "modified": "2026-11-21T13:38:41"
+    },
+    {
+      "file": "calib/right_head_live_validation_2026-11-20.json",
+      "bytes": 170670,
+      "modified": "2026-11-20T15:21:49"
+    },
+    {
+      "file": "calib/right_head_motion_2026-11-20.json",
+      "bytes": 161875,
+      "modified": "2026-11-20T14:38:09"
+    },
+    {
+      "file": "calib/right_head_motion_fit_2026-11-20.json",
+      "bytes": 197270,
+      "modified": "2026-11-20T14:39:08"
+    },
+    {
+      "file": "calib/right_head_offset_tilt_2026-11-20.json",
+      "bytes": 127807,
+      "modified": "2026-11-20T14:47:33"
+    },
+    {
+      "file": "calib/right_head_pixel_model_fit_2026-11-20.json",
+      "bytes": 3692,
+      "modified": "2026-11-20T15:21:49"
+    },
+    {
+      "file": "calib/right_head_validation_2026-11-20.json",
+      "bytes": 115644,
+      "modified": "2026-11-20T14:42:48"
+    },
+    {
+      "file": "calib/robot1_head_pose.yaml",
+      "bytes": 449,
+      "modified": "2026-11-20T15:21:49"
+    },
+    {
+      "file": "calib/robot2_head_pose.yaml",
+      "bytes": 1279,
+      "modified": "2026-11-20T15:21:49"
+    }
+  ],
+  "reason": "floor applied"
+}

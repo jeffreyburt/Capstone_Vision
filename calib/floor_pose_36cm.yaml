@@ -1,19 +1,15 @@
 rvec:
-- 1.7532249772530086
-- -0.28403307270327355
-- 0.2939835979672898
+- 1.7889933418671196
+- 0.07210011464532978
+- 0.010188428259016979
 tvec:
-- -0.015758083700833366
-- 0.3714951527983359
-- 0.07381253235912433
+- -0.016797466415521024
+- 0.35425248952897176
+- 0.0791719105122566
 camera_position_m:
+- 0.0
 - -0.0
-- -0.0
-- 0.379
-method: floor markers [0, 1] (15.0 cm), +y towards marker 0
-height_m: 0.3791
-pitch_deg: 11.228
-validation_lens_height_m: 0.395
-validation_marker_spacing_m: 1.03
-estimated_marker_spacing_m: 1.036
-calibration_image_min_y_fraction: 0.5
+- 0.363
+method: floor markers [0, 1] (15.0 cm), +y towards the midpoint of the markers
+height_m: 0.3634
+pitch_deg: 12.584

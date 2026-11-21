@@ -16,6 +16,18 @@ confirmations (left head secured, wheel directions verified) and an event histor
 `active` is the runtime head geometry and overrides the copy embedded in `config.yaml`. Restart
 `python -m vision.main --gui` after applying a floor or head calibration. The page never drives wheels.
 
+## Floor recalibration — 2026-11-21
+
+The main camera had moved (now 36.3 cm high and 12.6° down; it was 37.9 cm and 11.2°), so head poses failed with
+29–46 px reprojection errors. New layout from the owner: 15 cm tags 2.0 m in front of the camera, ID 1 0.70 m to the
+left and ID 0 0.70 m to the right, lens 0.37 m above the floor. `tools/floor_from_markers.py --forward-mid` (also
+used by the calibration page via `floor_forward_mid: true`) points +y at the tags' midpoint, so **+y runs straight
+down the hallway and +x to the camera's right**. Fit vs owner: height 0.363 vs 0.37 m; ID 0 (+0.708, 1.970) and
+ID 1 (−0.708, 1.954) vs (±0.70, 2.00); spacing 1.415 vs 1.40 m; both tags within 0.2° of the floor plane. The previous
+pose is in `history/20261121_144223_floor_pose_36cm.yaml`. With this pose the hallway walls project to
+x ≈ −0.87 m (left) and x ≈ +0.90 m (right), parallel to +y. Head calibrations were not changed; robot pose fits
+still need checking with the robots back in view (Robot 1's head must be re-secured level first).
+
 ## Current active calibration — 2026-11-20
 
 | File | Information |
