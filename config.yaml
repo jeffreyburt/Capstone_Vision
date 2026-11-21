@@ -206,8 +206,8 @@ control:
         keyboard_max_speed_m_s: 0.53  # WASD only: 70 counts/10ms, measured motor ceiling (lifted sweep 2026-11-21)
         max_yaw_rad_s: 0.60
         position_gain: 0.6
-        position_tolerance_m: 0.10
-        yaw_tolerance_deg: 2.0   # holonomic mecanum: straight-line moves while holding the heading from the click
+        position_tolerance_m: 0.12  # head tracking moves the rear tag: ~9 cm pose spread measured 2026-11-21
+        yaw_tolerance_deg: 12.0  # ...and ~±10° heading spread; 2.0 made the chassis chase that noise
         allow_strafe: true
   formation:                # listening triangle: user at one corner, the speakers at the other two
     distance_m: 1.0         # speaker-to-user distance = triangle side (hallway is ~1.8 m wide; was 2.0)
