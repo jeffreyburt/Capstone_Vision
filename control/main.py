@@ -14,6 +14,7 @@ A robot is stopped whenever the camera hasn't seen it recently, the user is lost
 """
 
 import argparse
+import math
 import sys
 import time
 
@@ -28,13 +29,33 @@ from .waypoints import WaypointMotion, frame_current, WaypointProgress, compute_
 
 STOP = (0.0, 0.0, 0.0)
 TIMING_DEFAULTS = {"vision_timeout_s": 1.0, "max_pose_age_s": 0.7, "user_lost_s": 2.0}
+FEEDFORWARD_DEFAULTS = {"enabled": False, "gain": 1.0, "min_user_speed_m_s": 0.05, "max_m_s": 0.15, "lead_s": 0.4}
 
 
-def compute_commands(msg, msg_age_s, planner, controllers, timing=None, compensated_ids=()):
+def user_feedforward(user, settings):
+    """While the user walks, the formation's targets move with the user's velocity (the facing direction is
+    fixed). Returns (world feed-forward velocity, user position to plan from) or (None, None) when off or
+    standing still. The planning position leads by lead_s to cover the camera + processing delay."""
+    s = {**FEEDFORWARD_DEFAULTS, **(settings or {})}
+    if not s["enabled"] or user is None:
+        return None, None
+    vx, vy = float(user.get("vx") or 0.0), float(user.get("vy") or 0.0)
+    speed = math.hypot(vx, vy)
+    if not math.isfinite(speed) or speed < s["min_user_speed_m_s"]:
+        return None, None
+    fx, fy = vx * s["gain"], vy * s["gain"]
+    size = math.hypot(fx, fy)
+    if size > s["max_m_s"]:
+        fx, fy = fx * s["max_m_s"] / size, fy * s["max_m_s"] / size
+    return (fx, fy), (user["x"] + vx * s["lead_s"], user["y"] + vy * s["lead_s"])
+
+
+def compute_commands(msg, msg_age_s, planner, controllers, timing=None, compensated_ids=(), feedforward=None):
     """One control step, without any I/O.
 
     msg: newest vision message (or None); msg_age_s: seconds since it arrived on this laptop.
     controllers: {robot_id: RobotController} for the robots we drive.
+    feedforward: config.yaml control.feedforward (see user_feedforward); None/disabled = proportional only.
     Returns (targets, {robot_id: ((vx, vy, wz), reason)}); a stopped robot gets STOP.
     """
     timing = {**TIMING_DEFAULTS, **(timing or {})}
@@ -55,7 +76,8 @@ def compute_commands(msg, msg_age_s, planner, controllers, timing=None, compensa
         return {}, {rid: (STOP, "approximate positions — driving disabled") for rid in controllers}
     u = msg.get("user")
     user = (u["x"], u["y"]) if u is not None and u["age"] <= timing["user_lost_s"] else None
-    targets = planner.update(user)
+    ff, plan_from = user_feedforward(u if user is not None else None, feedforward)
+    targets = planner.update(plan_from or user, force=ff is not None)
 
     out = {}
     for rid, ctrl in controllers.items():
@@ -79,8 +101,8 @@ def compute_commands(msg, msg_age_s, planner, controllers, timing=None, compensa
         obstacles = [(user[0], user[1], lim.keep_out_m)]
         obstacles += [(o["x"], o["y"], lim.robot_clearance_m) for oid, o in robots.items()
                       if oid != rid and o["age"] <= timing["max_pose_age_s"]]
-        cmd = ctrl.command(pose, targets[rid], obstacles)
-        out[rid] = (cmd, "holding" if cmd == STOP else "moving")
+        cmd = ctrl.command(pose, targets[rid], obstacles, ff)
+        out[rid] = (cmd, "holding" if cmd == STOP else ("following" if ff else "moving"))
     return targets, out
 
 
@@ -196,7 +218,8 @@ def main(argv=None):
                 else:
                     targets, results = compute_waypoints(msg, msg_age, nav, controllers, timing, progress=progress, motions=motions)
             else:
-                targets, results = compute_commands(msg, msg_age, planner, controllers, timing, compensated_ids)
+                targets, results = compute_commands(msg, msg_age, planner, controllers, timing, compensated_ids,
+                                                    c.get("feedforward"))
             if args.arm:
                 for rid, (cmd, _) in results.items():
                     if paused or cmd == STOP:

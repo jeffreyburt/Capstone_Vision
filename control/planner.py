@@ -56,12 +56,14 @@ class FormationPlanner:
             out[rid] = Target(x, y, math.degrees(math.atan2(uy - y, ux - x)))
         return out
 
-    def update(self, user):
-        """user: (x, y) or None. Returns {robot_id: Target}, or {} if there is no user to plan around."""
+    def update(self, user, force=False):
+        """user: (x, y) or None. Returns {robot_id: Target}, or {} if there is no user to plan around.
+        force: re-plan now regardless of replan_m (used while the user is walking, so targets move smoothly
+        with them instead of in replan_m steps)."""
         if user is None:
             return {}
         ux, uy = user
-        if self.anchor is None or math.hypot(ux - self.anchor[0], uy - self.anchor[1]) > self.replan_m:
+        if force or self.anchor is None or math.hypot(ux - self.anchor[0], uy - self.anchor[1]) > self.replan_m:
             self.anchor = (ux, uy)
             self.targets = self.targets_for(ux, uy)
         return self.targets

@@ -8,10 +8,10 @@ import argparse
 import socket
 if __package__:
  from .tracking_control import validate as validate_tracking, correction, TargetMemory, image_to_servo, servo_to_image
- from .camera_feed import CameraFeed
+ from .camera_feed import CameraFeed, parse_size as parse_camera_size
 else:
  from tracking_control import validate as validate_tracking, correction, TargetMemory, image_to_servo, servo_to_image
- from camera_feed import CameraFeed
+ from camera_feed import CameraFeed, parse_size as parse_camera_size
 camera_feed=None
 feedback_socket=None
 feedback_target=None
@@ -386,7 +386,14 @@ if __name__=='__main__':
  parser.add_argument('--pose-host',help='laptop IPv4 address for joint feedback')
  parser.add_argument('--pose-port',type=int,default=5006)
  parser.add_argument('--robot-id',type=int)
+ parser.add_argument('--camera-size',default='320x240',
+                     help='robot camera frame size, e.g. 320x240 (default; faster tracking) or 640x480')
+ parser.add_argument('--camera-fps',type=int,default=30,
+                     help='robot camera frame rate, 5-60; above 30 is untested (try with --camera-size 320x240)')
  args=parser.parse_args()
+ try:camera_size=parse_camera_size(args.camera_size)
+ except ValueError as error:parser.error(str(error))
+ if not 5<=args.camera_fps<=60:parser.error('--camera-fps must be 5-60')
  if (args.pose_host is None)!=(args.robot_id is None):
   parser.error('--pose-host and --robot-id must be supplied together')
  if args.pose_host is not None:
@@ -398,7 +405,7 @@ if __name__=='__main__':
   feedback_robot_id=args.robot_id
   feedback_socket=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
   feedback_socket.setblocking(False)
- camera_feed=CameraFeed()
+ camera_feed=CameraFeed(camera_size,args.camera_fps)
  threading.Thread(target=monitor,daemon=True).start()
  print('Servo dashboard: http://0.0.0.0:8080',flush=True)
  ThreadingHTTPServer(('0.0.0.0',8080),Handler).serve_forever()

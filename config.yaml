@@ -221,7 +221,13 @@ control:
     distance_m: 2.0         # requested speaker-to-user distance; validate current floor pose before arming
     spread_deg: 60          # angle between the speakers as seen by the user (60 = equilateral)
     facing_deg: -90         # fixed direction the user is assumed to face, deg CCW from +x (-90 = toward the camera)
-    replan_m: 0.3           # targets only move once the user has moved this far
+    replan_m: 0.3           # targets only move once the user has moved this far (while standing; see feedforward)
+  feedforward:              # follow mode: move with the user instead of chasing them (control/main.py user_feedforward)
+    enabled: true           # false = proportional position control only (previous behavior)
+    gain: 1.0               # fraction of the user's measured velocity added to each robot's command
+    min_user_speed_m_s: 0.05  # slower than this the user counts as standing (no feed-forward, normal replan_m)
+    max_m_s: 0.15           # cap on the feed-forward part; each robot's max_speed_m_s still caps the total
+    lead_s: 0.4             # plan from where the user will be after the camera + processing delay
   limits:
     max_speed_m_s: 0.15
     max_yaw_rad_s: 0.4

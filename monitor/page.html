@@ -942,12 +942,16 @@ async function headDetectLoop(h) {
     if (frameTime && frameTime === h.lastFrame) { wait = 8; return; }  // same camera frame as last time
     h.lastFrame = frameTime;
     const bitmap = await createImageBitmap(await r.blob());
+    // Detect at the frame's own size (the robot sends 320x240 by default, see head_tracker/camera_feed.py);
+    // boxes are then scaled to the 640x480 reference that drawOverlay uses.
+    const W = bitmap.width, H = bitmap.height, sx = 640 / W, sy = 480 / H;
+    if (headInput.width !== W || headInput.height !== H) { headInput.width = W; headInput.height = H; }
     const g = headInput.getContext("2d");
-    g.setTransform(-1, 0, 0, -1, 640, 480); g.drawImage(bitmap, 0, 0, 640, 480); g.resetTransform(); bitmap.close();  // camera is mounted upside down
-    const faces = window.faceDetect(headInput).map(d => ({ box: d.boundingBox,
-      center: [Math.min(1, Math.max(0, (d.boundingBox.originX + d.boundingBox.width / 2) / 640)),
-               Math.min(1, Math.max(0, (d.boundingBox.originY + d.boundingBox.height / 2) / 480))],
-      area: d.boundingBox.width * d.boundingBox.height }));
+    g.setTransform(-1, 0, 0, -1, W, H); g.drawImage(bitmap, 0, 0, W, H); g.resetTransform(); bitmap.close();  // camera is mounted upside down
+    const faces = window.faceDetect(headInput).map(d => { const b = d.boundingBox; return {
+      box: { originX: b.originX * sx, originY: b.originY * sy, width: b.width * sx, height: b.height * sy },
+      center: [Math.min(1, Math.max(0, (b.originX + b.width / 2) / W)), Math.min(1, Math.max(0, (b.originY + b.height / 2) / H))],
+      area: b.width * b.height * sx * sy }; });
     faces.sort((a, b) => h.last ? Math.hypot(a.center[0] - h.last[0], a.center[1] - h.last[1]) - Math.hypot(b.center[0] - h.last[0], b.center[1] - h.last[1]) : b.area - a.area);
     h.last = faces[0]?.center || null;
     if (tracking) {
