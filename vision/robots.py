@@ -96,7 +96,7 @@ def estimate_robots(markers, specs, geometry, joint_positions=None, prior_headin
         if spec.head is not None:
             units = joint_positions.get(spec.id) if spec.head.needs_feedback else spec.head.neutral_units
             corners = None if units is None else spec.head.corners(m.id, units)
-            pose = None if corners is None else fit_chassis(m,corners,geometry,prior_headings.get(spec.id))
+            pose = None if corners is None else fit_chassis(m,corners,geometry,prior_headings.get(spec.id),spec.head.max_rms_px)
             if pose is None:
                 continue
             robot_center, heading = pose

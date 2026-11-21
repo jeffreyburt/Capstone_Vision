@@ -1,0 +1,141 @@
+{
+  "side_mount": "pan",
+  "parameters": [
+    0.5158317200790316,
+    1.200000000396379,
+    1.206898577049546,
+    0.29423352215555687,
+    0.2999435934272685,
+    -0.19999942128853263,
+    -0.10315393845486057,
+    0.10000000000458399,
+    0.031115010289805473,
+    0.38003951295805827,
+    -0.2566206844181499,
+    0.14539893481013108,
+    0.23016748481113952,
+    -0.015736272280749756,
+    0.13959563913245368,
+    -0.0021860543068429796,
+    0.03886413787905,
+    0.33499646289958285
+  ],
+  "training_rms_px": 10.549894522529792,
+  "fit_converged": true,
+  "jacobian_singular_values": [
+    34055.06228641801,
+    27120.876340487193,
+    9779.391111515359,
+    6118.751066759622,
+    5519.318107915176,
+    1852.663180930629,
+    1409.2297021458448,
+    1065.8476550136288,
+    1014.0481093259211,
+    759.8164125712395,
+    539.132888190072,
+    395.70663676845777,
+    293.22308946762865,
+    92.17504796869345,
+    38.64818276838284,
+    19.277190482122617,
+    15.857107568372234,
+    3.3728241885934365
+  ],
+  "independent_validation": {
+    "rows": 147,
+    "rms_px": 11.048995291747815
+  },
+  "training_stability": {
+    "groups": 79,
+    "position_drift_p95_m": 0.101219938871419,
+    "position_drift_max_m": 0.102351670761406,
+    "heading_deviation_p95_deg": 5.4110923084378495,
+    "heading_span_deg": 14.871236741371998
+  },
+  "validation_stability": {
+    "groups": 84,
+    "position_drift_p95_m": 0.10071161239438754,
+    "position_drift_max_m": 0.10537642246066684,
+    "heading_deviation_p95_deg": 5.179133594627101,
+    "heading_span_deg": 14.785638271940682
+  },
+  "candidate_head_pose": {
+    "neutral_units": [
+      391,
+      770
+    ],
+    "degrees_per_unit": [
+      0.031115010289805473,
+      0.38003951295805827
+    ],
+    "pan_pivot_m": [
+      0.2999435934272685,
+      -0.19999942128853263,
+      0.0
+    ],
+    "tilt_pivot_m": [
+      -0.10315393845486057,
+      0.0,
+      0.10000000000458399
+    ],
+    "valid_units": [
+      [
+        331,
+        451
+      ],
+      [
+        710,
+        775
+      ]
+    ],
+    "markers": {
+      "6": {
+        "mount": "tilt",
+        "center_m": [
+          -0.14,
+          0.0,
+          0.29423352215555687
+        ],
+        "rotation_vector_rad": [
+          -0.015736272280749756,
+          0.13959563913245368,
+          0
+        ]
+      },
+      "5": {
+        "mount": "pan",
+        "center_m": [
+          -0.2566206844181499,
+          0.14539893481013108,
+          0.23016748481113952
+        ],
+        "rotation_vector_rad": [
+          -0.0021860543068429796,
+          0.03886413787905,
+          0.33499646289958285
+        ]
+      }
+    }
+  },
+  "unobservable_axis_coordinates": [
+    "pan_pivot_m[2]",
+    "tilt_pivot_m[1]"
+  ],
+  "limitations": [
+    "Only small tested joint ranges are covered",
+    "Stable samples reduce but do not solve live camera/joint clock alignment",
+    "Right chassis must remain stationary during collection; baseline scale comes from existing lens/floor calibration",
+    "Chassis origin depends on approximate owner rear-tag offset; pivot values are fitted, not tape measurements"
+  ],
+  "validation_failures": [
+    "independent corner error exceeds 3 px",
+    "training_stability: position drift exceeds 4 cm (below 10 cm stopping tolerance)",
+    "training_stability: peak position drift exceeds 8 cm",
+    "training_stability: heading deviation exceeds 5 degrees",
+    "validation_stability: position drift exceeds 4 cm (below 10 cm stopping tolerance)",
+    "validation_stability: peak position drift exceeds 8 cm",
+    "validation_stability: heading deviation exceeds 5 degrees"
+  ],
+  "status": "rejected_for_navigation"
+}

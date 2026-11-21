@@ -169,6 +169,7 @@
       <div style="padding:8px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <label>Selected robot <select id="waypoint-robot"><option value="1">Robot 1</option><option value="2">Robot 2</option></select></label>
         <label><input type="checkbox" id="navigation-arm"> Enable click driving</label>
+        <label title="Both robots keep an equilateral triangle with you, inside the hallway limits"><input type="checkbox" id="navigation-follow"> Follow user</label>
         <button id="clear-waypoints">Cancel all targets</button>
       </div>
       <p id="navigation-status" role="status" style="padding:0 12px;color:var(--warn)">Click the grid to preview a destination. Driving is disabled.</p>
@@ -404,6 +405,10 @@ $("navigation-arm").onchange = async () => {
   try { await navigationRequest('/api/navigation/arm', { enabled: $("navigation-arm").checked }); }
   catch (error) { $("navigation-arm").checked = false; $("navigation-status").textContent = error.message; }
 };
+$("navigation-follow").onchange = async () => {
+  try { await navigationRequest('/api/navigation/follow', { enabled: $("navigation-follow").checked }); }
+  catch (error) { $("navigation-follow").checked = false; $("navigation-status").textContent = error.message; }
+};
 $("clear-waypoints").onclick = async () => {
   try { await navigationRequest("/api/navigation/clear", {}); }
   catch (error) { $("navigation-status").textContent = error.message; }
@@ -425,6 +430,12 @@ function drawMap(st) {
   const selected = $("waypoint-robot").value, nav = st.navigation?.readiness?.[selected];
   const goal = st.navigation?.targets?.[selected];
   $("navigation-arm").checked = st.navigation?.armed === true;
+  $("navigation-follow").checked = st.navigation?.follow === true;
+  if (st.navigation?.follow) {
+    const rs = (st.control && st.control.robots) || {};
+    $("navigation-status").textContent = "Following the user. " + (st.control?.navigation_mode !== "follow" ? "Waiting for the controller." :
+      Object.entries(rs).map(([id, r]) => `R${id}: ${r.reason}`).join(" · "));
+  } else
   $("navigation-status").textContent = (goal ? `R${selected} destination: (${goal.x.toFixed(2)}, ${goal.y.toFixed(2)}) m. ` : "Click the grid to set a destination. ") +
     (!nav?.ready ? (goal && !goal.preview_only && st.navigation?.armed ? `Paused: ${nav?.reason || "checking readiness"}. Waiting for valid feedback.` : `Preview only: ${nav?.reason || "checking readiness"}. No movement.`) :
       !st.navigation?.armed ? "Click driving disabled. Enable it, then choose a new destination." :

@@ -26,7 +26,7 @@ class Target:
 
 class FormationPlanner:
     def __init__(self, sides, distance_m=1.5, spread_deg=60.0, facing_deg=-90.0, replan_m=0.3, area=None,
-                 area_margin_m=0.3):
+                 area_margin_m=0.3, x_limits=None, y_limits=None):
         """sides: {robot_id: "left" | "right" | "center"}, from the user's point of view.
         area: {"x": [min, max], "y": [min, max]} floor rectangle the targets must stay inside (or None)."""
         for rid, side in sides.items():
@@ -36,15 +36,24 @@ class FormationPlanner:
         self.distance_m, self.spread_deg, self.facing_deg = distance_m, spread_deg, facing_deg
         self.replan_m = replan_m
         self.area, self.area_margin_m = area, area_margin_m
+        # Hard bounds on robot centers, e.g. a hallway: [min, max] meters, or None. Applied after the area margin.
+        self.x_limits, self.y_limits = x_limits, y_limits
+        for lim in (x_limits, y_limits):
+            if lim is not None and not (len(lim) == 2 and lim[0] < lim[1]):
+                raise ValueError("x_limits / y_limits must be [min, max] with min < max")
         self.anchor = None  # user position the current targets were computed for
         self.targets = {}
 
     def _clamp(self, x, y):
-        if not self.area:
-            return x, y
-        m = self.area_margin_m
-        (x0, x1), (y0, y1) = self.area["x"], self.area["y"]
-        return min(max(x, x0 + m), x1 - m), min(max(y, y0 + m), y1 - m)
+        if self.area:
+            m = self.area_margin_m
+            (x0, x1), (y0, y1) = self.area["x"], self.area["y"]
+            x, y = min(max(x, x0 + m), x1 - m), min(max(y, y0 + m), y1 - m)
+        if self.x_limits:
+            x = min(max(x, self.x_limits[0]), self.x_limits[1])
+        if self.y_limits:
+            y = min(max(y, self.y_limits[0]), self.y_limits[1])
+        return x, y
 
     def targets_for(self, ux, uy):
         """Targets for a user standing at (ux, uy), ignoring hysteresis."""

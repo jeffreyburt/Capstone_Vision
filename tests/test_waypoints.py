@@ -301,3 +301,17 @@ def test_heading_drift_stops_a_holonomic_move_until_a_new_destination():
     assert compute_waypoints(msg, 0, nav, {2: ctrl}, motions=motions, now=0.2)[1][2][0] == (0., 0., 0.)
     nav['targets']['2']['revision'] = 2          # a new click clears it
     assert compute_waypoints(msg, 0, nav, {2: ctrl}, motions=motions, now=0.3)[1][2][0] != (0., 0., 0.)
+
+
+def test_follow_mode_is_exclusive_with_click_driving():
+    from control.waypoints import WaypointStore
+    store = WaypointStore([1, 2], area={'x': [-5, 5], 'y': [-1, 10]})
+    store.arm(True)
+    store.set(1, 0.0, 1.0, preview_only=False)
+    store.set_follow(True)
+    assert store.follow and not store.armed and store.snapshot() == {}
+    store.arm(True)
+    assert store.armed and not store.follow
+    import pytest
+    with pytest.raises(ValueError):
+        store.set_follow('yes')

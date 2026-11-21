@@ -17,6 +17,19 @@ STATE_FIELDS = ("status", "positions", "position_time", "position_error", "torqu
                 "controlling", "camera", "serverTime")
 
 
+def tracking_limits(cfg):
+    """robot key -> [[pan lo, hi], [tilt lo, hi]] from `system.robots.<id>.head_tracking_limits`, if set."""
+    out = {}
+    for rid, entry in ((cfg.get("system") or {}).get("robots") or {}).items():
+        lim = (entry or {}).get("head_tracking_limits")
+        if lim is not None:
+            if (not isinstance(lim, list) or len(lim) != 2 or
+                    any(not isinstance(p, list) or len(p) != 2 or not 0 <= p[0] < p[1] <= 1000 for p in lim)):
+                raise ValueError(f"robot {rid}: head_tracking_limits must be [[pan lo, hi], [tilt lo, hi]] in 0-1000")
+            out[f"robot{int(rid)}"] = [[int(v) for v in p] for p in lim]
+    return out
+
+
 def enabled_robots(cfg):
     """robot key -> (enabled, reason) from `system.robots.<id>.head_tracking` (default enabled)."""
     out = {}
@@ -31,6 +44,7 @@ def enabled_robots(cfg):
 class HeadRelay:
     def __init__(self, cfg, endpoint, *, urlopen=urllib.request.urlopen):
         self.flags = enabled_robots(cfg)
+        self.limits = tracking_limits(cfg)
         self.endpoint = endpoint  # (host, port) -> reachable (host, port), e.g. through the SSH tunnel
         self.urlopen = urlopen
 
@@ -89,8 +103,9 @@ class HeadRelay:
         saved = (self.state(node).get("tracking") or {}).get("config")
         if not saved:
             raise ValueError("No saved tracking settings on this robot; teach limits on its own dashboard first")
-        # Taught limits and directions always come from the robot; speed and prediction may be overridden.
-        return {"target": "face", "limits": saved["limits"], "signs": saved["signs"],
+        # Limits: config head_tracking_limits (e.g. the range the camera pose model is calibrated for), else the
+        # robot's taught limits. Directions always come from the robot; speed and prediction may be overridden.
+        return {"target": "face", "limits": self.limits.get(node.key, saved["limits"]), "signs": saved["signs"],
                 "speed": data.get("speed", saved.get("speed", 180)),
                 "prediction": data.get("prediction", saved.get("prediction", 1.2))}
 

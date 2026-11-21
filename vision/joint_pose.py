@@ -35,6 +35,7 @@ class HeadGeometry:
     tilt_pivot: np.ndarray
     mounts: dict
     unit_limits: np.ndarray | None = None
+    max_rms_px: float = 3.0  # reject chassis fits whose corner reprojection RMS exceeds this (wobbly heads need more)
 
     @property
     def needs_feedback(self):
@@ -70,7 +71,10 @@ class HeadGeometry:
             limits = np.asarray(cfg['valid_units'], dtype=float)
             if limits.shape != (2,2) or not np.isfinite(limits).all() or np.any(limits[:,0] >= limits[:,1]):
                 raise ValueError('valid_units must contain two finite increasing ranges')
-        return cls(neutral, scale, _vector(cfg["pan_pivot_m"], 3), _vector(cfg["tilt_pivot_m"], 3), mounts, limits)
+        max_rms = float(cfg.get('max_rms_px', 3.0))
+        if not 0 < max_rms <= 30:
+            raise ValueError('max_rms_px must be in (0, 30]')
+        return cls(neutral, scale, _vector(cfg["pan_pivot_m"], 3), _vector(cfg["tilt_pivot_m"], 3), mounts, limits, max_rms)
 
     def corners(self, marker_id, units):
         if marker_id not in self.mounts:
@@ -90,7 +94,7 @@ class HeadGeometry:
         return corners
 
 
-def fit_chassis(marker, corners, geometry, prior_heading=None):
+def fit_chassis(marker, corners, geometry, prior_heading=None, max_rms_px=3.0):
     """Fit a level chassis directly in image space.
 
     Intersecting each corner ray with its assumed height is ill-conditioned when the
@@ -155,7 +159,7 @@ def fit_chassis(marker, corners, geometry, prior_heading=None):
         error = residual(state)
         if np.isfinite(error).all():
             score = float(np.mean(error**2))
-            if score > 9.:  # never trade reprojection validity for temporal continuity
+            if score > max_rms_px**2:  # never trade reprojection validity for temporal continuity
                 continue
             selection = score
             if prior_heading is not None:

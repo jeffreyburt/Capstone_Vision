@@ -62,6 +62,7 @@ robots:
   # center_offset_m: distance from the marker surface to the robot's center (half of a 30 cm robot)
   - id: 1
     head_pose:
+      max_rms_px: 8.0   # secured head wobbles: 2.9-5.3 px observed after the 2026-11-21 camera move
       neutral_units:
       - 0
       - 0
@@ -106,11 +107,12 @@ robots:
       - -0.04719760585549351
       - 0.0
       - 0.3201280763228578
-      valid_units:
-      - - 331
-        - 451
-      - - 710
-        - 775
+      valid_units:      # widened 2026-11-21 for head tracking (was pan 331-451, tilt 710-775)
+      - - 311
+        - 471
+      - - 690
+        - 785
+      max_rms_px: 10.0  # head wobble: ~8 px rear-tag RMS after the camera move (default 3)
       markers:
         '6':
           mount: tilt
@@ -122,16 +124,6 @@ robots:
           - 0.04043269929944133
           - -0.03819042930693983
           - 0
-        '5':
-          mount: pan
-          center_m:
-          - -0.020838988000895932
-          - 0.1083818550129793
-          - 0.23903912263783259
-          rotation_vector_rad:
-          - 0.04048336968790622
-          - -0.10513518773976117
-          - -0.03411309100077434
     moving_head_markers: true
     faces: {4: 0, 5: 90, 6: 180, 7: 270}
     center_offset_m: 0.15
@@ -197,9 +189,9 @@ control:
     1:
       host: 192.168.50.105
       port: 5700
-      side: left
+      side: right   # 2026-11-21: Robot 1 sits on the camera's left (-x) = the user's right when facing the camera
       limits:  # mixed four-wheel profile; all wheels capped at calibrated 5 counts/10ms
-        max_speed_m_s: 0.038  # waypoint/autonomous driving
+        max_speed_m_s: 0.15  # waypoint/follow driving (was 0.038 before the FR motor calibration reached 70 counts)
         keyboard_max_speed_m_s: 0.53  # WASD only: 70 counts/10ms, measured motor ceiling (lifted sweep 2026-11-21)
         max_yaw_rad_s: 0.20
         position_gain: 0.6
@@ -208,9 +200,9 @@ control:
     2:
       host: 192.168.50.12
       port: 5700
-      side: right
+      side: left    # camera's right (+x) = the user's left when facing the camera
       limits:  # faster four-wheel profile; proportional slowdown near the destination
-        max_speed_m_s: 0.23  # waypoint/autonomous driving
+        max_speed_m_s: 0.15  # waypoint/follow driving; matches Robot 1 so the triangle keeps its shape
         keyboard_max_speed_m_s: 0.53  # WASD only: 70 counts/10ms, measured motor ceiling (lifted sweep 2026-11-21)
         max_yaw_rad_s: 0.60
         position_gain: 0.6
@@ -218,10 +210,15 @@ control:
         yaw_tolerance_deg: 2.0   # holonomic mecanum: straight-line moves while holding the heading from the click
         allow_strafe: true
   formation:                # listening triangle: user at one corner, the speakers at the other two
-    distance_m: 2.0         # requested speaker-to-user distance; validate current floor pose before arming
+    distance_m: 1.0         # speaker-to-user distance = triangle side (hallway is ~1.8 m wide; was 2.0)
     spread_deg: 60          # angle between the speakers as seen by the user (60 = equilateral)
-    facing_deg: -90         # fixed direction the user is assumed to face, deg CCW from +x (-90 = toward the camera)
+    facing_deg: -90         # fixed direction the user is assumed to face, deg CCW from +x (-90 = toward the camera, down the hallway)
     replan_m: 0.3           # targets only move once the user has moved this far
+    # Hallway (2026-11-21 floor calibration): walls at x = -0.87 (left) and +0.90 (right) m, parallel to +y.
+    # Robot centers stay 0.35 m inside each wall (0.15 m half body + 0.20 m clearance). The triangle keeps its
+    # exact shape while the user is within ~0.05 m of the hallway center line; further off, targets are clamped here.
+    x_limits_m: [-0.52, 0.55]
+    y_limits_m: [0.6, 6.0]    # never closer than 0.6 m to the camera (its cables and footprint)
   limits:
     max_speed_m_s: 0.15
     max_yaw_rad_s: 0.4
@@ -234,7 +231,7 @@ control:
     drive_heading_deadband_deg: 5
     drive_alignment_release_deg: 45
     reverse_hysteresis_deg: 20
-    allow_strafe: false     # robot 2's strafe turns into rotation: turn-then-drive instead. true = full mecanum
+    allow_strafe: false     # (per-robot limits above set true) robot 2's strafe turns into rotation: turn-then-drive instead. true = full mecanum
 
 # ---- System GUI (python -m monitor -> http://localhost:8090/): status of every Pi, robot and laptop program ----
 system:
@@ -248,7 +245,10 @@ system:
   robots:                   # address + drive port from control.robots, camera from streams.robotN
     1: {ssh_user: robot-pi1, dashboard_port: 8080, head_tracking: false,
         head_tracking_reason: "Head tracking disabled: Robot 1's head servos are not connected"}
-    2: {ssh_user: capstone-pi2, dashboard_port: 8080}   # William's image
+    2: {ssh_user: capstone-pi2, dashboard_port: 8080,   # William's image
+        # Head tracking stays inside the range vision's head-pose model covers (robots[id=2].head_pose.valid_units),
+        # so Robot 2 stays located while its head follows the user.
+        head_tracking_limits: [[311, 471], [690, 785]]}
 
 debug:
   stream_port: 8080         # MJPEG debug stream port when run with --stream

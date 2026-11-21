@@ -36,6 +36,7 @@ class WaypointStore:
         self.targets = {}
         self.revision = 0
         self.armed = False
+        self.follow = False  # follow-the-user formation mode (exclusive with click driving)
         self.session = uuid.uuid4().hex
 
     def set(self, robot_id, x, y, *, preview_only=True):
@@ -57,6 +58,18 @@ class WaypointStore:
         with self.lock:
             self.targets.clear()  # an old destination can never resume when enabling driving
             self.armed = enabled
+            if enabled:
+                self.follow = False
+
+    def set_follow(self, enabled):
+        """Robots keep the listening triangle around the user. Turning it on cancels click driving."""
+        if type(enabled) is not bool:
+            raise ValueError('enabled must be a boolean')
+        with self.lock:
+            self.targets.clear()
+            self.follow = enabled
+            if enabled:
+                self.armed = False
 
     def clear(self):
         with self.lock:

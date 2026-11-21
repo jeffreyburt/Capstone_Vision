@@ -30,7 +30,7 @@ def test_repo_state_is_consistent_and_all_values_collected(cfg):
     assert data["intrinsics"]["image_size"] == [4608, 2592] and data["intrinsics"]["rms_px"] < 1
     assert data["floor"]["height_m"] == pytest.approx(0.363, abs=0.01)  # 2026-11-21 recalibration
     assert {r["id"] for r in data["robots"]} == {1, 2}
-    assert data["robots"][1]["head_pose"]["valid_units"] == [[331, 451], [710, 775]]
+    assert data["robots"][1]["head_pose"]["valid_units"] == [[311, 471], [690, 785]]  # widened 2026-11-21
     assert data["wheels"]["robot1_three_wheels.json"]["disabled_channels"] == [1]
     assert [s["id"] for s in cal.steps()][0] == "network"
     states = {s["id"]: s["status"] for s in cal.steps()}

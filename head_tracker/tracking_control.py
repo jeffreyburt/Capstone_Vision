@@ -7,8 +7,8 @@ ACCEL_PER_SPEED=8    # acceleration = speed * this, per second; was 4
 def validate(config):
  if not isinstance(config,dict):raise ValueError('Tracking configuration required')
  limits=config.get('limits')
- if isinstance(limits,list) and len(limits)==2:
-  limits=[[0,1000],limits[1]]
+ if isinstance(limits,list) and len(limits)==2 and not isinstance(limits[0],list):
+  limits=[[0,1000],limits[1]]  # legacy: tilt pair only, pan uses its full range
  if not isinstance(limits,list) or len(limits)!=2:raise ValueError('Teach limits for both servos')
  for pair in limits:
   if not isinstance(pair,list) or len(pair)!=2 or any(type(v) is not int for v in pair) or not 0<=pair[0]<pair[1]<=1000:

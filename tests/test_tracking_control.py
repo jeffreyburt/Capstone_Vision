@@ -6,13 +6,14 @@ from head_tracker.tracking_control import TargetMemory, correction, image_to_ser
 
 class TrackingTests(unittest.TestCase):
     def config(self, **updates):
-        config = dict(limits=[[200, 500], [100, 900]], signs=[1, -1], speed=180)
+        config = dict(limits=[[0, 1000], [100, 900]], signs=[1, -1], speed=180)
         config.update(updates)
         return validate(config)
 
     def test_pan_range_and_tilt_bounds(self):
-        config = self.config(speed=400)
+        config = self.config(speed=400, limits=[[0, 1000], [100, 900]])
         self.assertEqual(config['limits'], [[0, 1000], [100, 900]])
+        self.assertEqual(self.config(limits=[[311, 471], [690, 785]])['limits'], [[311, 471], [690, 785]])
         positions, velocity, active = [500, 500], [0, 0], [False, False]
         for _ in range(2000):
             positions, velocity = correction(positions, velocity, [1, 1], config, .025, active)

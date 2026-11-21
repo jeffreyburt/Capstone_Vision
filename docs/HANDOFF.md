@@ -59,6 +59,19 @@ Prior lifted-wheel measurements are saved in `calib/recordings/robot1_motor_spee
 
 ## Dashboard and ownership
 
+- **Follow user (2026-11-21):** the dashboard's floor-map panel has a **Follow user** switch (off after every
+  monitor restart). With it on, `control.main --waypoints` keeps both robots in an equilateral listening
+  triangle with the user (`control.formation`: 1.0 m sides, facing -90° = toward the camera, down the hallway).
+  Robot centres are clamped to the hallway, `x_limits_m: [-0.52, 0.55]` (walls at -0.87 / +0.90 m, 0.35 m
+  clearance) and `y_limits_m: [0.6, 6.0]`. Turning on click driving or keyboard control turns Follow off.
+  Robot sides were swapped to match the physical placement: Robot 1 is on the camera's left (`side: right`,
+  the user's right when facing the camera). Follow speed is 0.15 m/s for both robots.
+- **Head wobble tolerance (2026-11-21):** pose fits accept up to `head_pose.max_rms_px` (Robot 1: 8 px,
+  Robot 2: 10 px; default 3). Robot 2 now uses only its rear tag 6 (side tag 5 gave >100° heading errors) and
+  its head range is pan 311-471 / tilt 690-785. Head tracking from the dashboard is limited to that range by
+  `system.robots.2.head_tracking_limits`, so Robot 2 stays located while its head follows the user. Measured
+  stationary: both robots located in 76 of 77 frames, under 1 mm / 0.2° jitter.
+
 - **Main Pi restarts (2026-11-21):** `control.main`'s wheel commands travel over one SSH connection through
   the main Pi. It used to stay dead after the main Pi rebooted, so both robots showed "drive server silent"
   and keyboard driving stayed disabled until `control.main` was restarted. `control/ssh_gateway.py` now

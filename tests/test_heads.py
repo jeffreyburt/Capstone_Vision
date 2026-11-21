@@ -166,3 +166,16 @@ def test_detector_assets_served_without_traversal(setup):
     assert headers["Content-Type"] == "text/javascript" and len(body) > 1000
     with pytest.raises(urllib.error.HTTPError):
         get(base, "/head-assets/../../config.yaml")
+
+
+def test_config_tracking_limits_override_saved_limits():
+    from monitor.heads import HeadRelay, tracking_limits
+    cfg = {"system": {"robots": {2: {"head_tracking_limits": [[311, 471], [690, 785]]}}}}
+    assert tracking_limits(cfg) == {"robot2": [[311, 471], [690, 785]]}
+    relay = HeadRelay(cfg, lambda h, p: (h, p))
+    relay.state = lambda node: {"tracking": {"config": SAVED}}
+    node = type("N", (), {"key": "robot2"})()
+    start = relay._start_request(node, {"speed": 300})
+    assert start["limits"] == [[311, 471], [690, 785]] and start["signs"] == [-1, 1] and start["speed"] == 300
+    with pytest.raises(ValueError):
+        tracking_limits({"system": {"robots": {2: {"head_tracking_limits": [[500, 400], [0, 10]]}}}})

@@ -281,7 +281,7 @@ class SystemMonitor:
             "t": now,
             "main_camera": main_camera_view(vmsg, vage, now),
             "navigation": {"targets": self.waypoints.snapshot(), "readiness": readiness,
-                           "armed": self.waypoints.armed, "session": self.waypoints.session,
+                           "armed": self.waypoints.armed, "follow": self.waypoints.follow, "session": self.waypoints.session,
                            "manual": self.manual.snapshot(),
                            "feedback": waypoint_feedback((vision or {}).get('message'), vage, self.waypoints.snapshot(),
                                                          [n.robot_id for n in self.nodes if n.kind == 'robot'])},
@@ -532,6 +532,7 @@ def make_server(monitor, relay, host, port, calibration=None, heads=None):
         def waypoint_manual_enable(self,data):
             monitor.manual.enable(data['robot_id'])
             monitor.waypoints.arm(False)
+            monitor.waypoints.set_follow(False)  # keyboard always takes over from following
 
         def _head_post(self):
             origin = self.headers.get('Origin')
@@ -618,7 +619,8 @@ def make_server(monitor, relay, host, port, calibration=None, heads=None):
                 except (RuntimeError, OSError) as error:
                     self._send(502, 'application/json', json.dumps({'error': str(error)}).encode())
                 return
-            if self.path not in ('/api/navigation/target', '/api/navigation/clear', '/api/navigation/arm'):
+            if self.path not in ('/api/navigation/target', '/api/navigation/clear', '/api/navigation/arm',
+                                 '/api/navigation/follow'):
                 self.send_error(404)
                 return
             origin = self.headers.get('Origin')
@@ -636,6 +638,8 @@ def make_server(monitor, relay, host, port, calibration=None, heads=None):
                     raise ValueError('Disable keyboard control before changing navigation')
                 if self.path.endswith('/arm'):
                     monitor.waypoints.arm(data['enabled'])
+                elif self.path.endswith('/follow'):
+                    monitor.waypoints.set_follow(data['enabled'])
                 elif self.path.endswith('/clear'):
                     monitor.waypoints.clear()
                 else:

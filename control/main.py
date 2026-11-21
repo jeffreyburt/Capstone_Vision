@@ -148,7 +148,8 @@ def main(argv=None):
     f = c.get("formation", {})
     planner = FormationPlanner({rid: robots_cfg[rid].get("side", "center") for rid in driven},
                                f.get("distance_m", 1.5), f.get("spread_deg", 60.0), f.get("facing_deg", -90.0),
-                               f.get("replan_m", 0.3), cfg.get("area"))
+                               f.get("replan_m", 0.3), cfg.get("area"),
+                               x_limits=f.get("x_limits_m"), y_limits=f.get("y_limits_m"))
     limits = Limits.from_config(c.get("limits"))
     controllers = {rid: RobotController(Limits.from_config({
         **(c.get('limits') or {}), **(robots_cfg[rid].get('limits') or {})})) for rid in driven}
@@ -186,12 +187,18 @@ def main(argv=None):
             now = time.time()
             msg_age = None if received_at is None else now - received_at
             manual_mode = False
+            follow_mode = False
             if args.waypoints:
                 nav = read_waypoints(f"http://127.0.0.1:{int((cfg.get('system') or {}).get('gui_port',8090))}/api/navigation")
                 manual = manual_commands(nav, controllers)
                 if manual is not None:
                     targets, results = {}, manual
                     manual_mode = True
+                    for motion in motions.values():motion.halt()
+                elif (nav or {}).get('follow') is True:
+                    # Dashboard "Follow user": keep the listening triangle around the user.
+                    targets, results = compute_commands(msg, msg_age, planner, controllers, timing, compensated_ids)
+                    follow_mode = True
                     for motion in motions.values():motion.halt()
                 else:
                     targets, results = compute_waypoints(msg, msg_age, nav, controllers, timing, progress=progress, motions=motions)
@@ -204,11 +211,11 @@ def main(argv=None):
                     elif manual_mode:
                         link.manual(rid, *cmd)
                     else:
-                        link.drive(rid, *cmd, pose_compensated=args.waypoints or rid in compensated_ids)
+                        link.drive(rid, *cmd, pose_compensated=(args.waypoints and not follow_mode) or rid in compensated_ids)
             link_ages = link.poll()
             mode = "PAUSED" if paused else ("ARMED" if args.arm else "DRY RUN")
             report = status_report(mode, msg_age, targets, results, link_ages, link.status)
-            report['navigation_mode'] = 'keyboard' if manual_mode else ('waypoints' if args.waypoints else 'follow')
+            report['navigation_mode'] = 'keyboard' if manual_mode else ('follow' if follow_mode or not args.waypoints else 'waypoints')
             beacon.update(report)
             if now - last_print >= 1.0:
                 print(_fmt_status(mode, msg, targets, results, link_ages))

@@ -204,3 +204,18 @@ def test_vision_listener_keeps_newest_message():
     finally:
         pub.close()
         listener.close()
+
+
+def test_hallway_limits_keep_targets_off_the_walls():
+    p = FormationPlanner({1: "right", 2: "left"}, distance_m=1.0, spread_deg=60, facing_deg=-90,
+                         x_limits=[-0.52, 0.55], y_limits=[0.6, 6.0])
+    centered = p.targets_for(0.0, 2.5)
+    assert centered[1].x == pytest.approx(-0.5) and centered[2].x == pytest.approx(0.5)
+    assert math.hypot(centered[1].x - centered[2].x, centered[1].y - centered[2].y) == pytest.approx(1.0)  # equilateral
+    for ux in (-0.8, 0.8):  # user against either wall
+        for t in p.targets_for(ux, 2.0).values():
+            assert -0.52 <= t.x <= 0.55
+    near_camera = p.targets_for(0.0, 0.9)
+    assert all(t.y >= 0.6 for t in near_camera.values())
+    with pytest.raises(ValueError):
+        FormationPlanner({1: "left"}, x_limits=[1, 0])
