@@ -69,6 +69,15 @@
   .cam .row { display: flex; gap: 10px; align-items: center; color: var(--muted); font-size: 12px; }
   .cam img { display: none; width: 100%; border-radius: 6px; background: #000; }
   .cam.on img { display: block; }
+  .camwrap { position: relative; }
+  .headov { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .cam:not(.on) .headov { display: none; }
+  .headctl { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 6px; }
+  .headctl h3 { margin: 4px 0 0; font-size: 13px; font-weight: 600; display: flex; gap: 8px; align-items: center; }
+  .headctl .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .headctl .vals { color: var(--muted); font-size: 12px; }
+  .headctl .msg { font-size: 12px; color: var(--warn); min-height: 1em; margin: 0; }
+  .headctl .off { color: var(--muted); font-size: 12px; margin: 0; }
   details { border-top: 1px solid var(--line); }
   summary { padding: 7px 12px; cursor: pointer; color: var(--muted); font-size: 13px; }
   .det { padding: 0 12px 10px; font-size: 12.5px; display: grid; grid-template-columns: max-content minmax(0, 1fr);
@@ -259,7 +268,7 @@ function makeCard(n) {
       <span class="grow"></span><span class="pill"></span></h2>
     <div class="checks"></div>
     <div class="cam" hidden><div class="row"><button>Show camera</button><span class="camlabel"></span></div>
-      <img alt="${esc(n.name)} camera"></div>
+      <div class="camwrap"><img alt="${esc(n.name)} camera"><canvas class="headov" aria-hidden="true"></canvas></div></div>
     <details><summary>Details</summary><div class="det"></div></details>`;
   $("cards").appendChild(el);
   const c = { el, key: n.key, html: {} };
@@ -281,6 +290,7 @@ function makeCard(n) {
     c.unavailable = document.createElement("p");
     c.unavailable.className = "camera-unavailable";
     panel.append(title, c.cam, c.unavailable);
+    c.panel = panel;
     $("robot-cameras").appendChild(panel);
   }
   cards[n.key] = c;
@@ -819,6 +829,144 @@ async function poll() {
 }
 new ResizeObserver(() => latest && drawMap(latest)).observe(canvas);
 poll();
+
+// ---------------------------------------------------------------- head tracking (both robots)
+// The robot's own dashboard runs the servo loop; this tab runs face detection for every enabled robot and
+// relays observations, so no robot page needs to be open. Robots disabled in config.yaml are shown read-only.
+const heads = {};
+function headUI(key) {
+  const c = cards[key];
+  if (!c || !c.panel) return null;
+  if (heads[key]) return heads[key];
+  const el = document.createElement("div");
+  el.className = "headctl";
+  el.innerHTML = `<h3>Head tracking <span class="pill">checking</span></h3>
+    <div class="vals"></div>
+    <div class="row"><button data-a="engage">Engage torque</button><button data-a="start">Start tracking</button>
+      <button data-a="stop">Stop tracking</button><button data-a="disengage">Disengage torque</button>
+      <label class="vals"><input type="checkbox" class="boxes" checked> Show face boxes</label></div>
+    <p class="off" hidden></p><p class="msg" role="alert"></p>`;
+  c.panel.appendChild(el);
+  const h = { key, el, card: c, pill: el.querySelector(".pill"), vals: el.querySelector(".vals"), off: el.querySelector(".off"),
+              msg: el.querySelector(".msg"), boxes: el.querySelector(".boxes"), state: null, last: null, frames: 0,
+              canvas: c.cam.querySelector(".headov") };  // the camera block lives in the robot camera panel
+  h.boxes.checked = store.get(`head-boxes-${key}`, true);
+  h.boxes.onchange = () => { store.set(`head-boxes-${key}`, h.boxes.checked); if (!h.boxes.checked) clearOverlay(h); };
+  el.querySelectorAll("button").forEach(b => b.onclick = () => headAction(h, b.dataset.a));
+  heads[key] = h;
+  headDetectLoop(h);
+  return h;
+}
+async function headAction(h, action) {
+  if (action === "disengage" && !confirm("Release both head servos? The head can drop or swing under its own weight."))
+    return;
+  h.msg.textContent = "";
+  try {
+    const r = await fetch(`/api/head/${h.key}/${action}`, { method: "POST" });
+    const body = await r.json();
+    if (!body.ok) h.msg.textContent = body.message;
+  } catch (e) { h.msg.textContent = "Dashboard connection lost"; }
+  pollHead(h);
+}
+function headSummary(s) {
+  if (!s.reachable) return s.error || "Head tracker unreachable";
+  const pos = s.positions || [], torque = s.torque || [];
+  const t = v => v === 1 ? "on" : v === 0 ? "off" : "?";
+  const fresh = Number.isFinite(s.serverTime) && Number.isFinite(s.position_time) && s.serverTime - s.position_time < 2;
+  return [s.position_error ? `Servos: ${s.position_error}` : fresh ? `Pan ${pos[0] ?? "—"} · tilt ${pos[1] ?? "—"}` : "Servo feedback stale",
+          `torque ${t(torque[0])}/${t(torque[1])}`, `camera ${s.camera?.live ? "live" : "off"}`,
+          s.tracking?.active ? `tracking: ${s.tracking.status}` : `${s.status || "idle"}`].join(" · ");
+}
+async function pollHead(h) {
+  try {
+    const r = await fetch(`/api/head/${h.key}/state`, { cache: "no-store" });
+    const s = h.state = await r.json();
+    const active = !!s.tracking?.active;
+    h.pill.className = `pill ${!s.enabled ? "off" : !s.reachable || s.position_error ? "bad" : active ? "ok" : "warn"}`;
+    h.pill.textContent = !s.enabled ? "disabled" : !s.reachable ? "unreachable" : active ? "tracking" : "not tracking";
+    h.vals.textContent = headSummary(s);
+    h.off.hidden = s.enabled; h.off.textContent = s.disabled_reason || "";
+    const ready = s.enabled && s.reachable && !s.position_error && !s.controlling;
+    const engaged = (s.torque || []).every(v => v === 1);
+    h.el.querySelector('[data-a="engage"]').disabled = !ready || active;
+    h.el.querySelector('[data-a="start"]').disabled = !ready || active || !engaged || !s.camera?.live || !s.tracking?.config;
+    h.el.querySelector('[data-a="stop"]').disabled = !s.reachable;
+    h.el.querySelector('[data-a="disengage"]').disabled = !ready;
+    h.boxes.disabled = !s.enabled;
+    if (!s.enabled) clearOverlay(h);
+  } catch (e) { h.pill.className = "pill bad"; h.pill.textContent = "no connection"; }
+}
+function clearOverlay(h) { const x = h.canvas.getContext("2d"); x.clearRect(0, 0, h.canvas.width, h.canvas.height); }
+function drawOverlay(h, faces, predicted) {
+  const img = h.card.img, cv = h.canvas, d = devicePixelRatio || 1;
+  const w = img.clientWidth, ht = img.clientHeight;
+  cv.width = w * d; cv.height = ht * d;
+  const x = cv.getContext("2d"); x.setTransform(d, 0, 0, d, 0, 0); x.clearRect(0, 0, w, ht);
+  const scale = Math.min(w / 640, ht / 480), ox = (w - 640 * scale) / 2, oy = (ht - 480 * scale) / 2;  // object-fit: contain
+  const R = (bx, by, bw, bh) => [ox + bx * scale, oy + by * scale, bw * scale, bh * scale];
+  x.strokeStyle = "rgba(255,255,255,.5)"; x.setLineDash([5, 5]); x.strokeRect(...R(640 * .44, 480 * .44, 640 * .12, 480 * .12)); x.setLineDash([]);
+  x.lineWidth = 3; x.font = "bold 13px system-ui";
+  faces.forEach((f, i) => {
+    const b = f.box, color = i === 0 ? "#3fae5a" : "#8a939e";
+    x.strokeStyle = color; x.strokeRect(...R(b.originX, b.originY, b.width, b.height));
+    x.fillStyle = color; x.fillText(i === 0 ? "Tracked face" : "Face", ox + b.originX * scale, Math.max(12, oy + b.originY * scale - 4));
+  });
+  if (!faces.length && predicted) {
+    x.strokeStyle = "#e09a2b"; x.beginPath(); x.arc(ox + predicted[0] * 640 * scale, oy + predicted[1] * 480 * scale, 9, 0, 7); x.stroke();
+  }
+}
+const headInput = document.createElement("canvas"); headInput.width = 640; headInput.height = 480;
+async function headDetectLoop(h) {
+  let wait = 300;
+  try {
+    const s = h.state, tracking = !!s?.tracking?.active;
+    const shown = h.card.cam.classList.contains("on");
+    if (!window.faceDetect || document.hidden || !s?.enabled || !s.reachable || !(tracking || (h.boxes.checked && shown)))
+      return;
+    const r = await fetch(`/api/head/${h.key}/frame?t=${Date.now()}`, { cache: "no-store", signal: AbortSignal.timeout(2500) });
+    if (!r.ok) throw Error("waiting for a camera frame");
+    const frameTime = Number(r.headers.get("X-Frame-Time"));
+    const bitmap = await createImageBitmap(await r.blob());
+    const g = headInput.getContext("2d");
+    g.setTransform(-1, 0, 0, -1, 640, 480); g.drawImage(bitmap, 0, 0, 640, 480); g.resetTransform(); bitmap.close();  // camera is mounted upside down
+    const faces = window.faceDetect(headInput).map(d => ({ box: d.boundingBox,
+      center: [Math.min(1, Math.max(0, (d.boundingBox.originX + d.boundingBox.width / 2) / 640)),
+               Math.min(1, Math.max(0, (d.boundingBox.originY + d.boundingBox.height / 2) / 480))],
+      area: d.boundingBox.width * d.boundingBox.height }));
+    faces.sort((a, b) => h.last ? Math.hypot(a.center[0] - h.last[0], a.center[1] - h.last[1]) - Math.hypot(b.center[0] - h.last[0], b.center[1] - h.last[1]) : b.area - a.area);
+    h.last = faces[0]?.center || null;
+    if (tracking) {
+      const o = await fetch(`/api/head/${h.key}/observation`, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ center: h.last, frameTime, target: "face" }), signal: AbortSignal.timeout(1000) });
+      if (!(await o.json()).ok) throw Error("tracking paused: frame too old or controller unavailable");
+    }
+    if (h.boxes.checked && shown) drawOverlay(h, faces, s.tracking?.mode === "predicted" ? s.tracking.center : null);
+    h.msg.textContent = h.msg.textContent.startsWith("Face detection") ? "" : h.msg.textContent;
+    wait = 40;
+  } catch (e) {
+    clearOverlay(h);
+    h.msg.textContent = "Face detection retrying: " + e.message;
+    wait = 500;
+  } finally { setTimeout(() => headDetectLoop(h), wait); }
+}
+async function pollHeads() {
+  for (const key of Object.keys(cards)) if (cards[key].panel) { const h = headUI(key); if (h) await pollHead(h); }
+  setTimeout(pollHeads, 500);
+}
+pollHeads();
+</script>
+<script type="module">
+// One shared face detector (the same bundled MediaPipe model the robot dashboards use), loaded from this laptop.
+import { FilesetResolver, FaceDetector } from "/head-assets/vision_bundle.mjs";
+try {
+  const files = await FilesetResolver.forVisionTasks("/head-assets/wasm");
+  const detector = await FaceDetector.createFromOptions(files, { baseOptions: { modelAssetPath: "/head-assets/blaze_face_short_range.tflite",
+    delegate: "CPU" }, runningMode: "IMAGE", minDetectionConfidence: 0.6, minSuppressionThreshold: 0.3 });
+  window.faceDetect = canvas => detector.detect(canvas).detections;
+} catch (error) {
+  console.error(error);
+  for (const h of Object.values(heads)) h.msg.textContent = "Face detection unavailable: " + error.message;
+}
 </script>
 </body>
 </html>

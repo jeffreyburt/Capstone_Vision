@@ -20,6 +20,33 @@ heads need no live joint source; placeholder neutral/scale/pivots are unused for
 The image-space pose fit avoids unstable ray/height intersections at this low camera vantage point.
 See the calibration inventory for reuse, validation accuracy, clock mapping and startup commands.
 
+## Head tracking from the system dashboard (2026-11-21)
+
+The system dashboard (`python -m monitor`, http://localhost:8090/) now shows head tracking for both robots, under
+each robot's live camera: servo positions, torque, camera and tracking status, face boxes drawn on the camera
+image, and **Engage torque / Start tracking / Stop tracking / Disengage torque** buttons.
+
+- **How it works:** the robot's own dashboard (`head_tracker/dashboard.py`, port 8080) still owns the servo
+  UART, the camera and the tracking loop. `monitor/heads.py` relays its `/api/state`, `/api/camera/frame` and
+  control requests through the existing SSH camera tunnel. The system dashboard tab runs the same bundled
+  MediaPipe face detector (served from `head_tracker/assets/` at `/head-assets/`) for every enabled robot and posts
+  observations, so the robot pages at :8080 no longer need to be open. No robot-side code changed.
+- **Start tracking** uses the settings saved on the robot (`tracking-settings.json`: taught tilt range,
+  directions, speed, prediction). Teach limits on the robot's own page if none are saved.
+- **Per-robot switch:** `system.robots.<id>.head_tracking: false` (with optional `head_tracking_reason`) in
+  `config.yaml`. A disabled robot is still shown read-only; the relay refuses engage, start, observations,
+  disengage and camera frames for it, but always forwards **Stop**.
+- **Current setting:** Robot 1 is **disabled** (its head servos are not connected; its dashboard reports
+  "No response from servo"). Robot 2 is enabled. To turn Robot 1 on later, connect the servos, teach its limits
+  on http://192.168.50.105:8080/, remove `head_tracking: false`, and restart the monitor.
+- **Keep the dashboard tab open and visible while tracking.** Detection pauses in a hidden tab; the robot then
+  holds position (it stops following after 0.6 s without observations). Closing the tab does not disengage torque.
+- Tracking moves Robot 2's markers. Click (waypoint) driving needs its head inside the calibrated pose range
+  above; keyboard driving does not use the camera pose.
+- 2026-11-21: Robot 2 torque engaged and tracking started from the system dashboard (saved settings: speed 60,
+  signs pan -1 / tilt +1, tilt 433–812, prediction 0.8 s). Observations were accepted; frame fetch plus detection
+  took about 40 ms. Tests: `tests/test_heads.py`.
+
 The sections below describe general workflows and legacy neutral-only setup; use the current installed
 profile above for this robot pair.
 

@@ -42,6 +42,7 @@ from .beacon import StatusListener, status_port
 from .calibration import CalibrationManager
 from .probes import find_ssh, gateway_probe, network_probe, parse_health, run_ssh, tcp_check
 from .tunnels import CameraTunnels
+from .heads import HeadRelay
 from .motors import MotorTests
 from control.waypoints import WaypointStore, waypoint_feedback
 from control.manual import ManualControl
@@ -49,6 +50,9 @@ from control.manual import ManualControl
 PAGE = Path(__file__).with_name("page.html")
 REPO = Path(__file__).resolve().parent.parent
 CALIBRATION_PAGE = Path(__file__).with_name("calibration.html")
+HEAD_ASSETS = (REPO / "head_tracker" / "assets").resolve()
+ASSET_TYPES = {".mjs": "text/javascript", ".js": "text/javascript", ".wasm": "application/wasm",
+               ".tflite": "application/octet-stream"}
 
 
 def main_camera_view(message, heartbeat_age, now):
@@ -417,9 +421,13 @@ def calibration_action(cal, name, data):
     return {"ok": True}
 
 
-def make_server(monitor, relay, host, port, calibration=None):
+def make_server(monitor, relay, host, port, calibration=None, heads=None):
     calibration = calibration or make_calibration(monitor)
     motor_tests = MotorTests(monitor)
+    heads = heads or HeadRelay(monitor.cfg, lambda host, port: relay.tunnels.endpoint(host, port))
+
+    def head_node(key):
+        return next((n for n in monitor.nodes if n.key == key and n.kind == "robot" and n.dashboard_port), None)
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
@@ -461,6 +469,36 @@ def make_server(monitor, relay, host, port, calibration=None):
                     self._proxy_camera(f"http://127.0.0.1:{int(vision['gui_port'])}/video/birdseye", main=True)
             elif path.startswith("/video/") and path[7:] in relay.names():
                 self._mjpeg(path[7:])
+            elif path.startswith("/head-assets/"):
+                asset = (HEAD_ASSETS / path[len("/head-assets/"):]).resolve()
+                if not asset.is_relative_to(HEAD_ASSETS) or not asset.is_file():
+                    self.send_error(404)
+                    return
+                self._send(200, ASSET_TYPES.get(asset.suffix, "application/octet-stream"), asset.read_bytes())
+            elif path.startswith("/api/head/"):
+                parts = path.split("/")  # ['', 'api', 'head', key, 'state'|'frame']
+                node = head_node(parts[3]) if len(parts) == 5 else None
+                if node is None or parts[4] not in ("state", "frame"):
+                    self.send_error(404)
+                elif parts[4] == "state":
+                    self._send(200, "application/json", json.dumps(heads.state(node)).encode())
+                else:
+                    try:
+                        frame, stamp = heads.frame(node)
+                    except PermissionError as error:
+                        self.send_error(409, str(error))
+                        return
+                    except OSError:
+                        self.send_error(503, "Robot camera frame unavailable")
+                        return
+                    self.send_response(200)
+                    self.send_header("Content-Type", "image/jpeg")
+                    self.send_header("Content-Length", str(len(frame)))
+                    self.send_header("Cache-Control", "no-store")
+                    if stamp:
+                        self.send_header("X-Frame-Time", stamp)
+                    self.end_headers()
+                    self.wfile.write(frame)
             elif path.startswith("/camera/"):
                 node = next((n for n in monitor.nodes if n.key == path[8:] and n.kind == "robot"), None)
                 if node and node.dashboard_port:
@@ -495,7 +533,33 @@ def make_server(monitor, relay, host, port, calibration=None):
             monitor.manual.enable(data['robot_id'])
             monitor.waypoints.arm(False)
 
+        def _head_post(self):
+            origin = self.headers.get('Origin')
+            if origin and origin != 'http://' + self.headers.get('Host', ''):
+                self.send_error(403)
+                return
+            parts = self.path.split('?')[0].split('/')  # ['', 'api', 'head', key, action]
+            node = head_node(parts[3]) if len(parts) == 5 else None
+            if node is None:
+                self.send_error(404)
+                return
+            try:
+                size = int(self.headers.get('Content-Length', '0'))
+                if not 0 <= size <= 2048:
+                    raise ValueError('Oversized JSON request')
+                data = json.loads(self.rfile.read(size)) if size else None
+                if data is not None and not isinstance(data, dict):
+                    raise ValueError('JSON object required')
+                code, message = heads.post(node, parts[4], data)
+            except (ValueError, TypeError, KeyError) as error:
+                code, message = 400, str(error)
+            self._send(200 if code < 300 else code, 'application/json',
+                       json.dumps({'ok': code < 300, 'message': message}).encode())
+
         def do_POST(self):
+            if self.path.startswith('/api/head/'):
+                self._head_post()
+                return
             if self.path in ('/api/manual/enable','/api/manual/command','/api/manual/disable'):
                 origin=self.headers.get('Origin')
                 if origin and origin!='http://'+self.headers.get('Host',''):

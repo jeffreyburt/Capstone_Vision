@@ -246,7 +246,8 @@ system:
   probe_via: vision@192.168.1.20  # read-only probes/cameras through main Pi; null for a routed laptop
   master: {host: 192.168.1.20, wifi_host: 192.168.50.1, ssh_user: vision}
   robots:                   # address + drive port from control.robots, camera from streams.robotN
-    1: {ssh_user: robot-pi1, dashboard_port: 8080}
+    1: {ssh_user: robot-pi1, dashboard_port: 8080, head_tracking: false,
+        head_tracking_reason: "Head tracking disabled: Robot 1's head servos are not connected"}
     2: {ssh_user: capstone-pi2, dashboard_port: 8080}   # William's image
 
 debug:
