@@ -136,3 +136,9 @@ User-requested. **Not yet tested with the robot moving; Robot 2's real top speed
 - The live `robot2_wheels.json` on Robot 2 was backed up as `robot2_wheels.json.bak-2026-11-21-prespeed`.
 - Robot 2 needs `sudo systemctl restart capstone-drive-2.service` before any of the new robot-side limits take
   effect. Until then it runs the original file (25-count cap, about 0.19 m/s).
+- **Deployed 2026-11-21:** Robot 2's drive service restarted on the new file (log shows cap 127 counts/10 ms,
+  wheels at zero). `capstone-pi2` has no passwordless sudo, so the restart was done by waiting until keyboard
+  mode was off and the wheels had been at zero for 10 s, then sending SIGKILL to the service's own-user process;
+  `Restart=on-failure` brought it back 3 s later. Never do this while the wheels are moving: the motor board
+  keeps its last speed with no watchdog until the service is back. The earlier notes saying Robot 2 still
+  needs a sudo restart are superseded.
