@@ -92,7 +92,7 @@ class HeadGeometry:
         return cls(neutral, scale, _vector(cfg["pan_pivot_m"], 3), _vector(cfg["tilt_pivot_m"], 3), mounts, limits, max_rms, window,
                    frozenset(center_only), marker_limits)
 
-    def corners(self, marker_id, units):
+    def corners(self, marker_id, units, own_limits=True):
         if marker_id not in self.mounts:
             return None
         mount, neutral_corners = self.mounts[marker_id]
@@ -101,7 +101,7 @@ class HeadGeometry:
         units = _vector(units, 2)
         if self.unit_limits is not None and np.any((units < self.unit_limits[:,0]) | (units > self.unit_limits[:,1])):
             return None
-        own = (self.marker_limits or {}).get(marker_id)
+        own = (self.marker_limits or {}).get(marker_id) if own_limits else None
         if own is not None and np.any((units < own[:,0]) | (units > own[:,1])):
             return None  # outside the range this tag's model was measured over
         pan, tilt = np.radians((units - self.neutral_units) * self.degrees_per_unit)

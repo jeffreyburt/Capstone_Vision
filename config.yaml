@@ -56,6 +56,7 @@ markers:
   adaptive_thresh_constant: 3  # rear tags near dark connectors need a lower threshold bias than OpenCV's 7
   size_m: 0.10              # edge length of the BLACK square, measured on the print
   center_height_m: 0.30     # height of the marker's center above the floor
+  size_distance_scale: 1.09 # tag-size (PnP) distances read 8-10% short at 2304x1296 vs the floor-anchored fit (2026-11-21)
 
 robots:
   # faces: marker id -> direction that face points, in degrees CCW from the robot's front
@@ -114,11 +115,11 @@ robots:
       - -0.04719760585549351
       - 0.0
       - 0.3201280763228578
-      valid_units:      # widened 2026-11-21 for head tracking (was pan 331-451, tilt 710-775)
-      - - 311
-        - 471
-      - - 560
-        - 800
+      valid_units:      # widened 2026-11-21 for free head tracking (was pan 331-451, tilt 710-775); tag 6 keeps its own range
+      - - 141
+        - 641
+      - - 450
+        - 812
       max_rms_px: 8.0   # px at 2304x1296 (was 15 at 4608x2592): head wobble, turned with the head panned
       heading_window_deg: [90, 60]  # hallway: always faces roughly +y; rejects mirror-image fits (e.g. -39 vs 114 deg)
       markers:
@@ -133,10 +134,10 @@ robots:
           - 0.04043269929944133
           - -0.03819042930693983
           - 0
-        '5':                      # left-side tag (2026-11-20 fit): tag-centre position only after the camera move
+        '5':                      # left-side tag: tag-centre position only; centre re-measured 2026-11-21 over pans 430-620
           mount: pan
           center_only: true
-          center_m: [-0.020838988000895932, 0.1083818550129793, 0.23903912263783259]
+          center_m: [-0.0568, 0.1658, 0.2266]
           rotation_vector_rad: [0.04048336968790622, -0.10513518773976117, -0.03411309100077434]
     moving_head_markers: true
     faces: {4: 0, 5: 90, 6: 180, 7: 270}
@@ -264,7 +265,7 @@ system:
     2: {ssh_user: capstone-pi2, dashboard_port: 8080,   # William's image
         # Head tracking stays inside the range vision's head-pose model covers (robots[id=2].head_pose.valid_units),
         # so Robot 2 stays located while its head follows the user.
-        head_tracking_limits: [[311, 471], [560, 800]]}  # tilt widened 2026-11-21 so it can look up at a standing face
+        head_tracking_limits: [[141, 641], [450, 812]]}  # ~±68 deg pan; tilt within the owner-taught 433-812
 
 debug:
   stream_port: 8080         # MJPEG debug stream port when run with --stream

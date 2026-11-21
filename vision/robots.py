@@ -28,6 +28,7 @@ class RobotSpec:
     marker_size_m: float
     marker_center_height_m: float
     head: HeadGeometry | None = None
+    size_distance_scale: float = 1.0  # tag-size (PnP) distances x this; corrects corner blur at low resolution
 
 
 @dataclass
@@ -56,6 +57,7 @@ def robot_specs_from_config(cfg):
             center_offset_m=float(r.get("center_offset_m", 0.15)),
             marker_size_m=float(r.get("marker_size_m", m.get("size_m", 0.10))),
             marker_center_height_m=float(r.get("marker_center_height_m", m.get("center_height_m", 0.30))),
+            size_distance_scale=float(r.get("size_distance_scale", m.get("size_distance_scale", 1.0))),
         )
         if r.get("head_pose") is not None:
             spec.head = HeadGeometry.from_config(r["head_pose"], spec)
@@ -91,7 +93,7 @@ def _two_tag_heading(tags, geometry, size_m=0.10):
     best = None
     for i in range(len(tags)):
         for j in range(i + 1, len(tags)):
-            (ma, ca, _), (mb, cb, _) = tags[i], tags[j]
+            (ma, ca, *_), (mb, cb, *_) = tags[i], tags[j]
             ca, cb = np.asarray(ca).mean(axis=0), np.asarray(cb).mean(axis=0)
             wa, wb = tag_center_world(ma, size_m, geometry), tag_center_world(mb, size_m, geometry)
             if wa is None or wb is None:
@@ -128,9 +130,10 @@ def estimate_robots(markers, specs, geometry, joint_positions=None, prior_headin
             continue
         if spec.head is not None:
             units = joint_positions.get(spec.id) if spec.head.needs_feedback else spec.head.neutral_units
-            corners = None if units is None else spec.head.corners(m.id, units)
-            if corners is not None:
-                head_tags.setdefault(spec.id, []).append((m, corners, spec))
+            corners = None if units is None else spec.head.corners(m.id, units, own_limits=False)
+            if corners is not None:  # a tag's own joint range limits only the full fit, not its centre position
+                fit_ok = spec.head.corners(m.id, units) is not None
+                head_tags.setdefault(spec.id, []).append((m, corners, spec, fit_ok))
             continue
         face = face_on_floor(m, spec, geometry)
         if face is None:
@@ -144,14 +147,15 @@ def estimate_robots(markers, specs, geometry, joint_positions=None, prior_headin
 
     for rid, tags in head_tags.items():
         head = tags[0][2].head
-        heading, source = _two_tag_heading(tags, geometry, tags[0][2].marker_size_m), "two tags"
+        size = tags[0][2].marker_size_m * tags[0][2].size_distance_scale
+        heading, source = _two_tag_heading(tags, geometry, size), "two tags"
         if heading is not None and head.heading_window is not None and abs(
                 (math.degrees(heading) - head.heading_window[0] + 180) % 360 - 180) > head.heading_window[1]:
             heading = None
         if heading is None:
             fits = []
-            for m, corners, _ in tags:
-                if m.id in head.center_only:
+            for m, corners, _, fit_ok in tags:
+                if m.id in head.center_only or not fit_ok:
                     continue
                 pose = fit_chassis(m, corners, geometry, prior_headings.get(rid), head.max_rms_px, head.heading_window)
                 if pose is not None:
@@ -166,8 +170,8 @@ def estimate_robots(markers, specs, geometry, joint_positions=None, prior_headin
                 heading = math.radians(head.heading_window[0])
             else:
                 continue
-        for m, corners, _ in tags:
-            xy = center_ray_position(m, corners, geometry, heading, tags[0][2].marker_size_m)
+        for m, corners, *_ in tags:
+            xy = center_ray_position(m, corners, geometry, heading, size)
             if xy is not None:
                 groups.setdefault(rid, []).append((xy, heading if source == "two tags" else None, m.side_px, m.id))
                 sources[rid] = source
