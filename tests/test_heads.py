@@ -137,6 +137,9 @@ def test_start_uses_robot_saved_settings_and_sends_no_origin(setup):
     assert engage == "/api/engage" and origin is None
     assert start == "/api/tracking/start"
     assert data == {"target": "face", "limits": [[0, 1000], [433, 812]], "signs": [-1, 1], "speed": 60, "prediction": 0.8}
+    assert post(base, "/api/head/robot2/start", {"speed": 300, "prediction": 1.5})[1]["ok"]
+    assert robots[2].posts[-1][1] == {"target": "face", "limits": [[0, 1000], [433, 812]], "signs": [-1, 1],
+                                      "speed": 300, "prediction": 1.5}
 
 
 def test_robot_errors_and_frames_pass_through(setup):

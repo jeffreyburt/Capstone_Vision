@@ -47,6 +47,33 @@ image, and **Engage torque / Start tracking / Stop tracking / Disengage torque**
   signs pan -1 / tilt +1, tilt 433–812, prediction 0.8 s). Observations were accepted; frame fetch plus detection
   took about 40 ms. Tests: `tests/test_heads.py`.
 
+## Faster tracking and head-coordinate prediction (2026-11-21)
+
+| Change | Before | After | File |
+| --- | --- | --- | --- |
+| Robot camera frame rate | 15 fps | 30 fps (measured 30.0 on Robot 2) | `head_tracker/camera_feed.py` |
+| Image error for full speed (beyond the settle zone) | 0.35 of the frame | 0.20 | `head_tracker/tracking_control.py` |
+| Acceleration | 4 × speed per s | 8 × speed per s | `head_tracker/tracking_control.py` |
+| Following-error stop | 45 units | max(45, 0.3 × speed): 90 at 300 units/s | `head_tracker/dashboard.py` |
+| Robot 2 tracking speed / prediction | 60 units/s / 0.8 s | 300 units/s (about 72°/s) / 1.5 s | saved on the robot |
+| System dashboard detection loop | 40 ms pause per frame | next new frame immediately (about 28 detections/s measured) | `monitor/page.html` |
+
+- **Off-screen prediction is kept and now works in head (servo) coordinates.** Each observed face is converted to
+  the servo positions that would centre it, using where the head was aimed when that frame was captured. When the
+  face leaves the frame, the robot predicts the person's position from their recent velocity for the prediction time,
+  turns there, and holds there once the prediction expires. Before, prediction was in image coordinates and ignored
+  the head's own turning, so a lost face kept the head turning at full speed for the whole prediction time
+  (up to about 100° at 300 units/s).
+- The image-to-servo scale `UNITS_PER_FRAME = (216, 171)` assumes Camera Module 3 at 640×480 sees about 52°×41° and
+  an LX-224 unit is 0.24°. It is an estimate: if a predicted turn consistently overshoots or falls short, adjust it.
+- The system dashboard has **Speed** and **Predict off-screen** inputs under each robot's head-tracking buttons.
+  They apply when tracking starts; taught limits and directions still come from the robot.
+- Deployed to Robot 2 `~/capstone-dashboard/` (backup in `bak-2026-11-21-fast/`). This also brings that copy up to
+  date with the repo (it was missing the optional `--pose-host` joint-feedback options). The dashboard service was
+  restarted with torque held; tracking was restarted from the system dashboard.
+- **Not yet tested with a person moving in front of the camera** at the new speed. If the head overshoots or
+  oscillates, lower the speed from the dashboard (for example 200) before changing the gains.
+
 The sections below describe general workflows and legacy neutral-only setup; use the current installed
 profile above for this robot pair.
 

@@ -7,10 +7,10 @@ import math
 import argparse
 import socket
 if __package__:
- from .tracking_control import validate as validate_tracking, correction, TargetMemory
+ from .tracking_control import validate as validate_tracking, correction, TargetMemory, image_to_servo, servo_to_image
  from .camera_feed import CameraFeed
 else:
- from tracking_control import validate as validate_tracking, correction, TargetMemory
+ from tracking_control import validate as validate_tracking, correction, TargetMemory, image_to_servo, servo_to_image
  from camera_feed import CameraFeed
 camera_feed=None
 feedback_socket=None
@@ -152,19 +152,25 @@ def track_head(config):
   if any(read(p,sid,32)!=1 for sid in (1,2)):raise RuntimeError('Engage both servos before tracking')
   if any(not low<=v<=high for v,(low,high) in zip(positions,config['limits'])):
    raise RuntimeError('Current positions are outside the taught limits; recapture limits before tracking')
-  targets=list(map(float,positions));velocities=[0.,0.];previous=time.monotonic();last_feedback=previous;last_sent=None;holding=False;misses=0;filtered=None;active_axes=[False,False];last_command=0;memory=TargetMemory()
+  targets=list(map(float,positions));velocities=[0.,0.];previous=time.monotonic();last_feedback=previous;last_sent=None;holding=False;misses=0;filtered=None;active_axes=[False,False];last_command=0
+  # Remember the face in head (servo) coordinates so prediction allows for the head's own movement.
+  memory=TargetMemory(max_speed=400,bounds=(0,1000));aim=collections.deque(maxlen=80)
   while not stop.is_set():
    now=time.monotonic();dt=now-previous;previous=now
+   aim.append((time.time(),targets[:]))
    with lock:observation=tracking_observation
    fresh=(observation is not None and now-observation['received']<.6 and camera_feed.info()['live'])
    mode='holding';control_center=None;age=None
    if fresh:
     if observation['center'] is not None:
-     memory.observe(observation['center'],observation['frameTime'])
+     # Where the head was aimed when that frame was captured, not now.
+     then=next((t for s,t in reversed(aim) if s<=observation['frameTime']),aim[0][1])
+     memory.observe(image_to_servo(observation['center'],then,config['signs']),observation['frameTime'])
      control_center=observation['center'];mode='observed'
     else:
-     control_center=memory.predict(time.time(),config.get('prediction',1.2))
-     if control_center is not None:mode='predicted'
+     predicted=memory.predict(time.time(),config.get('prediction',1.2))
+     if predicted is not None:
+      control_center=servo_to_image(predicted,targets,config['signs']);mode='predicted'
      elif max(map(abs,velocities))>.1:control_center=[.5,.5];mode='braking'
     if memory.stamp is not None:age=max(0,time.time()-memory.stamp)
    live=control_center is not None
@@ -197,8 +203,9 @@ def track_head(config):
     positions=[read(p,sid) for sid in (1,2)];publish_positions(positions);last_feedback=time.monotonic()
     misses=misses+1 if None in positions else 0
     if misses>=2:raise RuntimeError('Servo feedback lost; tracking stopped')
-    if live and None not in positions and any(abs(a-b)>45 for a,b in zip(positions,targets)):
-     raise RuntimeError('Servo tracking error exceeded 45 units; stopped')
+    limit=max(45,.3*config['speed']) # the servo lags further behind its target at higher tracking speeds
+    if live and None not in positions and any(abs(a-b)>limit for a,b in zip(positions,targets)):
+     raise RuntimeError(f'Servo tracking error exceeded {limit:.0f} units; stopped')
     if holding and None not in positions:targets=list(map(float,positions))
    with lock:
     state['tracking'].update(status=message,mode=mode,center=control_center if live else None,lastSeenAge=round(age,2) if age is not None else None,targets=[round(v,1) for v in targets])

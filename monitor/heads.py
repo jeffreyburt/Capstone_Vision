@@ -89,8 +89,10 @@ class HeadRelay:
         saved = (self.state(node).get("tracking") or {}).get("config")
         if not saved:
             raise ValueError("No saved tracking settings on this robot; teach limits on its own dashboard first")
+        # Taught limits and directions always come from the robot; speed and prediction may be overridden.
         return {"target": "face", "limits": saved["limits"], "signs": saved["signs"],
-                "speed": saved.get("speed", 180), "prediction": saved.get("prediction", 1.2)}
+                "speed": data.get("speed", saved.get("speed", 180)),
+                "prediction": data.get("prediction", saved.get("prediction", 1.2))}
 
 
 def _message(error):

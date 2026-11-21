@@ -30,7 +30,7 @@ class CameraFeed:
     if cameras:
      camera=Picamera2(cameras[0]['Num'])
      self.model=cameras[0].get('Model','Pi camera')
-     camera.configure(camera.create_video_configuration(main={'size':(640,480)},controls={'FrameRate':15}))
+     camera.configure(camera.create_video_configuration(main={'size':(640,480)},controls={'FrameRate':30}))
      owner=self
      class Output(io.BufferedIOBase):
       def write(self,buf):owner.publish(buf);return len(buf)
