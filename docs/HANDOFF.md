@@ -66,6 +66,15 @@ Prior lifted-wheel measurements are saved in `calib/recordings/robot1_motor_spee
   clearance) and `y_limits_m: [0.6, 6.0]`. Turning on click driving or keyboard control turns Follow off.
   Robot sides were swapped to match the physical placement: Robot 1 is on the camera's left (`side: right`,
   the user's right when facing the camera). Follow speed is 0.15 m/s for both robots.
+- **Speed and up/down head tracking (2026-11-21):** the main camera now streams 2304x1296 (2x2-binned full field,
+  same lens calibration scaled) at up to 30 fps instead of 4608x2592 at 10: vision runs ~13 fps (was 3-5) and a frame
+  reaches the dashboard in ~0.16 s. The master Pi reads its own `~/Capstone_Vision/config.yaml` (backup
+  `config.yaml.bak-2026-11-21-fullres`). Pose tolerances halved with the resolution (Robot 1 5 px, Robot 2 8 px).
+  Control runs at 20 Hz; follow speed 0.30 m/s, position gain 1.2, Robot 1 turn rate 0.5 rad/s, formation replans
+  after 0.10 m, less position smoothing. Robot 2's tilt range is 560-800 (was 690-785) so it can look up at a standing
+  face; its rear tag 6 is used only inside its measured tilt range 690-785 (`markers.6.valid_units`). Tag-centre
+  positions now take their distance from the tag's apparent size (PnP) instead of intersecting a height plane, which
+  at this camera height moved ~15 cm per 1 cm of tag height (~30 cm when the head tilted up).
 - **Robot positions without a full tag fit (2026-11-21):** with two or more of a robot's head tags visible, each
   tag's centre ray (at its known height) gives a position and the direction between the tags gives the heading;
   with one tag, the full image-space fit is used if it passes; otherwise the tag-centre ray with the tracker's

@@ -17,7 +17,7 @@ from dataclasses import dataclass
 import numpy as np
 import cv2
 
-from .joint_pose import HeadGeometry, center_ray_position, fit_chassis
+from .joint_pose import HeadGeometry, center_ray_position, fit_chassis, tag_center_world
 
 
 @dataclass
@@ -85,7 +85,7 @@ def face_on_floor(marker, spec, geometry):
     return center, normal
 
 
-def _two_tag_heading(tags, geometry):
+def _two_tag_heading(tags, geometry, size_m=0.10):
     """Chassis heading (radians) from two visible tags' centre rays: the world direction between the two tag
     centres minus the same direction in the chassis frame. None unless two tags are far enough apart."""
     best = None
@@ -93,8 +93,10 @@ def _two_tag_heading(tags, geometry):
         for j in range(i + 1, len(tags)):
             (ma, ca, _), (mb, cb, _) = tags[i], tags[j]
             ca, cb = np.asarray(ca).mean(axis=0), np.asarray(cb).mean(axis=0)
-            pa = geometry.pixels_to_floor([np.asarray(ma.corners).mean(axis=0)], ca[2])[0]
-            pb = geometry.pixels_to_floor([np.asarray(mb.corners).mean(axis=0)], cb[2])[0]
+            wa, wb = tag_center_world(ma, size_m, geometry), tag_center_world(mb, size_m, geometry)
+            if wa is None or wb is None:
+                continue
+            pa, pb = wa[:2], wb[:2]
             local = cb[:2] - ca[:2]
             if not (np.isfinite(pa).all() and np.isfinite(pb).all()) or np.hypot(*local) < 0.08:
                 continue
@@ -142,7 +144,7 @@ def estimate_robots(markers, specs, geometry, joint_positions=None, prior_headin
 
     for rid, tags in head_tags.items():
         head = tags[0][2].head
-        heading, source = _two_tag_heading(tags, geometry), "two tags"
+        heading, source = _two_tag_heading(tags, geometry, tags[0][2].marker_size_m), "two tags"
         if heading is not None and head.heading_window is not None and abs(
                 (math.degrees(heading) - head.heading_window[0] + 180) % 360 - 180) > head.heading_window[1]:
             heading = None
@@ -165,7 +167,7 @@ def estimate_robots(markers, specs, geometry, joint_positions=None, prior_headin
             else:
                 continue
         for m, corners, _ in tags:
-            xy = center_ray_position(m, corners, geometry, heading)
+            xy = center_ray_position(m, corners, geometry, heading, tags[0][2].marker_size_m)
             if xy is not None:
                 groups.setdefault(rid, []).append((xy, heading if source == "two tags" else None, m.side_px, m.id))
                 sources[rid] = source

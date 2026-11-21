@@ -141,13 +141,17 @@ def test_tag_centre_fallback_keeps_position_when_the_full_fit_fails():
     rot=np.array([[np.cos(angle),-np.sin(angle),0],[np.sin(angle),np.cos(angle),0],[0,0,1]])
     def seen(mid, wobble=0.0):
         c=spec.head.corners(mid,None)@rot.T+[.2,2,0]
-        c[:2,0]+=wobble  # shift the top two corners sideways: a wobbling, leaning head
+        if wobble:  # a wobbling head: the tag rolls in its own plane and sags, but stays a rigid square
+            centre=c.mean(axis=0); normal=np.cross(c[1]-c[0],c[3]-c[0]); normal/=np.linalg.norm(normal)
+            ang=np.radians(8); K=np.array([[0,-normal[2],normal[1]],[normal[2],0,-normal[0]],[-normal[1],normal[0],0]])
+            R=np.eye(3)+np.sin(ang)*K+(1-np.cos(ang))*K@K
+            c=(c-centre)@R.T+centre-[0,0,wobble]
         return MarkerDetection(mid,geometry.world_to_pixels(c))
     obs,=estimate_robots([seen(3)],[spec],geometry)  # side tag only: centre ray + expected heading
     assert obs.approximate and obs.heading_deg is None
     assert (obs.x,obs.y)==pytest.approx((.2,2),abs=.01)
-    obs,=estimate_robots([seen(2,wobble=.03)],[spec],geometry,prior_headings={1:np.radians(90)})
-    assert obs.approximate and (obs.x,obs.y)==pytest.approx((.2,2),abs=.04)
+    obs,=estimate_robots([seen(2,wobble=.02)],[spec],geometry,prior_headings={1:np.radians(90)})
+    assert obs.approximate and (obs.x,obs.y)==pytest.approx((.2,2),abs=.04)  # height-plane rays were ~30 cm off
     obs,=estimate_robots([seen(2),seen(3)],[spec],geometry)  # two tags: centre rays + heading between them
     assert obs.source=='two tags' and not obs.approximate and abs(wrap_deg(obs.heading_deg-90))<1.5
     obs,=estimate_robots([seen(2)],[spec],geometry)  # one good tag: the full fit

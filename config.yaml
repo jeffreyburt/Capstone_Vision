@@ -8,9 +8,10 @@ streams:
     host: 192.168.1.20      # main camera over Ethernet; no robot-subnet route required
     port: 5600
     quality: 85             # full-resolution markers with less JPEG encode delay
-    max_fps: 15             # send at most this many frames/s (the camera itself runs at camera.fps)
-    # Full 12 MP sensor: best accuracy and range, lower frame rate. For speed use 1920x1080 / [2304, 1296].
-    camera: {width: 4608, height: 2592, fps: 10, sensor_mode: [4608, 2592], rotation: 180}
+    max_fps: 30             # send at most this many frames/s (the camera itself runs at camera.fps)
+    # 2026-11-21: 2x2-binned full field of view for speed (was 4608x2592 at 10 fps, ~4 fps in vision).
+    # The master Pi's own copy of this file is what the sender reads; keep both in step.
+    camera: {width: 2304, height: 1296, fps: 30, sensor_mode: [2304, 1296], rotation: 180}
   robot1:
     host: 192.168.50.105     # replacement robot-pi1; DHCP address, reserve on the AP for stability
     port: 5601
@@ -62,7 +63,7 @@ robots:
   # center_offset_m: distance from the marker surface to the robot's center (half of a 30 cm robot)
   - id: 1
     head_pose:
-      max_rms_px: 10.0  # secured head wobbles: 2.9-5.3 px facing the camera, 8.2 px turned 35 deg (2026-11-21)
+      max_rms_px: 5.0   # px at 2304x1296 (was 10 at 4608x2592): secured head wobble, turned up to ~35 deg
       heading_window_deg: [90, 60]  # hallway: always faces roughly +y; rejects mirror-image fits
       neutral_units:
       - 0
@@ -116,13 +117,14 @@ robots:
       valid_units:      # widened 2026-11-21 for head tracking (was pan 331-451, tilt 710-775)
       - - 311
         - 471
-      - - 690
-        - 785
-      max_rms_px: 15.0  # head wobble: ~8 px facing the camera, 14.7 px turned 25 deg with the head panned (2026-11-21)
+      - - 560
+        - 800
+      max_rms_px: 8.0   # px at 2304x1296 (was 15 at 4608x2592): head wobble, turned with the head panned
       heading_window_deg: [90, 60]  # hallway: always faces roughly +y; rejects mirror-image fits (e.g. -39 vs 114 deg)
       markers:
         '6':
           mount: tilt
+          valid_units: [[311, 471], [690, 785]]   # tilt model measured only here; ~30 cm error at tilt 586
           center_m:
           - -0.14
           - 0.0
@@ -158,14 +160,14 @@ people:
   head_height_m: 1.70       # assumed head height, used only when the feet are out of view
 
 user_tracking:
-  alpha: 0.4
+  alpha: 0.6               # user smoothing (was 0.4): less lag
   beta: 0.05
   lost_after_s: 1.5
   max_jump_m: 1.0
   forget_after_s: 5.0
 
 tracking:
-  alpha: 0.5                # position smoothing: 1.0 = raw measurements, lower = smoother/laggier
+  alpha: 0.6                # position smoothing: 1.0 = raw measurements, lower = smoother/laggier (was 0.5)
   beta: 0.05                # velocity smoothing
   heading_alpha: 0.4        # heading smoothing (0..1)
   lost_after_s: 1.0         # a track not seen for this long is re-initialized on the next sighting
@@ -193,7 +195,7 @@ control:
     angular_accel: 0.6
     filter_s: 0.2
   vision_port: 5005         # where vision.main publishes (output.port above)
-  rate_hz: 10               # command rate; each robot's drive server stops after 0.5 s without one
+  rate_hz: 20               # command rate (was 10); each robot's drive server stops after 0.5 s without one
   vision_timeout_s: 1.0     # stop every robot if no vision message arrives for this long
   max_pose_age_s: 0.7       # stop a robot the camera hasn't seen for this long
   user_lost_s: 2.0          # stop every robot when the user hasn't been seen for this long
@@ -204,10 +206,10 @@ control:
       port: 5700
       side: right   # 2026-11-21: Robot 1 sits on the camera's left (-x) = the user's right when facing the camera
       limits:  # mixed four-wheel profile; all wheels capped at calibrated 5 counts/10ms
-        max_speed_m_s: 0.15  # waypoint/follow driving (was 0.038 before the FR motor calibration reached 70 counts)
+        max_speed_m_s: 0.30  # waypoint/follow driving (0.15 earlier on 2026-11-21; 0.038 before the FR calibration)
         keyboard_max_speed_m_s: 0.53  # WASD only: 70 counts/10ms, measured motor ceiling (lifted sweep 2026-11-21)
-        max_yaw_rad_s: 0.20
-        position_gain: 0.6
+        max_yaw_rad_s: 0.50
+        position_gain: 1.2   # full speed from 0.25 m away (was 0.6)
         position_tolerance_m: 0.10
         allow_strafe: true
     2:
@@ -215,10 +217,10 @@ control:
       port: 5700
       side: left    # camera's right (+x) = the user's left when facing the camera
       limits:  # faster four-wheel profile; proportional slowdown near the destination
-        max_speed_m_s: 0.15  # waypoint/follow driving; matches Robot 1 so the triangle keeps its shape
+        max_speed_m_s: 0.30  # waypoint/follow driving; matches Robot 1 so the triangle keeps its shape
         keyboard_max_speed_m_s: 0.53  # WASD only: 70 counts/10ms, measured motor ceiling (lifted sweep 2026-11-21)
         max_yaw_rad_s: 0.60
-        position_gain: 0.6
+        position_gain: 1.2   # full speed from 0.25 m away (was 0.6)
         position_tolerance_m: 0.12  # head tracking moves the rear tag: ~9 cm pose spread measured 2026-11-21
         yaw_tolerance_deg: 12.0  # ...and ~±10° heading spread; 2.0 made the chassis chase that noise
         allow_strafe: true
@@ -226,7 +228,7 @@ control:
     distance_m: 1.0         # speaker-to-user distance = triangle side (hallway is ~1.8 m wide; was 2.0)
     spread_deg: 60          # angle between the speakers as seen by the user (60 = equilateral)
     facing_deg: -90         # fixed direction the user is assumed to face, deg CCW from +x (-90 = toward the camera, down the hallway)
-    replan_m: 0.3           # targets only move once the user has moved this far
+    replan_m: 0.1           # targets move once the user has moved this far (was 0.3)
     # Hallway (2026-11-21 floor calibration): walls at x = -0.87 (left) and +0.90 (right) m, parallel to +y.
     # Robot centers stay 0.35 m inside each wall (0.15 m half body + 0.20 m clearance). The triangle keeps its
     # exact shape while the user is within ~0.05 m of the hallway center line; further off, targets are clamped here.
@@ -262,7 +264,7 @@ system:
     2: {ssh_user: capstone-pi2, dashboard_port: 8080,   # William's image
         # Head tracking stays inside the range vision's head-pose model covers (robots[id=2].head_pose.valid_units),
         # so Robot 2 stays located while its head follows the user.
-        head_tracking_limits: [[311, 471], [690, 785]]}
+        head_tracking_limits: [[311, 471], [560, 800]]}  # tilt widened 2026-11-21 so it can look up at a standing face
 
 debug:
   stream_port: 8080         # MJPEG debug stream port when run with --stream

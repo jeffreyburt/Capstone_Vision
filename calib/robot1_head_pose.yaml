@@ -36,7 +36,7 @@ head_pose:
       - 0
       - 0
       - 0
-  max_rms_px: 10.0
+  max_rms_px: 5.0
   heading_window_deg:
   - 90
   - 60

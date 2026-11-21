@@ -54,6 +54,13 @@ DEFAULT_MEASUREMENTS = {
 STEP_ORDER = ["network", "measure", "lens", "floor", "head1", "head2", "verify", "wheels"]
 
 
+def _binned(calibrated, streamed, cam_cfg):
+    """True if the stream is an exact 2x/4x binned full-field mode of the calibrated size (same lens, scaled K)."""
+    if not calibrated or not streamed[0] or list(cam_cfg.get("sensor_mode") or []) != list(streamed):
+        return False
+    return any(calibrated[0] == k * streamed[0] and calibrated[1] == k * streamed[1] for k in (2, 4))
+
+
 def now_iso():
     return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
 
@@ -306,7 +313,7 @@ class CalibrationManager:
         want = [cam_cfg.get("width"), cam_cfg.get("height")]
         if not intr:
             st, det = "todo", "No lens calibration file."
-        elif want[0] and list(intr["image_size"] or []) != want:
+        elif want[0] and list(intr["image_size"] or []) != want and not _binned(intr["image_size"], want, cam_cfg):
             st, det = "attention", f"Calibrated at {intr['image_size']}, camera streams {want}: recalibrate."
         elif (intr.get("rms_px") or 99) > 1.0:
             st, det = "attention", f"RMS {intr['rms_px']:.2f} px is above 1 px: recapture with a flatter board."

@@ -17,11 +17,16 @@ head_pose:
   valid_units:
   - - 311
     - 471
-  - - 690
-    - 785
+  - - 560
+    - 800
   markers:
     '6':
       mount: tilt
+      valid_units:
+      - - 311
+        - 471
+      - - 690
+        - 785
       center_m:
       - -0.14
       - 0.0
@@ -41,7 +46,7 @@ head_pose:
       - 0.04048336968790622
       - -0.10513518773976117
       - -0.03411309100077434
-  max_rms_px: 15.0
+  max_rms_px: 8.0
   heading_window_deg:
   - 90
   - 60
