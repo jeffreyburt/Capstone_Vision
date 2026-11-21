@@ -66,6 +66,12 @@ Prior lifted-wheel measurements are saved in `calib/recordings/robot1_motor_spee
   clearance) and `y_limits_m: [0.6, 6.0]`. Turning on click driving or keyboard control turns Follow off.
   Robot sides were swapped to match the physical placement: Robot 1 is on the camera's left (`side: right`,
   the user's right when facing the camera). Follow speed is 0.15 m/s for both robots.
+- **Turned robots lost their pose (2026-11-21):** facing the user turns each chassis ~30°, which made the rear-tag
+  fits worse (Robot 1 8.2 px, Robot 2 14.7 px with its head panned) and Robot 2's pose went stale; a backwards
+  mirror solution (-39° vs 114°) also scored almost as well. Now `formation.max_turn_deg: 20` limits how far a
+  chassis turns toward the user (Robot 2's tracking head covers the rest), `head_pose.heading_window_deg:
+  [90, 60]` rejects fits not facing roughly down the hallway, and tolerances are Robot 1 10 px / Robot 2 15 px
+  (these supersede the 8 / 10 px below). After the change both robots were located in 58-60 of 60 frames.
 - **Head wobble tolerance (2026-11-21):** pose fits accept up to `head_pose.max_rms_px` (Robot 1: 8 px,
   Robot 2: 10 px; default 3). Robot 2 now uses only its rear tag 6 (side tag 5 gave >100° heading errors) and
   its head range is pan 311-471 / tilt 690-785. Head tracking from the dashboard is limited to that range by
