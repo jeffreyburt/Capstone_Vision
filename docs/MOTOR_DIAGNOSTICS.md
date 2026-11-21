@@ -12,7 +12,7 @@ of marker visibility and floor calibration. No test runs merely by opening the d
 - Duration: 0.2–5 seconds. **Stop test** ends the current run early.
 - Hiwonder displays all four signed counters, change since start, and measured rates so
   unexpected cross-channel activity is visible. Counter wrap is handled.
-- TB6612 displays rising/falling edge totals on C1/BCM23 and C2/BCM24, edge rates, and current
+- TB6612 displays rising/falling edge totals on C1/BCM22 and C2/BCM27, edge rates, and current
   logic levels. These unsigned edge totals are not directly comparable to Hiwonder counts.
 - Live values update approximately ten times per second and the chart plots changes over time.
   A stale-data message means the displayed sample is no longer fresh. Zero pulses are reported
@@ -72,3 +72,7 @@ PWM duty and Hiwonder's closed-loop counts/10ms commands are different quantitie
 percentages do not imply equal shaft speed. This adjustment affects motor diagnostics only:
 Robot 1's navigation remains in its existing three-wheel mode. Do not interpret the trim as
 integrating the replacement motor into chassis driving.
+
+Updated wiring (2026-11-21): STBY=BCM25, PWMA=BCM18, AIN1=BCM23, AIN2=BCM24,
+C1=BCM22, C2=BCM27. All four wheels are physically attached. This pin update does not
+enable four-wheel navigation; TB6612 remains available through individual motor tests.

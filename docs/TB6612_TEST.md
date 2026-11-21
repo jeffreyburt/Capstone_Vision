@@ -7,15 +7,15 @@ User confirmed wiring the following control signals. GPIO numbers are **BCM**, n
 
 | Signal | BCM GPIO | Physical header pin |
 | --- | --- | --- |
-| AIN1 | 17 | 11 |
-| AIN2 | 27 | 13 |
+| AIN1 | 23 | 16 |
+| AIN2 | 24 | 18 |
 | PWMA | 18 | 12 |
-| STBY | 22 | 15 |
-| Encoder A / C1 | 23 | 16 |
-| Encoder B / C2 | 24 | 18 |
+| STBY | 25 | 22 |
+| Encoder A / C1 | 22 | 15 |
+| Encoder B / C2 | 27 | 13 |
 
 Motor wires go to AO1/AO2. Driver logic VCC and encoder VCC use Pi 3.3V, VM uses the external
-motor supply, and driver/encoder/Pi grounds are common. The motor remains unloaded/off its wheel.
+motor supply, and driver/encoder/Pi grounds are common. As of 2026-11-21, the motor is installed and all four wheels are attached. Lift the wheels before individual motor tests. The pin table above reflects the updated wiring supplied that day. C1 is assigned to GPIO22 and C2 to GPIO27; swapping these changes quadrature direction only.
 
 Source: [tools/tb6612_encoder_test.py](../tools/tb6612_encoder_test.py).
 Deployed on robot-pi1 at `~/capstone-drive/tb6612_encoder_test.py`.

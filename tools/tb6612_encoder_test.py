@@ -1,7 +1,7 @@
 """Brief TB6612FNG channel-A test with quadrature feedback (BCM pin numbering).
 
-AIN1=17 (header 11), AIN2=27 (13), PWMA=18 (12), STBY=22 (15).
-Encoder A=23 (16), B=24 (18). Driver logic VCC and encoder VCC use 3.3V;
+AIN1=23 (header 16), AIN2=24 (18), PWMA=18 (12), STBY=25 (22).
+Encoder A=22 (15), B=27 (13). Driver logic VCC and encoder VCC use 3.3V;
 VM uses the motor supply; Pi, encoder and driver share ground. Motor goes to AO1/AO2.
 
 Run on the robot: python3 tb6612_encoder_test.py
@@ -15,12 +15,12 @@ from contextlib import ExitStack
 
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--in1',type=int,default=17)
-    parser.add_argument('--in2',type=int,default=27)
+    parser.add_argument('--in1',type=int,default=23)
+    parser.add_argument('--in2',type=int,default=24)
     parser.add_argument('--pwm',type=int,default=18)
-    parser.add_argument('--stby',type=int,default=22)
-    parser.add_argument('--encoder-a',type=int,default=23)
-    parser.add_argument('--encoder-b',type=int,default=24)
+    parser.add_argument('--stby',type=int,default=25)
+    parser.add_argument('--encoder-a',type=int,default=22)
+    parser.add_argument('--encoder-b',type=int,default=27)
     parser.add_argument('--duty',type=float,default=.25,help='PWM duty, 0..1')
     parser.add_argument('--seconds',type=float,default=3.)
     parser.add_argument('--reverse',action='store_true')

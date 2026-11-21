@@ -70,11 +70,11 @@ def main():
                     def output(cls, pin, **kw):
                         return stack.enter_context(cls(pin, pin_factory=factory, **kw))
                     pwm = output(PWMOutputDevice, 18, initial_value=0, frequency=1000)
-                    standby = output(DigitalOutputDevice, 22, initial_value=False)
-                    a1 = output(DigitalOutputDevice, 17, initial_value=False)
-                    a2 = output(DigitalOutputDevice, 27, initial_value=False)
-                    a = output(DigitalInputDevice, 23, pull_up=True)
-                    b = output(DigitalInputDevice, 24, pull_up=True)
+                    standby = output(DigitalOutputDevice, 25, initial_value=False)
+                    a1 = output(DigitalOutputDevice, 23, initial_value=False)
+                    a2 = output(DigitalOutputDevice, 24, initial_value=False)
+                    a = output(DigitalInputDevice, 22, pull_up=True)
+                    b = output(DigitalInputDevice, 27, pull_up=True)
                     edges = [0, 0]
                     def ea(): edges[0] += 1
                     def eb(): edges[1] += 1
