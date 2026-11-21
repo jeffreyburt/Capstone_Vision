@@ -3,6 +3,10 @@
 The Mac needs no route to the robot subnet. The relay only targets configured IP/ports.
 It drains queued input before forwarding the newest command per robot; stale feedback
 replaces drive requests with stops. Robot-side watchdogs remain the final stop backstop.
+
+If the SSH connection ends (for example the main Pi restarts), it is reopened automatically, at most once
+every RECONNECT_S seconds. A new connection starts with no robot acknowledgements, so motion stays
+replaced by stops until each robot answers again.
 """
 import ipaddress
 import json
@@ -12,6 +16,8 @@ import subprocess
 import time
 
 from .link import RobotLink
+
+RECONNECT_S=2.0
 
 RELAY = r'''
 import sys,json,socket,select
@@ -54,13 +60,31 @@ class GatewayRobotLink(RobotLink):
         if not gateway or gateway.startswith('-'):
             raise ValueError('Invalid SSH gateway')
         self.seq=0;self.status={};self.status_at={};self.clock=clock
+        self.gateway,self.process_factory=gateway,process_factory
+        self.reconnects=0
+        self._start()
+
+    def _start(self):
         self.buffer=b''
+        self.status_at={}  # every robot must acknowledge over this connection before it may move
+        self.started_at=self.clock()
         command='python3 -u -c '+shlex.quote(RELAY)+' '+shlex.quote(json.dumps(self.addrs))
-        self.process=process_factory(['ssh','-T','-o','BatchMode=yes','-o','ConnectTimeout=3',
-            '-o','ServerAliveInterval=5','-o','ServerAliveCountMax=2',gateway,command],
+        self.process=self.process_factory(['ssh','-T','-o','BatchMode=yes','-o','ConnectTimeout=3',
+            '-o','ServerAliveInterval=5','-o','ServerAliveCountMax=2',self.gateway,command],
             stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,bufsize=0)
         os.set_blocking(self.process.stdin.fileno(),False)
         os.set_blocking(self.process.stdout.fileno(),False)
+
+    def _reconnect_if_closed(self):
+        if self.process.poll() is None or self.clock()-self.started_at<RECONNECT_S:
+            return
+        for pipe in (self.process.stdin,self.process.stdout):
+            try:pipe.close()
+            except OSError:pass
+        self.reconnects+=1
+        for rid in self.addrs:
+            self.status[rid]={'state':'reconnecting','error':'SSH drive gateway closed; reconnecting'}
+        self._start()
 
     def _send(self,rid,msg):
         ages=self.poll()
@@ -78,6 +102,7 @@ class GatewayRobotLink(RobotLink):
             self.status[rid]={'state':'send failed','error':str(error)}
 
     def poll(self):
+        self._reconnect_if_closed()
         while True:
             try:chunk=os.read(self.process.stdout.fileno(),65536)
             except (BlockingIOError,OSError):break

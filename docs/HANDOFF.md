@@ -59,6 +59,14 @@ Prior lifted-wheel measurements are saved in `calib/recordings/robot1_motor_spee
 
 ## Dashboard and ownership
 
+- **Main Pi restarts (2026-11-21):** `control.main`'s wheel commands travel over one SSH connection through
+  the main Pi. It used to stay dead after the main Pi rebooted, so both robots showed "drive server silent"
+  and keyboard driving stayed disabled until `control.main` was restarted. `control/ssh_gateway.py` now
+  reopens it automatically (at most every 2 s). A new connection has no robot acknowledgements, so
+  motion stays replaced by stops until each robot answers again. Verified by killing the live gateway SSH
+  process: both links returned to "link ok" within about 5 s. The camera stream to vision also recovers
+  by itself once the main Pi's camera sender is back (allow about a minute after a reboot).
+
 - WASD manual mode selects one robot; simultaneous keys give normalized diagonals. Release,
   Space, tab blur, lost connection, or Stop end movement. The 0.4 s server lease and robot
   0.5 s watchdog stop stale input. `control/manual.py` owns token/sequence/expiry rules.
