@@ -102,7 +102,7 @@
 <h2>Keyboard driving <span class="sub">WASD · combine keys for diagonals</span></h2>
 <div style="padding:12px;display:flex;gap:24px;flex-wrap:wrap;align-items:center">
 <div>
-<label>Robot <select id="keyboard-robot"><option value="1">1 · left (three-wheel drive)</option><option value="2">2 · right</option></select></label>
+<label>Robot <select id="keyboard-robot"><option value="1">1 · left (calibrated four-wheel drive)</option><option value="2">2 · right</option></select></label>
 <label>Speed <input id="keyboard-speed" type="number" min="0.02" max="0.12" step="0.01" value="0.05" style="width:75px"> m/s</label>
 <button id="keyboard-enable">Enable keyboard control</button>
 <button id="keyboard-disable" disabled>Stop / disable</button>
@@ -120,7 +120,7 @@
 <section class="panel" style="grid-column:1/-1" id="motor-tests">
 <h2>Individual motor tests <span class="sub">Live encoder feedback</span></h2>
 <div style="padding:12px">
-<p>Lift the wheels before testing. Tests disable click driving; re-enable it afterward when ready. Robot 1 M1 is disabled; its replacement uses TB6612 channel A.</p>
+<p>Lift the wheels before testing. Tests disable click driving; re-enable it afterward when ready. Robot 1’s front-right wheel uses the calibrated TB6612; physical Hiwonder M1 stays zero.</p>
 <label>Robot <select id="motor-robot"><option value="1">1 · left</option><option value="2">2 · right</option></select></label>
 <label>Motor <select id="motor-channel"><option>M2</option><option>M3</option><option>M4</option><option>TB6612</option></select></label>
 <label>Direction <select id="motor-direction"><option value="1">Positive</option><option value="-1">Negative</option></select></label>
@@ -735,8 +735,9 @@ function keyboardStatus(state){
   const keys=[...keyboardKeys].join('+').toUpperCase()||'ready';
   const reply=selected?.reply;
   const link=selected?.link_age_s;
-  const feedback=reply?.error||((link==null||link>1)?'waiting for robot reply':selected?.reason||'');
-  document.getElementById('keyboard-status').textContent='Robot '+keyboardSession.robot_id+' · '+keys+' · '+(control?.navigation_mode==='keyboard'?feedback:'waiting for keyboard controller');
+  const mixed=reply?.mixed_drive;
+  const feedback=reply?.error||mixed?.guard||((link==null||link>1)?'waiting for robot reply':selected?.reason||'');
+  document.getElementById('keyboard-status').textContent='Robot '+keyboardSession.robot_id+' · '+keys+' · '+(control?.navigation_mode==='keyboard'?feedback:'waiting for keyboard controller')+(mixed?.tb6612?.target_count_rate?' · front-right '+Number(mixed.tb6612.measured_count_rate??0).toFixed(0)+' / '+Number(mixed.tb6612.target_count_rate).toFixed(0)+' counts/s':'');
 }
 keyboardPaint();setInterval(keyboardSend,100);
 let motorRequestPending=false;

@@ -11,7 +11,7 @@ choose a speed (default 0.05 m/s), and press **Enable keyboard control**.
 
 Only the selected robot is commanded to move. The other robot receives stops. Changing robots
 requires enabling again. Direction is relative to the robot chassis, not the camera or room grid.
-Speed is capped by each robot's existing limit (Robot 1: 0.075 m/s; Robot 2: 0.12 m/s).
+Speed is capped by each robot's existing limit (Robot 1: 0.038 m/s; Robot 2: 0.12 m/s).
 Typing in input fields does not move a robot. Leaving the tab, losing browser focus, or losing
 the dashboard connection disables the keyboard session; it must be enabled again to resume.
 
@@ -41,10 +41,9 @@ The updated `robot/drive_server.py` must be copied to `~/capstone-drive/drive_se
 robot and its `capstone-drive-<id>.service` restarted. Restart the local monitor/controller to load
 updated Python code. Opening the dashboard or restarting these programs does not enable driving.
 
-Robot 1 still uses its configured **three-wheel** chassis driver. The calibrated replacement
-TB6612 motor remains available through individual motor tests and is not yet integrated into
-four-wheel chassis navigation/manual driving. Sideways motion on that robot can consequently
-be imperfect. Robot 2 retains its existing four-wheel mapping.
+Robot 1 now uses [calibrated mixed four-wheel driving](FOUR_WHEEL_DRIVE.md). Its replacement
+front-right motor follows the saved speed profile. All wheels are capped at 5 command units,
+and a requested nonzero FR speed below 2 holds the whole chassis. Robot 2 is unchanged.
 
 2026-11-21: deployed to both robot Pis after the main Pi was power cycled to restore SSH.
 Both drive services reported keyboard capability and zero motor outputs. The local monitor and

@@ -1,0 +1,19 @@
+{
+  "disabled_channels": [],
+  "hiwonder": {
+    "motor_type": 3,
+    "encoder_polarity": 0,
+    "wheel_channels": [3, 1, 4, 2],
+    "motor_signs": [1, 1, -1, 1],
+    "encoder_signs": [1, 1, -1, 1],
+    "max_speed_counts": 5,
+    "bus_number": 1,
+    "address": 52
+  },
+  "tb6612": {
+    "logical_channel": 1,
+    "direction": 1,
+    "calibration": "motor_speed.json",
+    "pins": {"pwm": 18, "standby": 25, "in1": 23, "in2": 24, "encoder_a": 22, "encoder_b": 27}
+  }
+}

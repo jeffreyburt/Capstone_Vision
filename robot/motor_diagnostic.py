@@ -72,6 +72,11 @@ def main():
                 if channel == 'TB6612':
                     from gpiozero import DigitalOutputDevice, DigitalInputDevice
                     from gpiozero.pins.lgpio import LGPIOFactory
+                    pins=dict(pwm=18,standby=25,in1=23,in2=24,encoder_a=22,encoder_b=27)
+                    wiring_path=os.path.join(os.path.dirname(__file__),'robot1_four_wheels.json')
+                    if os.path.exists(wiring_path):
+                        with open(wiring_path) as wiring:
+                            pins=json.load(wiring)['tb6612']['pins']
                     factory = stack.enter_context(LGPIOFactory())
                     def output(cls, pin, **kw):
                         return stack.enter_context(cls(pin, pin_factory=factory, **kw))
@@ -79,12 +84,12 @@ def main():
                         from .motor_speed import PrecisionPWM
                     except ImportError:
                         from motor_speed import PrecisionPWM
-                    pwm = stack.enter_context(PrecisionPWM())
-                    standby = output(DigitalOutputDevice, 25, initial_value=False)
-                    a1 = output(DigitalOutputDevice, 23, initial_value=False)
-                    a2 = output(DigitalOutputDevice, 24, initial_value=False)
-                    a = output(DigitalInputDevice, 22, pull_up=True)
-                    b = output(DigitalInputDevice, 27, pull_up=True)
+                    pwm = stack.enter_context(PrecisionPWM(pins['pwm']))
+                    standby = output(DigitalOutputDevice, pins['standby'], initial_value=False)
+                    a1 = output(DigitalOutputDevice, pins['in1'], initial_value=False)
+                    a2 = output(DigitalOutputDevice, pins['in2'], initial_value=False)
+                    a = output(DigitalInputDevice, pins['encoder_a'], pull_up=True)
+                    b = output(DigitalInputDevice, pins['encoder_b'], pull_up=True)
                     edges = [0, 0]
                     matcher = None
                     if profile:

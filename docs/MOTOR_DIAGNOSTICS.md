@@ -70,8 +70,8 @@ to the same initial 50% unless `tb6612_scale` is supplied explicitly.
 The original fixed trim was provisional and is now superseded by the measured calibration below.
 PWM duty and Hiwonder's closed-loop counts/10ms commands are different quantities; equal
 uncalibrated percentages do not imply equal shaft speed. This adjustment affects motor diagnostics only:
-Robot 1's navigation remains in its existing three-wheel mode. Do not interpret the trim as
-integrating the replacement motor into chassis driving.
+Robot 1 now also uses the measured curves through its [mixed four-wheel driver](FOUR_WHEEL_DRIVE.md);
+the diagnostic target trim is independent of chassis matching.
 
 Updated wiring (2026-11-21): STBY=BCM25, PWMA=BCM18, AIN1=BCM23, AIN2=BCM24,
 C1=BCM22, C2=BCM27. All four wheels are physically attached. This pin update does not
@@ -120,7 +120,7 @@ The greatest average error in accepted runs was 9%; this is approximate matching
 exact RPM guarantee. At the lower boundary, short-window deviations reached about 12%.
 
 These results validate unloaded matching over the tested range, not loaded driving. The three
-original motors remain unchanged. Four-wheel chassis navigation is still pending integration.
+original motors remain unchanged. Four-wheel chassis integration is now enabled; see [the mixed driver document](FOUR_WHEEL_DRIVE.md).
 Tests end with outputs off, normal drive service restored, and click driving disarmed.
 
 Saved source and measurements:

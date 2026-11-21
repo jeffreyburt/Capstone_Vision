@@ -32,6 +32,7 @@ Only the Python standard library is needed, plus capstone_base (Nate's repo) wit
 
 import argparse
 import collections
+from contextlib import ExitStack
 import json
 import math
 import os
@@ -162,7 +163,7 @@ class DriveServer:
     def _status_reply(self, seq, now):
         """Answer to a read-only status query: the normal reply plus details. Changes nothing."""
         return {"type": "status", "robot_id": self.robot_id, "seq": seq, "state": self.state,
-                "motors": self.last_motors, "error": self.error,
+                "motors": self.last_motors, "error": self.error or getattr(self.motors,"fault",None),
                 "hardware": not isinstance(self.motors, PrintMotors),
                 "uptime_s": round(now - self.started, 1),
                 "last_cmd_age_s": None if self.last_cmd is None else round(now - self.last_cmd, 2),
@@ -170,6 +171,7 @@ class DriveServer:
                 "rejected": self.rejected, "timeout_s": self.timeout_s,
                 "require_compensated_pose": self.require_compensated_pose,
                 "manual_control": True,
+                "mixed_drive": self.motors.telemetry() if hasattr(self.motors,"telemetry") else None,
                 "disabled_channels": list(self.p.disabled_channels),
                 "max_counts": self.p.max_counts}
 
@@ -205,7 +207,8 @@ class DriveServer:
             self.rejected += 1
             self.error = str(e)
         reply = {"type": "status", "robot_id": self.robot_id, "seq": seq, "state": self.state,
-                 "motors": self.last_motors, "error": self.error, "manual_control": True}
+                 "motors": self.last_motors, "error": self.error or getattr(self.motors,"fault",None), "manual_control": True,
+                 "mixed_drive": self.motors.telemetry() if hasattr(self.motors,"telemetry") else None}
         try:
             self.sock.sendto(json.dumps(reply).encode(), addr)
         except OSError:
@@ -239,6 +242,9 @@ class DriveServer:
             self.motors.stop()
         else:
             self.motors.set_motor_speed_counts(tuple(motors))
+        motors = list(getattr(self.motors,"last_values",motors))
+        if getattr(self.motors,"fault",None):
+            self.state = "stopped (motor fault)"
         if motors != self.last_motors:
             self.log(f"M1..M4 counts/10ms: {motors}   ({self.state})")
         self.last_motors = motors
@@ -317,10 +323,25 @@ def main(argv=None, *, before_motor_tick=None):
 
     hw = load_hiwonder_json(args.hiwonder_config)
     with open(args.hiwonder_config) as f:
-        disabled_channels = json.load(f).get("disabled_channels", [])
+        drive_config = json.load(f)
+        disabled_channels = drive_config.get("disabled_channels", [])
+    mixed_config = drive_config.get('tb6612')
+    mixed_profile = None
+    if mixed_config:
+        path = mixed_config['calibration']
+        if not os.path.isabs(path):
+            path = os.path.join(os.path.dirname(os.path.abspath(args.hiwonder_config)),path)
+        with open(path) as saved:
+            mixed_profile = json.load(saved)['tb6612_calibration']
+        if disabled_channels:
+            ap.error('Mixed four-wheel config must not disable logical channels')
+        if mixed_config.get('logical_channel') != 1:
+            ap.error('Mixed driver only replaces logical M1')
     if hw.get("wheel_channels") is None or hw.get("motor_signs") is None:
         ap.error(f"{args.hiwonder_config} needs wheel_channels and motor_signs")
     cap = min(args.max_counts, int(hw.get("max_speed_counts", args.max_counts)))
+    if mixed_profile:
+        cap = min(cap, math.floor(mixed_profile['maximum_count_rate'] / mixed_profile['reference_counts_per_command'] + 1e-9))
     params = DriveParams(hw["wheel_channels"], hw["motor_signs"], args.counts_per_meter, args.turn_radius,
                          cap, args.accel, disabled_channels=disabled_channels)
     cap = params.max_counts
@@ -338,9 +359,20 @@ def main(argv=None, *, before_motor_tick=None):
     try:
         if args.hardware:
             from capstone_base.hiwonder_i2c import HiwonderConfig, HiwonderController
-            with HiwonderController(HiwonderConfig(**hw)) as board:
+            with ExitStack() as stack:
+                board = stack.enter_context(HiwonderController(HiwonderConfig(**hw)))
                 board.initialize()
-                DriveServer(board, params, args.robot_id, args.port, timeout_s=args.timeout,
+                backend = board
+                if mixed_config:
+                    try:
+                        from .mixed_motors import MixedMotors, TB6612Motor
+                    except ImportError:
+                        from mixed_motors import MixedMotors, TB6612Motor
+                    tb = TB6612Motor(mixed_profile,mixed_config['pins'])
+                    stack.callback(tb.close)
+                    backend = MixedMotors(board,tb,mixed_profile,direction=mixed_config.get('direction',1))
+                    stack.callback(backend.stop)
+                DriveServer(backend, params, args.robot_id, args.port, timeout_s=args.timeout,
                             allow_from=args.allow_from, before_motor_tick=before_motor_tick,
                             require_compensated_pose=args.require_compensated_pose).run()
         else:

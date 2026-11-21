@@ -1,5 +1,9 @@
 # Capstone Vision
 
+Current hardware, deployment, and multi-agent handoff: **[docs/HANDOFF.md](docs/HANDOFF.md)**.
+Robot 1 now uses a [calibrated mixed four-wheel backend](docs/FOUR_WHEEL_DRIVE.md); older dated
+notes describing three-wheel operation are historical. Read [AGENTS.md](AGENTS.md) before changing hardware code.
+
 Vision for the speaker-robot system. A birds-eye camera finds both robots and the listener. All
 processing happens on the controller laptop, which turns that into floor positions (meters) and
 headings for the location planner.

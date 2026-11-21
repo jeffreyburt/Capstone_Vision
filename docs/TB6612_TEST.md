@@ -1,7 +1,7 @@
 # Robot 1 TB6612FNG motor/encoder test
 
 The unloaded front-right motor was moved off the Hiwonder M1 port to TB6612FNG channel A.
-It is **not integrated into chassis navigation**; the existing three-wheel drive server still disables M1.
+It is now integrated through the [mixed four-wheel driver](FOUR_WHEEL_DRIVE.md). Physical Hiwonder M1 remains zero; logical M1 routes to TB6612. Stop the drive service before using the standalone raw PWM script.
 
 User confirmed wiring the following control signals. GPIO numbers are **BCM**, not header positions.
 

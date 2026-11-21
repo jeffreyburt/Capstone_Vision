@@ -1,3 +1,5 @@
+> Current state (2026-11-21): see [HANDOFF.md](HANDOFF.md) and [FOUR_WHEEL_DRIVE.md](FOUR_WHEEL_DRIVE.md). Older three-wheel notes below are historical.
+
 # System status: read this first
 
 **As of 2026-11-20.** Where the integrated speaker-robot system stands, what is verified on hardware, what is
