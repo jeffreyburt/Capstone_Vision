@@ -1,5 +1,6 @@
 """One bounded, exclusive motor test; newline or SSH stdin loss stops the test."""
 import argparse
+from collections import deque
 from contextlib import ExitStack
 import fcntl
 import json
@@ -43,8 +44,13 @@ def main():
     ap.add_argument('request')
     args = ap.parse_args()
     data = json.loads(args.request)
+    calibration_path = os.path.join(os.path.dirname(__file__), 'motor_speed.json')
+    if os.path.exists(calibration_path):
+        with open(calibration_path) as saved:
+            data = {**json.load(saved), **data}
     rid, channel, speed, duration = request(data)
     scale = tb6612_scale(data)
+    profile = None if data.get("tb6612_open_loop") is True else data.get("tb6612_calibration")
     service = f'capstone-drive-{rid}.service'
     with open('/tmp/capstone-motor-diagnostic.lock', 'a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -64,18 +70,46 @@ def main():
                 board = stack.enter_context(HiwonderController(HiwonderConfig(**{k:v for k,v in hw.items() if k in fields})))
                 board.stop()
                 if channel == 'TB6612':
-                    from gpiozero import DigitalOutputDevice, PWMOutputDevice, DigitalInputDevice
+                    from gpiozero import DigitalOutputDevice, DigitalInputDevice
                     from gpiozero.pins.lgpio import LGPIOFactory
                     factory = stack.enter_context(LGPIOFactory())
                     def output(cls, pin, **kw):
                         return stack.enter_context(cls(pin, pin_factory=factory, **kw))
-                    pwm = output(PWMOutputDevice, 18, initial_value=0, frequency=1000)
+                    try:
+                        from .motor_speed import PrecisionPWM
+                    except ImportError:
+                        from motor_speed import PrecisionPWM
+                    pwm = stack.enter_context(PrecisionPWM())
                     standby = output(DigitalOutputDevice, 25, initial_value=False)
                     a1 = output(DigitalOutputDevice, 23, initial_value=False)
                     a2 = output(DigitalOutputDevice, 24, initial_value=False)
                     a = output(DigitalInputDevice, 22, pull_up=True)
                     b = output(DigitalInputDevice, 27, pull_up=True)
                     edges = [0, 0]
+                    matcher = None
+                    if profile:
+                        try:
+                            from .motor_speed import SpeedMatch
+                        except ImportError:
+                            from motor_speed import SpeedMatch
+                        equivalent = round(speed / 100 * board.config.max_speed_counts)
+                        equivalent = equivalent or (1 if speed > 0 else -1)
+                        matcher = SpeedMatch(profile, equivalent, scale)
+                    history = deque()
+                    measured_rate = None
+                    def regulate(elapsed, dt):
+                        nonlocal measured_rate
+                        if matcher and elapsed < .2:
+                            return
+                        history.append((elapsed, sum(edges)))
+                        while len(history)>2 and elapsed-history[1][0]>=.3:
+                            history.popleft()
+                        if matcher and elapsed<.5:
+                            pwm.value=matcher.feedforward
+                        if matcher and elapsed>=.5:
+                            first=history[0]
+                            measured_rate=(sum(edges)-first[1])/(elapsed-first[0])
+                            pwm.value=matcher.update(measured_rate, dt)
                     def ea(): edges[0] += 1
                     def eb(): edges[1] += 1
                     a.when_activated = a.when_deactivated = ea
@@ -85,12 +119,20 @@ def main():
                     def read():
                         return dict(counts=edges.copy(), levels=[int(a.pin.state), int(b.pin.state)],
                                     labels=['C1 edges', 'C2 edges'], units='edges', command=speed, tb6612_scale=scale,
-                                    applied_duty_percent=abs(speed) * scale)
+                                    applied_duty_percent=(pwm.value*100 if matcher else abs(speed)*scale),
+                                    target_count_rate=matcher.target if matcher else None,
+                                    measured_count_rate=measured_rate, speed_matched=matcher is not None)
                     stack.callback(stop)
                     def drive():
                         a1.value = speed > 0; a2.value = speed < 0
-                        standby.on(); pwm.value = abs(speed) / 100 * scale
+                        standby.on()
+                        if matcher:
+                            # Breakaway burst, then use the running-speed curve, not stall data.
+                            pwm.value = max(matcher.duty, min(.08, matcher.maximum))
+                        else:
+                            pwm.value = abs(speed) / 100 * scale
                 else:
+                    def regulate(elapsed, dt): pass
                     board.initialize()
                     baseline = board.read_encoder_counts()
                     command = round(speed / 100 * board.config.max_speed_counts)
@@ -117,6 +159,7 @@ def main():
                         if select.select([sys.stdin], [], [], .1)[0]:
                             break  # stop message or connection EOF
                         elapsed = time.monotonic() - start
+                        regulate(elapsed, elapsed-previous_t)
                         sample = read()
                         rates = [(v-p)/(elapsed-previous_t) for v,p in zip(sample['counts'], previous)]
                         emit(state='running', elapsed=round(elapsed,3), rates=rates, **sample)

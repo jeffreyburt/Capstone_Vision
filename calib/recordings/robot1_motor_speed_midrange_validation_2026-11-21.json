@@ -1,0 +1,6290 @@
+[
+  {
+    "robot_id": 1,
+    "channel": "TB6612",
+    "speed": 20,
+    "seconds": 5,
+    "tb6612_scale": 1.0,
+    "tb6612_calibration": {
+      "reference_counts_per_command": 103.71847765424495,
+      "count_convention": "sum of both GPIO phases, both edges (x4 magnitude)",
+      "encoder_resolution_assumption": "same encoder resolution and gearbox ratio on all four motors",
+      "calibration": "lifted-wheel measurements 2026-11-21",
+      "positive": [
+        [
+          0.0,
+          0.02
+        ],
+        [
+          209.9547511312217,
+          0.03
+        ],
+        [
+          310.40723981900453,
+          0.04
+        ],
+        [
+          396.38009049773757,
+          0.05
+        ],
+        [
+          471.9457013574661,
+          0.06
+        ],
+        [
+          656.2641338760741,
+          0.08
+        ],
+        [
+          732.3688969258591,
+          0.1
+        ]
+      ],
+      "negative": [
+        [
+          0.0,
+          0.02
+        ],
+        [
+          37.087290818634095,
+          0.03
+        ],
+        [
+          271.9457013574661,
+          0.04
+        ],
+        [
+          387.33235958040103,
+          0.055
+        ],
+        [
+          608.1447963800905,
+          0.08
+        ],
+        [
+          782.3529411764706,
+          0.1
+        ]
+      ],
+      "minimum_count_rate": 207.4369553084899,
+      "maximum_count_rate": 518.5923882712248
+    },
+    "state": "finished",
+    "samples": [
+      {
+        "state": "running",
+        "elapsed": 0,
+        "rates": [
+          0,
+          0
+        ],
+        "counts": [
+          0,
+          0
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 0,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": null,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.102,
+        "rates": [
+          88.64675149094268,
+          98.49639054549186
+        ],
+        "counts": [
+          9,
+          10
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 8.0,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": null,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.202,
+        "rates": [
+          238.1408888534231,
+          228.2183518178638
+        ],
+        "counts": [
+          33,
+          33
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 2.9880079121374195,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": null,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.303,
+        "rates": [
+          159.1826971352812,
+          169.13161570623626
+        ],
+        "counts": [
+          49,
+          50
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 2.9880079121374195,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": null,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.403,
+        "rates": [
+          89.55567311003006,
+          89.55567311003006
+        ],
+        "counts": [
+          58,
+          59
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 2.9880079121374195,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": null,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.504,
+        "rates": [
+          69.6591057511939,
+          69.6591057511939
+        ],
+        "counts": [
+          65,
+          66
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 2.9651489591215827,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 215.58946813995345,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.604,
+        "rates": [
+          69.62038787309024,
+          59.674618176934494
+        ],
+        "counts": [
+          72,
+          72
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.144663539547468,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 149.23849515709483,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.705,
+        "rates": [
+          59.68837653625845,
+          69.63643929230152
+        ],
+        "counts": [
+          78,
+          79
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.237996391806328,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 132.6450298724651,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.806,
+        "rates": [
+          79.47114496105982,
+          69.53725184092734
+        ],
+        "counts": [
+          86,
+          86
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.2891478949396693,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 135.88180790893287,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.906,
+        "rates": [
+          69.65022492839199,
+          79.60025706101942
+        ],
+        "counts": [
+          93,
+          94
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.328036339237115,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 142.53053484681274,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.007,
+        "rates": [
+          79.60392905890563,
+          69.65343792654242
+        ],
+        "counts": [
+          101,
+          101
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.361597314318212,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 149.17199201836803,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.107,
+        "rates": [
+          79.60355756655456,
+          89.55400226237387
+        ],
+        "counts": [
+          109,
+          110
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.3896087538696116,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 155.88838817277318,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.208,
+        "rates": [
+          89.5533526536021,
+          89.5533526536021
+        ],
+        "counts": [
+          118,
+          119
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.403147378552631,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 165.840601914063,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.308,
+        "rates": [
+          89.55418850316643,
+          79.60372311392571
+        ],
+        "counts": [
+          127,
+          127
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.4179899698384144,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 172.47407725397272,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.409,
+        "rates": [
+          79.59765851155636,
+          89.5473658255009
+        ],
+        "counts": [
+          135,
+          136
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.4461136004673056,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 172.46981662956875,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.509,
+        "rates": [
+          89.51786216544893,
+          89.51786216544893
+        ],
+        "counts": [
+          144,
+          145
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.474301883992371,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 172.447027465157,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.61,
+        "rates": [
+          99.47176414887902,
+          89.52458773399111
+        ],
+        "counts": [
+          154,
+          154
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.483898412269524,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 179.05987358956878,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.71,
+        "rates": [
+          89.5566016828517,
+          89.5566016828517
+        ],
+        "counts": [
+          163,
+          163
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.497397178326146,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 182.3820655636979,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.811,
+        "rates": [
+          89.54128714916988,
+          99.49031905463319
+        ],
+        "counts": [
+          172,
+          173
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.5081998581210487,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 185.71430082720516,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.911,
+        "rates": [
+          119.13866438958104,
+          119.13866438958104
+        ],
+        "counts": [
+          184,
+          185
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.479540185334588,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 202.1672561858922,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.012,
+        "rates": [
+          119.15591735489119,
+          119.15591735489119
+        ],
+        "counts": [
+          196,
+          197
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.428434332330977,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 221.89571096328422,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.113,
+        "rates": [
+          119.16207966307097,
+          119.16207966307097
+        ],
+        "counts": [
+          208,
+          209
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.370749246054714,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 238.3044392897684,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.213,
+        "rates": [
+          119.1154439485477,
+          109.1891569528354
+        ],
+        "counts": [
+          220,
+          220
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.355201786879432,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 234.97938466283264,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.314,
+        "rates": [
+          118.82891607799779,
+          118.82891607799779
+        ],
+        "counts": [
+          232,
+          232
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.333555304018581,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 234.76405891340616,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.415,
+        "rates": [
+          109.22879880439339,
+          109.22879880439339
+        ],
+        "counts": [
+          243,
+          243
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.3300992870170716,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 228.14882552605147,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.516,
+        "rates": [
+          109.22806559926737,
+          109.22806559926737
+        ],
+        "counts": [
+          254,
+          254
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.322614737185566,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 224.86900314090983,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.617,
+        "rates": [
+          109.22168192582829,
+          109.22168192582829
+        ],
+        "counts": [
+          265,
+          265
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.326572891428345,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 218.45236403260478,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.717,
+        "rates": [
+          99.2085016764218,
+          109.12935184406399
+        ],
+        "counts": [
+          275,
+          276
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.327162400882042,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 215.077149745266,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.818,
+        "rates": [
+          89.32388340901049,
+          89.32388340901049
+        ],
+        "counts": [
+          284,
+          285
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.3582376546843866,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 201.80810534397045,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.919,
+        "rates": [
+          89.54648466476183,
+          79.59687525756608
+        ],
+        "counts": [
+          293,
+          293
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.408792638414167,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 185.39289511786728,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.019,
+        "rates": [
+          69.65231861079305,
+          79.60264984090634
+        ],
+        "counts": [
+          300,
+          301
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.481753756508205,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 165.69319045265945,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.12,
+        "rates": [
+          89.54769103056356,
+          79.59794758272315
+        ],
+        "counts": [
+          309,
+          309
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.524229373682393,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 162.5149465244911,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.22,
+        "rates": [
+          79.60186648868246,
+          79.60186648868246
+        ],
+        "counts": [
+          317,
+          317
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.5696372334217528,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 159.2016425018905,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.321,
+        "rates": [
+          79.57976077002799,
+          79.57976077002799
+        ],
+        "counts": [
+          325,
+          325
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.599172172208729,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 162.50276383210934,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.421,
+        "rates": [
+          89.57150336355573,
+          89.57150336355573
+        ],
+        "counts": [
+          334,
+          334
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.6259517267110546,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 165.83384137642207,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.522,
+        "rates": [
+          79.5769981214723,
+          89.52412288665633
+        ],
+        "counts": [
+          342,
+          343
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.6501597414125397,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 169.13290015924656,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.622,
+        "rates": [
+          89.55571944921256,
+          79.60508395485562
+        ],
+        "counts": [
+          351,
+          351
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.6716048287516845,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 172.46752222628805,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.723,
+        "rates": [
+          89.55418850296381,
+          99.50465389218202
+        ],
+        "counts": [
+          360,
+          361
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.6904514762436813,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 175.77287973633136,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.823,
+        "rates": [
+          89.55497713875845,
+          89.55497713875845
+        ],
+        "counts": [
+          369,
+          370
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.7065516262204308,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 179.10992338523002,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.924,
+        "rates": [
+          89.55042908544277,
+          89.55042908544277
+        ],
+        "counts": [
+          378,
+          379
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.7200365905138137,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 182.4231815152927,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.024,
+        "rates": [
+          89.53089481887937,
+          89.53089481887937
+        ],
+        "counts": [
+          387,
+          388
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.7494969135164826,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 179.09086492430882,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.125,
+        "rates": [
+          99.49521797614634,
+          89.5456961785317
+        ],
+        "counts": [
+          397,
+          397
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.7630068498521503,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 182.40106144420437,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.225,
+        "rates": [
+          89.61303032405651,
+          89.61303032405651
+        ],
+        "counts": [
+          406,
+          406
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.7830029640917266,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 182.44354098031062,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.326,
+        "rates": [
+          99.59663363387274,
+          99.59663363387274
+        ],
+        "counts": [
+          416,
+          416
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.784271873881805,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 189.1524921706741,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.426,
+        "rates": [
+          99.51125445423051,
+          99.51125445423051
+        ],
+        "counts": [
+          426,
+          426
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.78963753830296,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 192.48130265671446,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.527,
+        "rates": [
+          89.55739036094656,
+          99.50821151216284
+        ],
+        "counts": [
+          435,
+          436
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.792469530279541,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 195.7594098936348,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.627,
+        "rates": [
+          99.4810412313734,
+          89.53293710823606
+        ],
+        "counts": [
+          445,
+          445
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.811373234382804,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 192.36698994258134,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.728,
+        "rates": [
+          89.01306761275985,
+          89.01306761275985
+        ],
+        "counts": [
+          454,
+          454
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.843261543541236,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 185.35396823887373,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.829,
+        "rates": [
+          99.50016688167405,
+          99.50016688167405
+        ],
+        "counts": [
+          464,
+          464
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.85174990560268,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 188.6587869516918,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.929,
+        "rates": [
+          99.50547866727416,
+          99.50547866727416
+        ],
+        "counts": [
+          474,
+          474
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.8575225051344355,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 191.9842770967597,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 5.03,
+        "rates": [
+          99.5029519093291,
+          109.453247100262
+        ],
+        "counts": [
+          484,
+          485
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.840958079768922,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 202.3224937366611,
+        "speed_matched": true
+      },
+      {
+        "state": "finished",
+        "elapsed": 5.03,
+        "rates": [
+          0,
+          0
+        ],
+        "counts": [
+          484,
+          485
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 0,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 202.3224937366611,
+        "speed_matched": true
+      }
+    ],
+    "received_at": 1795280905.705214,
+    "elapsed": 5.03,
+    "rates": [
+      0,
+      0
+    ],
+    "counts": [
+      484,
+      485
+    ],
+    "levels": [
+      0,
+      0
+    ],
+    "labels": [
+      "C1 edges",
+      "C2 edges"
+    ],
+    "units": "edges",
+    "command": 20,
+    "applied_duty_percent": 0,
+    "target_count_rate": 207.4369553084899,
+    "measured_count_rate": 202.3224937366611,
+    "speed_matched": true,
+    "settings": {
+      "tb6612_scale": 1.0,
+      "tb6612_calibration": {
+        "reference_counts_per_command": 103.71847765424495,
+        "count_convention": "sum of both GPIO phases, both edges (x4 magnitude)",
+        "encoder_resolution_assumption": "same encoder resolution and gearbox ratio on all four motors",
+        "calibration": "lifted-wheel measurements 2026-11-21",
+        "positive": [
+          [
+            0.0,
+            0.02
+          ],
+          [
+            209.9547511312217,
+            0.03
+          ],
+          [
+            310.40723981900453,
+            0.04
+          ],
+          [
+            396.38009049773757,
+            0.05
+          ],
+          [
+            471.9457013574661,
+            0.06
+          ],
+          [
+            656.2641338760741,
+            0.08
+          ],
+          [
+            732.3688969258591,
+            0.1
+          ]
+        ],
+        "negative": [
+          [
+            0.0,
+            0.02
+          ],
+          [
+            37.087290818634095,
+            0.03
+          ],
+          [
+            271.9457013574661,
+            0.04
+          ],
+          [
+            387.33235958040103,
+            0.055
+          ],
+          [
+            608.1447963800905,
+            0.08
+          ],
+          [
+            782.3529411764706,
+            0.1
+          ]
+        ],
+        "minimum_count_rate": 207.4369553084899,
+        "maximum_count_rate": 518.5923882712248
+      }
+    },
+    "running": false,
+    "sample_age_s": 0.4887399673461914,
+    "validation_count_rate": 188.68371212121212
+  },
+  {
+    "robot_id": 1,
+    "channel": "TB6612",
+    "speed": 40,
+    "seconds": 5,
+    "tb6612_scale": 1.0,
+    "tb6612_calibration": {
+      "reference_counts_per_command": 103.71847765424495,
+      "count_convention": "sum of both GPIO phases, both edges (x4 magnitude)",
+      "encoder_resolution_assumption": "same encoder resolution and gearbox ratio on all four motors",
+      "calibration": "lifted-wheel measurements 2026-11-21",
+      "positive": [
+        [
+          0.0,
+          0.02
+        ],
+        [
+          209.9547511312217,
+          0.03
+        ],
+        [
+          310.40723981900453,
+          0.04
+        ],
+        [
+          396.38009049773757,
+          0.05
+        ],
+        [
+          471.9457013574661,
+          0.06
+        ],
+        [
+          656.2641338760741,
+          0.08
+        ],
+        [
+          732.3688969258591,
+          0.1
+        ]
+      ],
+      "negative": [
+        [
+          0.0,
+          0.02
+        ],
+        [
+          37.087290818634095,
+          0.03
+        ],
+        [
+          271.9457013574661,
+          0.04
+        ],
+        [
+          387.33235958040103,
+          0.055
+        ],
+        [
+          608.1447963800905,
+          0.08
+        ],
+        [
+          782.3529411764706,
+          0.1
+        ]
+      ],
+      "minimum_count_rate": 207.4369553084899,
+      "maximum_count_rate": 518.5923882712248
+    },
+    "state": "finished",
+    "samples": [
+      {
+        "state": "running",
+        "elapsed": 0,
+        "rates": [
+          0,
+          0
+        ],
+        "counts": [
+          0,
+          0
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 0,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": null,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.101,
+        "rates": [
+          128.8075244125635,
+          128.8075244125635
+        ],
+        "counts": [
+          13,
+          13
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 8.0,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": null,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.201,
+        "rates": [
+          258.67402659282874,
+          258.67402659282874
+        ],
+        "counts": [
+          39,
+          39
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.2447385776259,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": null,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.302,
+        "rates": [
+          228.86176971970264,
+          228.86176971970264
+        ],
+        "counts": [
+          62,
+          62
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.2447385776259,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": null,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.402,
+        "rates": [
+          179.15071275682536,
+          179.15071275682536
+        ],
+        "counts": [
+          80,
+          80
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.2447385776259,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": null,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.503,
+        "rates": [
+          169.14599035186828,
+          179.09575449021347
+        ],
+        "counts": [
+          97,
+          98
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.319841135592126,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 388.09020551130374,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.604,
+        "rates": [
+          188.25025156201295,
+          188.25025156201295
+        ],
+        "counts": [
+          116,
+          117
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.417418483231167,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 361.0366133591213,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.705,
+        "rates": [
+          207.86430443953702,
+          197.96600422813052
+        ],
+        "counts": [
+          137,
+          137
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.416363105576226,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 376.90707291955846,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.806,
+        "rates": [
+          198.5821019484362,
+          198.5821019484362
+        ],
+        "counts": [
+          157,
+          157
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.401334854446475,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 393.16625767368015,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.906,
+        "rates": [
+          188.63953544279775,
+          198.56793204505024
+        ],
+        "counts": [
+          176,
+          177
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.408790163702478,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 396.74319331479467,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.007,
+        "rates": [
+          198.60182330406516,
+          198.60182330406516
+        ],
+        "counts": [
+          196,
+          197
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.431491164048487,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 393.8581703954728,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.108,
+        "rates": [
+          198.56382557672939,
+          198.56382557672939
+        ],
+        "counts": [
+          216,
+          217
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.448459262730544,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 393.8460867165934,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.208,
+        "rates": [
+          198.659359233835,
+          198.659359233835
+        ],
+        "counts": [
+          236,
+          237
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.4559392534645585,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 397.21665654588645,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.309,
+        "rates": [
+          208.5383857348272,
+          198.60798641412114
+        ],
+        "counts": [
+          257,
+          257
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.460865489398092,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 400.53093851566064,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.41,
+        "rates": [
+          188.70950064447544,
+          188.70950064447544
+        ],
+        "counts": [
+          276,
+          276
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.490847280502549,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 393.96200717794613,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.51,
+        "rates": [
+          178.90421348163176,
+          178.90421348163176
+        ],
+        "counts": [
+          294,
+          294
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.544602480650774,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 380.79818339001173,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.611,
+        "rates": [
+          179.10781917562701,
+          179.10781917562701
+        ],
+        "counts": [
+          312,
+          312
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.617736693976941,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 364.4864556983267,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.711,
+        "rates": [
+          169.134067401776,
+          179.08313019011578
+        ],
+        "counts": [
+          329,
+          330
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.685560744296763,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 354.7479485324796,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.812,
+        "rates": [
+          179.10735580470615,
+          179.10735580470615
+        ],
+        "counts": [
+          347,
+          348
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.733524766729475,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 354.8822124377945,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.912,
+        "rates": [
+          189.02807999189426,
+          189.02807999189426
+        ],
+        "counts": [
+          366,
+          367
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.763218265043785,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 361.4962911209792,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.013,
+        "rates": [
+          179.10958357158827,
+          179.10958357158827
+        ],
+        "counts": [
+          384,
+          385
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.796782950168362,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 364.83073261905173,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.114,
+        "rates": [
+          188.72961378727462,
+          188.72961378727462
+        ],
+        "counts": [
+          403,
+          404
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.819081653110744,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 371.24886131420925,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.214,
+        "rates": [
+          189.04404773075464,
+          179.09436100808333
+        ],
+        "counts": [
+          422,
+          422
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.863423769966137,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 367.9444940283387,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.315,
+        "rates": [
+          189.05090584704587,
+          189.05090584704587
+        ],
+        "counts": [
+          441,
+          441
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.88258323729524,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 374.56804556108796,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.415,
+        "rates": [
+          188.92930175046703,
+          198.87294921101795
+        ],
+        "counts": [
+          460,
+          461
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.90534037650196,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 378.0161372902028,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.516,
+        "rates": [
+          188.25734505586138,
+          178.34906373713184
+        ],
+        "counts": [
+          479,
+          479
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.936575472562456,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 377.4904097816921,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.617,
+        "rates": [
+          188.8913456914831,
+          198.83299546471906
+        ],
+        "counts": [
+          498,
+          499
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.957670720659202,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 380.69470911778825,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.717,
+        "rates": [
+          168.78684455486018,
+          168.78684455486018
+        ],
+        "counts": [
+          515,
+          516
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.032165169826073,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 363.95959103566355,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.818,
+        "rates": [
+          159.0330456853398,
+          159.0330456853398
+        ],
+        "counts": [
+          531,
+          532
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.118521617636653,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 347.7815041039713,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.918,
+        "rates": [
+          199.08710400227764,
+          199.08710400227764
+        ],
+        "counts": [
+          551,
+          552
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.162736572188098,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 351.2430717635541,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.019,
+        "rates": [
+          208.98230008502617,
+          208.98230008502617
+        ],
+        "counts": [
+          572,
+          573
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.1387468401654255,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 378.04231919136777,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.119,
+        "rates": [
+          209.05869025047087,
+          199.10351452425797
+        ],
+        "counts": [
+          593,
+          593
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.084071455980021,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 408.1012666861286,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.22,
+        "rates": [
+          199.0071414310034,
+          208.95749850255356
+        ],
+        "counts": [
+          613,
+          614
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.080367729222144,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 411.3640704522344,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.32,
+        "rates": [
+          209.01859291042913,
+          199.0653265813611
+        ],
+        "counts": [
+          634,
+          634
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.092423886925796,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 408.07023856212555,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.421,
+        "rates": [
+          208.9204682459555,
+          208.9204682459555
+        ],
+        "counts": [
+          655,
+          655
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.088846122469023,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 411.2971983272093,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.522,
+        "rates": [
+          208.1901550977968,
+          208.1901550977968
+        ],
+        "counts": [
+          676,
+          676
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.0838500843002485,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 414.1053244691798,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.622,
+        "rates": [
+          208.94731922668848,
+          208.94731922668848
+        ],
+        "counts": [
+          697,
+          697
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.075311611192415,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 417.3707811117801,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.723,
+        "rates": [
+          199.01745480589952,
+          208.9683275461945
+        ],
+        "counts": [
+          717,
+          718
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.082503702106538,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 414.08989155434466,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.823,
+        "rates": [
+          208.9232846037951,
+          198.97455676551914
+        ],
+        "counts": [
+          738,
+          738
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.091071191748343,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 411.25940152263735,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.924,
+        "rates": [
+          199.0037375389553,
+          199.0037375389553
+        ],
+        "counts": [
+          758,
+          758
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.112564891417158,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 404.6304489050716,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.024,
+        "rates": [
+          198.9878562288456,
+          198.9878562288456
+        ],
+        "counts": [
+          778,
+          778
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.130157226610767,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 401.29391086091505,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.125,
+        "rates": [
+          198.96383415462466,
+          198.96383415462466
+        ],
+        "counts": [
+          798,
+          798
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.150397810316488,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 397.9702825772222,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.225,
+        "rates": [
+          198.97981259268207,
+          208.92880322231616
+        ],
+        "counts": [
+          818,
+          819
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.154735562981402,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 401.27062043484324,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.326,
+        "rates": [
+          218.86282596286736,
+          208.91451569182792
+        ],
+        "counts": [
+          840,
+          840
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.137818404510497,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 411.20456431209465,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.426,
+        "rates": [
+          199.02828618883572,
+          208.97970049827748
+        ],
+        "counts": [
+          860,
+          861
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.131344517825947,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 414.5654815979482,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.527,
+        "rates": [
+          208.9716858589434,
+          208.9716858589434
+        ],
+        "counts": [
+          881,
+          882
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.122212993869894,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 417.910593302188,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.627,
+        "rates": [
+          208.99031553809323,
+          199.03839575056497
+        ],
+        "counts": [
+          902,
+          902
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.138231893523786,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 411.3268303247843,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.728,
+        "rates": [
+          208.96811128694895,
+          218.91897372918461
+        ],
+        "counts": [
+          923,
+          924
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.122502976235536,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 417.9534075490887,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.828,
+        "rates": [
+          208.95652336188093,
+          208.95652336188093
+        ],
+        "counts": [
+          944,
+          945
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.120055422542613,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 417.9432982432577,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.929,
+        "rates": [
+          208.9385482975616,
+          208.9385482975616
+        ],
+        "counts": [
+          965,
+          966
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.1083838673602315,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 421.22552362148554,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 5.029,
+        "rates": [
+          208.97710097572906,
+          199.0258104530753
+        ],
+        "counts": [
+          986,
+          986
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.121860736361566,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 414.5979954188512,
+        "speed_matched": true
+      },
+      {
+        "state": "finished",
+        "elapsed": 5.03,
+        "rates": [
+          0,
+          0
+        ],
+        "counts": [
+          986,
+          986
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": 40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 0,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 414.5979954188512,
+        "speed_matched": true
+      }
+    ],
+    "received_at": 1795280913.029249,
+    "elapsed": 5.03,
+    "rates": [
+      0,
+      0
+    ],
+    "counts": [
+      986,
+      986
+    ],
+    "levels": [
+      1,
+      1
+    ],
+    "labels": [
+      "C1 edges",
+      "C2 edges"
+    ],
+    "units": "edges",
+    "command": 40,
+    "applied_duty_percent": 0,
+    "target_count_rate": 414.8739106169798,
+    "measured_count_rate": 414.5979954188512,
+    "speed_matched": true,
+    "settings": {
+      "tb6612_scale": 1.0,
+      "tb6612_calibration": {
+        "reference_counts_per_command": 103.71847765424495,
+        "count_convention": "sum of both GPIO phases, both edges (x4 magnitude)",
+        "encoder_resolution_assumption": "same encoder resolution and gearbox ratio on all four motors",
+        "calibration": "lifted-wheel measurements 2026-11-21",
+        "positive": [
+          [
+            0.0,
+            0.02
+          ],
+          [
+            209.9547511312217,
+            0.03
+          ],
+          [
+            310.40723981900453,
+            0.04
+          ],
+          [
+            396.38009049773757,
+            0.05
+          ],
+          [
+            471.9457013574661,
+            0.06
+          ],
+          [
+            656.2641338760741,
+            0.08
+          ],
+          [
+            732.3688969258591,
+            0.1
+          ]
+        ],
+        "negative": [
+          [
+            0.0,
+            0.02
+          ],
+          [
+            37.087290818634095,
+            0.03
+          ],
+          [
+            271.9457013574661,
+            0.04
+          ],
+          [
+            387.33235958040103,
+            0.055
+          ],
+          [
+            608.1447963800905,
+            0.08
+          ],
+          [
+            782.3529411764706,
+            0.1
+          ]
+        ],
+        "minimum_count_rate": 207.4369553084899,
+        "maximum_count_rate": 518.5923882712248
+      }
+    },
+    "running": false,
+    "sample_age_s": 0.6247351169586182,
+    "validation_count_rate": 392.6118872839214
+  },
+  {
+    "robot_id": 1,
+    "channel": "TB6612",
+    "speed": -20,
+    "seconds": 5,
+    "tb6612_scale": 1.0,
+    "tb6612_calibration": {
+      "reference_counts_per_command": 103.71847765424495,
+      "count_convention": "sum of both GPIO phases, both edges (x4 magnitude)",
+      "encoder_resolution_assumption": "same encoder resolution and gearbox ratio on all four motors",
+      "calibration": "lifted-wheel measurements 2026-11-21",
+      "positive": [
+        [
+          0.0,
+          0.02
+        ],
+        [
+          209.9547511312217,
+          0.03
+        ],
+        [
+          310.40723981900453,
+          0.04
+        ],
+        [
+          396.38009049773757,
+          0.05
+        ],
+        [
+          471.9457013574661,
+          0.06
+        ],
+        [
+          656.2641338760741,
+          0.08
+        ],
+        [
+          732.3688969258591,
+          0.1
+        ]
+      ],
+      "negative": [
+        [
+          0.0,
+          0.02
+        ],
+        [
+          37.087290818634095,
+          0.03
+        ],
+        [
+          271.9457013574661,
+          0.04
+        ],
+        [
+          387.33235958040103,
+          0.055
+        ],
+        [
+          608.1447963800905,
+          0.08
+        ],
+        [
+          782.3529411764706,
+          0.1
+        ]
+      ],
+      "minimum_count_rate": 207.4369553084899,
+      "maximum_count_rate": 518.5923882712248
+    },
+    "state": "finished",
+    "samples": [
+      {
+        "state": "running",
+        "elapsed": 0,
+        "rates": [
+          0,
+          0
+        ],
+        "counts": [
+          0,
+          0
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 0,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": null,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.101,
+        "rates": [
+          138.94854992227235,
+          138.94854992227235
+        ],
+        "counts": [
+          14,
+          14
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 8.0,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": null,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.201,
+        "rates": [
+          278.18369415164716,
+          278.18369415164716
+        ],
+        "counts": [
+          42,
+          42
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.725329206218441,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": null,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.302,
+        "rates": [
+          208.9352991450689,
+          218.88459910435793
+        ],
+        "counts": [
+          63,
+          64
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.725329206218441,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": null,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.402,
+        "rates": [
+          149.2671921251398,
+          149.2671921251398
+        ],
+        "counts": [
+          78,
+          79
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.725329206218441,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": null,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.503,
+        "rates": [
+          129.23341709340474,
+          119.29238500929668
+        ],
+        "counts": [
+          91,
+          91
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.3957617432116587,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 324.94047670713985,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.604,
+        "rates": [
+          119.3628387793716,
+          119.3628387793716
+        ],
+        "counts": [
+          103,
+          103
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.477981406608815,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 261.92078059453024,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.704,
+        "rates": [
+          109.41514214653938,
+          109.41514214653938
+        ],
+        "counts": [
+          114,
+          114
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.508636322712376,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 235.36313930137374,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.805,
+        "rates": [
+          119.38745520196933,
+          119.38745520196933
+        ],
+        "counts": [
+          126,
+          126
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.4953034522211524,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 232.1098005624635,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.905,
+        "rates": [
+          109.44536264125908,
+          119.39494106319172
+        ],
+        "counts": [
+          137,
+          138
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.4847054753247524,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 228.81445510447213,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.006,
+        "rates": [
+          119.4096684516808,
+          109.45886274737407
+        ],
+        "counts": [
+          149,
+          149
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.4581339024045823,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 232.16152204089062,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.106,
+        "rates": [
+          109.45988334077775,
+          119.410781826303
+        ],
+        "counts": [
+          160,
+          161
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.4475144127830073,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 228.85983252023357,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.207,
+        "rates": [
+          119.39766385941338,
+          119.39766385941338
+        ],
+        "counts": [
+          172,
+          173
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.420984250865537,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 232.1784067369072,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.307,
+        "rates": [
+          109.44825601872807,
+          109.44825601872807
+        ],
+        "counts": [
+          183,
+          184
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.410412551480959,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 228.85417975846622,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.408,
+        "rates": [
+          119.38640283762275,
+          109.43753593448753
+        ],
+        "counts": [
+          195,
+          195
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.393234386315138,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 228.83860441718556,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.508,
+        "rates": [
+          109.4466105754216,
+          109.4466105754216
+        ],
+        "counts": [
+          206,
+          206
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.3946281044460527,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 222.20475685464646,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.609,
+        "rates": [
+          109.4388413967133,
+          109.4388413967133
+        ],
+        "counts": [
+          217,
+          217
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.3827711505542513,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 222.19838545731648,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.709,
+        "rates": [
+          109.43918110519071,
+          119.38819756929897
+        ],
+        "counts": [
+          228,
+          229
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.3708983684663463,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 222.199498914914,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.81,
+        "rates": [
+          109.45716143727718,
+          109.45716143727718
+        ],
+        "counts": [
+          239,
+          240
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.359009744708482,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 222.20663827728006,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.91,
+        "rates": [
+          99.45202926408292,
+          89.50682633767462
+        ],
+        "counts": [
+          249,
+          249
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.375106957422035,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 212.2301785511455,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.011,
+        "rates": [
+          109.53998900687701,
+          109.53998900687701
+        ],
+        "counts": [
+          260,
+          260
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.38037278636871,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 208.97818375570566,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.111,
+        "rates": [
+          109.25552628862353,
+          119.18784686031658
+        ],
+        "counts": [
+          271,
+          272
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.370191591354247,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 212.16476938772345,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.212,
+        "rates": [
+          119.38665107993559,
+          109.43776348994096
+        ],
+        "counts": [
+          283,
+          283
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.329128527733994,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 225.4529003957734,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.312,
+        "rates": [
+          109.45716143727718,
+          109.45716143727718
+        ],
+        "counts": [
+          294,
+          294
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.3148035205949062,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 225.39611403108236,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.413,
+        "rates": [
+          109.45477838535304,
+          109.45477838535304
+        ],
+        "counts": [
+          305,
+          305
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.3092803159761277,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 222.2164644941609,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.513,
+        "rates": [
+          99.50759264826745,
+          109.45835191309419
+        ],
+        "counts": [
+          315,
+          316
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.3159598697580956,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 215.59665615039992,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.614,
+        "rates": [
+          109.45670725511478,
+          99.5060975046498
+        ],
+        "counts": [
+          326,
+          326
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.318700942873777,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 212.2794909059264,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.714,
+        "rates": [
+          99.34062659103482,
+          109.27468925013831
+        ],
+        "counts": [
+          336,
+          337
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.3244278992696183,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 208.8478919960689,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.815,
+        "rates": [
+          109.43044843930937,
+          109.43044843930937
+        ],
+        "counts": [
+          347,
+          348
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.3140478782355363,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 212.1449166034836,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.915,
+        "rates": [
+          109.4470646735493,
+          99.49733152140846
+        ],
+        "counts": [
+          358,
+          358
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.310279939283118,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 212.13869056145342,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.016,
+        "rates": [
+          109.45097747933382,
+          109.45097747933382
+        ],
+        "counts": [
+          369,
+          369
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.2968804637730074,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 215.56920956930034,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.116,
+        "rates": [
+          99.50130245703973,
+          99.50130245703973
+        ],
+        "counts": [
+          379,
+          379
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.3089033177304557,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 208.949665750165,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.217,
+        "rates": [
+          99.48145292669042,
+          109.42959821935946
+        ],
+        "counts": [
+          389,
+          390
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.307718014658536,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 208.9385489904958,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.317,
+        "rates": [
+          99.51011964168784,
+          89.55910767751905
+        ],
+        "counts": [
+          399,
+          399
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.3343912312117827,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 198.9952471277767,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.418,
+        "rates": [
+          99.33744013523487,
+          109.27118414875835
+        ],
+        "counts": [
+          409,
+          410
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.3321973859404124,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 202.20065849065543,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.519,
+        "rates": [
+          99.55377112721997,
+          99.55377112721997
+        ],
+        "counts": [
+          419,
+          420
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.345563430965817,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 198.934045075109,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.619,
+        "rates": [
+          109.44961618760952,
+          99.49965107964502
+        ],
+        "counts": [
+          430,
+          430
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.3338263172253177,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 205.55797397467705,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.72,
+        "rates": [
+          89.58891766776674,
+          89.58891766776674
+        ],
+        "counts": [
+          439,
+          439
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.3628440072034915,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 195.74669114776364,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.82,
+        "rates": [
+          99.34612664402435,
+          99.34612664402435
+        ],
+        "counts": [
+          449,
+          449
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.3726399985635966,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 195.61043811252964,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.921,
+        "rates": [
+          89.4949130843017,
+          89.4949130843017
+        ],
+        "counts": [
+          458,
+          458
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.41015530365583,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 185.62628947708671,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.021,
+        "rates": [
+          99.49588717334483,
+          99.49588717334483
+        ],
+        "counts": [
+          468,
+          468
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.409188168538159,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 192.22533433198495,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.122,
+        "rates": [
+          99.50986218351318,
+          109.46084840186448
+        ],
+        "counts": [
+          478,
+          479
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.411823374773192,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 195.6469586311732,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.222,
+        "rates": [
+          99.51414309441786,
+          89.56272878497607
+        ],
+        "counts": [
+          488,
+          488
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.4118626286636795,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 199.0132604127592,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.323,
+        "rates": [
+          99.47557768613923,
+          109.42313545475315
+        ],
+        "counts": [
+          498,
+          499
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.409374451572829,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 202.31637792064916,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.423,
+        "rates": [
+          89.52625659388006,
+          89.52625659388006
+        ],
+        "counts": [
+          507,
+          508
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.44146017391969,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 192.34303406478418,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.524,
+        "rates": [
+          99.29444051518331,
+          89.36499646366498
+        ],
+        "counts": [
+          517,
+          517
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.4540187343667856,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 192.2013143607243,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.625,
+        "rates": [
+          79.48504500787821,
+          89.42067563386298
+        ],
+        "counts": [
+          525,
+          526
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.5036703103347167,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 178.8745191405397,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.725,
+        "rates": [
+          89.37276140471894,
+          79.4424545819724
+        ],
+        "counts": [
+          534,
+          534
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.536255743055832,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 175.46167774591325,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.826,
+        "rates": [
+          89.36735331352502,
+          89.36735331352502
+        ],
+        "counts": [
+          543,
+          543
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.571301227401465,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 172.15259378136912,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.927,
+        "rates": [
+          69.4770048979458,
+          79.40229131193807
+        ],
+        "counts": [
+          550,
+          551
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.618481831959403,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 165.47387581191379,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 5.028,
+        "rates": [
+          79.45918094966498,
+          79.45918094966498
+        ],
+        "counts": [
+          558,
+          559
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 3.6615334232050523,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 162.17577562441025,
+        "speed_matched": true
+      },
+      {
+        "state": "finished",
+        "elapsed": 5.028,
+        "rates": [
+          0,
+          0
+        ],
+        "counts": [
+          558,
+          559
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -20,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 0,
+        "target_count_rate": 207.4369553084899,
+        "measured_count_rate": 162.17577562441025,
+        "speed_matched": true
+      }
+    ],
+    "received_at": 1795280920.564231,
+    "elapsed": 5.028,
+    "rates": [
+      0,
+      0
+    ],
+    "counts": [
+      558,
+      559
+    ],
+    "levels": [
+      1,
+      1
+    ],
+    "labels": [
+      "C1 edges",
+      "C2 edges"
+    ],
+    "units": "edges",
+    "command": -20,
+    "applied_duty_percent": 0,
+    "target_count_rate": 207.4369553084899,
+    "measured_count_rate": 162.17577562441025,
+    "speed_matched": true,
+    "settings": {
+      "tb6612_scale": 1.0,
+      "tb6612_calibration": {
+        "reference_counts_per_command": 103.71847765424495,
+        "count_convention": "sum of both GPIO phases, both edges (x4 magnitude)",
+        "encoder_resolution_assumption": "same encoder resolution and gearbox ratio on all four motors",
+        "calibration": "lifted-wheel measurements 2026-11-21",
+        "positive": [
+          [
+            0.0,
+            0.02
+          ],
+          [
+            209.9547511312217,
+            0.03
+          ],
+          [
+            310.40723981900453,
+            0.04
+          ],
+          [
+            396.38009049773757,
+            0.05
+          ],
+          [
+            471.9457013574661,
+            0.06
+          ],
+          [
+            656.2641338760741,
+            0.08
+          ],
+          [
+            732.3688969258591,
+            0.1
+          ]
+        ],
+        "negative": [
+          [
+            0.0,
+            0.02
+          ],
+          [
+            37.087290818634095,
+            0.03
+          ],
+          [
+            271.9457013574661,
+            0.04
+          ],
+          [
+            387.33235958040103,
+            0.055
+          ],
+          [
+            608.1447963800905,
+            0.08
+          ],
+          [
+            782.3529411764706,
+            0.1
+          ]
+        ],
+        "minimum_count_rate": 207.4369553084899,
+        "maximum_count_rate": 518.5923882712248
+      }
+    },
+    "running": false,
+    "sample_age_s": 0.5621421337127686,
+    "validation_count_rate": 204.83068908358987
+  },
+  {
+    "robot_id": 1,
+    "channel": "TB6612",
+    "speed": -40,
+    "seconds": 5,
+    "tb6612_scale": 1.0,
+    "tb6612_calibration": {
+      "reference_counts_per_command": 103.71847765424495,
+      "count_convention": "sum of both GPIO phases, both edges (x4 magnitude)",
+      "encoder_resolution_assumption": "same encoder resolution and gearbox ratio on all four motors",
+      "calibration": "lifted-wheel measurements 2026-11-21",
+      "positive": [
+        [
+          0.0,
+          0.02
+        ],
+        [
+          209.9547511312217,
+          0.03
+        ],
+        [
+          310.40723981900453,
+          0.04
+        ],
+        [
+          396.38009049773757,
+          0.05
+        ],
+        [
+          471.9457013574661,
+          0.06
+        ],
+        [
+          656.2641338760741,
+          0.08
+        ],
+        [
+          732.3688969258591,
+          0.1
+        ]
+      ],
+      "negative": [
+        [
+          0.0,
+          0.02
+        ],
+        [
+          37.087290818634095,
+          0.03
+        ],
+        [
+          271.9457013574661,
+          0.04
+        ],
+        [
+          387.33235958040103,
+          0.055
+        ],
+        [
+          608.1447963800905,
+          0.08
+        ],
+        [
+          782.3529411764706,
+          0.1
+        ]
+      ],
+      "minimum_count_rate": 207.4369553084899,
+      "maximum_count_rate": 518.5923882712248
+    },
+    "state": "finished",
+    "samples": [
+      {
+        "state": "running",
+        "elapsed": 0,
+        "rates": [
+          0,
+          0
+        ],
+        "counts": [
+          0,
+          0
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 0,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": null,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.101,
+        "rates": [
+          109.16263200758605,
+          119.08650764463933
+        ],
+        "counts": [
+          11,
+          12
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 8.0,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": null,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.201,
+        "rates": [
+          248.69409734738545,
+          238.74633345349005
+        ],
+        "counts": [
+          36,
+          36
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.811820650092766,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": null,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.302,
+        "rates": [
+          228.76775165611278,
+          238.71417564116118
+        ],
+        "counts": [
+          59,
+          60
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.811820650092766,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": null,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.402,
+        "rates": [
+          199.01446445091395,
+          199.01446445091395
+        ],
+        "counts": [
+          79,
+          80
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.811820650092766,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": null,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.503,
+        "rates": [
+          189.0569800027065,
+          189.0569800027065
+        ],
+        "counts": [
+          98,
+          99
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.812732263708743,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 414.54879765982577,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.603,
+        "rates": [
+          179.04008375262163,
+          169.09341243303155
+        ],
+        "counts": [
+          116,
+          116
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.924586446845854,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 374.7552201712054,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.704,
+        "rates": [
+          188.70335133967595,
+          188.70335133967595
+        ],
+        "counts": [
+          135,
+          135
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.976167288039319,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 367.88821861650365,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.804,
+        "rates": [
+          199.12850216269425,
+          199.12850216269425
+        ],
+        "counts": [
+          155,
+          155
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.995124191193481,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 374.5927488961867,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 0.905,
+        "rates": [
+          198.9927029173371,
+          198.9927029173371
+        ],
+        "counts": [
+          175,
+          175
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.98092649680469,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 391.2064871051273,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.006,
+        "rates": [
+          198.9515670219739,
+          198.9515670219739
+        ],
+        "counts": [
+          195,
+          195
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.980773852321124,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 398.0484573113716,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.106,
+        "rates": [
+          198.98074303134237,
+          198.98074303134237
+        ],
+        "counts": [
+          215,
+          215
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.99457923230006,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 397.9500056466718,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.207,
+        "rates": [
+          198.9934236057727,
+          198.9934236057727
+        ],
+        "counts": [
+          235,
+          235
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.008185494782241,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 397.9504860190006,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.307,
+        "rates": [
+          198.98466086951774,
+          208.93389391299363
+        ],
+        "counts": [
+          255,
+          256
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.012431879962146,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 401.2889893168631,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.408,
+        "rates": [
+          198.95496912907234,
+          198.95496912907234
+        ],
+        "counts": [
+          275,
+          276
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.023405493842157,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 401.27166106717556,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.508,
+        "rates": [
+          208.9615031220163,
+          199.01095535430122
+        ],
+        "counts": [
+          296,
+          296
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.025009252199095,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 404.5998358387336,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.609,
+        "rates": [
+          208.95165195079807,
+          208.95165195079807
+        ],
+        "counts": [
+          317,
+          317
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.023938137235626,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 407.9277839673877,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.709,
+        "rates": [
+          208.96247830916784,
+          208.96247830916784
+        ],
+        "counts": [
+          338,
+          338
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.010813118599974,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 414.60028640124096,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.81,
+        "rates": [
+          198.9093145880279,
+          208.8547803174293
+        ],
+        "counts": [
+          358,
+          359
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.0112312245344555,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 414.5296804940971,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 1.91,
+        "rates": [
+          218.87688796881417,
+          208.92793851568626
+        ],
+        "counts": [
+          380,
+          380
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 6.002253264853948,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 417.83011212681805,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.011,
+        "rates": [
+          208.91473184015643,
+          208.91473184015643
+        ],
+        "counts": [
+          401,
+          401
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.999965250281206,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 417.7982907455152,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.111,
+        "rates": [
+          208.90726251479478,
+          218.85522739645165
+        ],
+        "counts": [
+          422,
+          423
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.9789172487770745,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 424.465562291649,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.212,
+        "rates": [
+          218.91693037829975,
+          208.96616081564977
+        ],
+        "counts": [
+          444,
+          444
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.971133397884884,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 424.4914423385386,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.312,
+        "rates": [
+          208.97601959412646,
+          218.9272586224182
+        ],
+        "counts": [
+          465,
+          466
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.953985636335909,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 427.8496107424889,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.413,
+        "rates": [
+          218.54971718965757,
+          218.54971718965757
+        ],
+        "counts": [
+          487,
+          488
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.93479538935172,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 430.96541826405115,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.514,
+        "rates": [
+          207.6479550018107,
+          207.6479550018107
+        ],
+        "counts": [
+          508,
+          509
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.933624046549108,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 426.7477539448823,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.614,
+        "rates": [
+          208.88150429758858,
+          208.88150429758858
+        ],
+        "counts": [
+          529,
+          530
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.933529609375531,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 423.3759474783959,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.715,
+        "rates": [
+          218.4590662074989,
+          208.52910865261256
+        ],
+        "counts": [
+          551,
+          551
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.936122827961376,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 420.01029309611096,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.816,
+        "rates": [
+          208.5369837663395,
+          208.5369837663395
+        ],
+        "counts": [
+          572,
+          572
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.930302266928424,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 420.61002920576095,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 2.917,
+        "rates": [
+          198.62688834813957,
+          208.55823276554656
+        ],
+        "counts": [
+          592,
+          593
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.935577167688008,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 417.0828820052896,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.017,
+        "rates": [
+          198.6245251633968,
+          198.6245251633968
+        ],
+        "counts": [
+          612,
+          613
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.96160964684729,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 407.1696767145342,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.118,
+        "rates": [
+          208.39740106209496,
+          198.4737152972333
+        ],
+        "counts": [
+          633,
+          633
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.977362682051958,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 403.76920138086444,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.219,
+        "rates": [
+          208.4524593643076,
+          218.37876695308415
+        ],
+        "counts": [
+          654,
+          655
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.96793410748793,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 410.3189850895842,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.319,
+        "rates": [
+          208.56880503088735,
+          208.56880503088735
+        ],
+        "counts": [
+          675,
+          676
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.953011794342455,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 416.9457280009508,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.42,
+        "rates": [
+          208.4972994984408,
+          208.4972994984408
+        ],
+        "counts": [
+          696,
+          697
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.941869434059582,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 420.3219757678488,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.521,
+        "rates": [
+          208.27263880219328,
+          208.27263880219328
+        ],
+        "counts": [
+          717,
+          718
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.947100562136881,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 416.8923427338887,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.622,
+        "rates": [
+          217.8564946987052,
+          207.95392675785496
+        ],
+        "counts": [
+          739,
+          739
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.937340664176951,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 419.7875127503633,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.723,
+        "rates": [
+          208.5015059318141,
+          218.4301490714243
+        ],
+        "counts": [
+          760,
+          761
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.9240993955730366,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 423.09576800154593,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.823,
+        "rates": [
+          218.47974366020514,
+          208.5488462211049
+        ],
+        "counts": [
+          782,
+          782
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.907674229006165,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 426.5895050685491,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 3.924,
+        "rates": [
+          218.49647115777276,
+          218.49647115777276
+        ],
+        "counts": [
+          804,
+          804
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.887778904839731,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 430.3173024731939,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.025,
+        "rates": [
+          218.4853958751509,
+          218.4853958751509
+        ],
+        "counts": [
+          826,
+          826
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.865949246989028,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 433.6639945150423,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.126,
+        "rates": [
+          218.3374520050353,
+          218.3374520050353
+        ],
+        "counts": [
+          848,
+          848
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.841779719754253,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 436.8794978980823,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.226,
+        "rates": [
+          218.33000254352496,
+          218.33000254352496
+        ],
+        "counts": [
+          870,
+          870
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.824352011082648,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 436.7685200599501,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.327,
+        "rates": [
+          208.49136896345203,
+          208.49136896345203
+        ],
+        "counts": [
+          891,
+          891
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.8253987131809275,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 430.1076008786511,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.428,
+        "rates": [
+          218.02213156564517,
+          218.02213156564517
+        ],
+        "counts": [
+          913,
+          913
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.813683077627048,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 429.9003255922164,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.529,
+        "rates": [
+          198.5738880081415,
+          208.50258240854856
+        ],
+        "counts": [
+          933,
+          934
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.829228706841781,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 420.0444441418705,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.629,
+        "rates": [
+          208.5273837864604,
+          198.59750836805753
+        ],
+        "counts": [
+          954,
+          954
+        ],
+        "levels": [
+          0,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.834275300495789,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 416.76098640362426,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.73,
+        "rates": [
+          218.14609847070562,
+          218.14609847070562
+        ],
+        "counts": [
+          976,
+          976
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.832530899718331,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 416.8400481417356,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.831,
+        "rates": [
+          208.5321298261525,
+          218.4622312464455
+        ],
+        "counts": [
+          997,
+          998
+        ],
+        "levels": [
+          0,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.812327340734631,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 423.4765500587862,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 4.932,
+        "rates": [
+          218.37740998462124,
+          218.37740998462124
+        ],
+        "counts": [
+          1019,
+          1020
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.777692582019426,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 433.3489886994398,
+        "speed_matched": true
+      },
+      {
+        "state": "running",
+        "elapsed": 5.032,
+        "rates": [
+          218.34614151806508,
+          208.4213169036076
+        ],
+        "counts": [
+          1041,
+          1041
+        ],
+        "levels": [
+          1,
+          0
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 5.771714091648864,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 430.17246193080837,
+        "speed_matched": true
+      },
+      {
+        "state": "finished",
+        "elapsed": 5.033,
+        "rates": [
+          0,
+          0
+        ],
+        "counts": [
+          1041,
+          1041
+        ],
+        "levels": [
+          1,
+          1
+        ],
+        "labels": [
+          "C1 edges",
+          "C2 edges"
+        ],
+        "units": "edges",
+        "command": -40,
+        "tb6612_scale": 1.0,
+        "applied_duty_percent": 0,
+        "target_count_rate": 414.8739106169798,
+        "measured_count_rate": 430.17246193080837,
+        "speed_matched": true
+      }
+    ],
+    "received_at": 1795280927.962195,
+    "elapsed": 5.033,
+    "rates": [
+      0,
+      0
+    ],
+    "counts": [
+      1041,
+      1041
+    ],
+    "levels": [
+      1,
+      1
+    ],
+    "labels": [
+      "C1 edges",
+      "C2 edges"
+    ],
+    "units": "edges",
+    "command": -40,
+    "applied_duty_percent": 0,
+    "target_count_rate": 414.8739106169798,
+    "measured_count_rate": 430.17246193080837,
+    "speed_matched": true,
+    "settings": {
+      "tb6612_scale": 1.0,
+      "tb6612_calibration": {
+        "reference_counts_per_command": 103.71847765424495,
+        "count_convention": "sum of both GPIO phases, both edges (x4 magnitude)",
+        "encoder_resolution_assumption": "same encoder resolution and gearbox ratio on all four motors",
+        "calibration": "lifted-wheel measurements 2026-11-21",
+        "positive": [
+          [
+            0.0,
+            0.02
+          ],
+          [
+            209.9547511312217,
+            0.03
+          ],
+          [
+            310.40723981900453,
+            0.04
+          ],
+          [
+            396.38009049773757,
+            0.05
+          ],
+          [
+            471.9457013574661,
+            0.06
+          ],
+          [
+            656.2641338760741,
+            0.08
+          ],
+          [
+            732.3688969258591,
+            0.1
+          ]
+        ],
+        "negative": [
+          [
+            0.0,
+            0.02
+          ],
+          [
+            37.087290818634095,
+            0.03
+          ],
+          [
+            271.9457013574661,
+            0.04
+          ],
+          [
+            387.33235958040103,
+            0.055
+          ],
+          [
+            608.1447963800905,
+            0.08
+          ],
+          [
+            782.3529411764706,
+            0.1
+          ]
+        ],
+        "minimum_count_rate": 207.4369553084899,
+        "maximum_count_rate": 518.5923882712248
+      }
+    },
+    "running": false,
+    "sample_age_s": 0.5624198913574219,
+    "validation_count_rate": 419.11069063386947
+  }
+]

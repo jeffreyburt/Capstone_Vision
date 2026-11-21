@@ -13,7 +13,7 @@ of marker visibility and floor calibration. No test runs merely by opening the d
 - Hiwonder displays all four signed counters, change since start, and measured rates so
   unexpected cross-channel activity is visible. Counter wrap is handled.
 - TB6612 displays rising/falling edge totals on C1/BCM22 and C2/BCM27, edge rates, and current
-  logic levels. These unsigned edge totals are not directly comparable to Hiwonder counts.
+  logic levels. Each phase is displayed separately; their sum is used as x4 count magnitude for matching, assuming identical encoder resolution and gearbox ratios.
 - Live values update approximately ten times per second and the chart plots changes over time.
   A stale-data message means the displayed sample is no longer fresh. Zero pulses are reported
   explicitly, but do not alone establish that an encoder is damaged.
@@ -67,12 +67,75 @@ reports both the saved trim and actual applied PWM duty. Settings persist on the
 `calib/motor_speed.json` and are passed to the Pi with each test. Direct runner calls default
 to the same initial 50% unless `tb6612_scale` is supplied explicitly.
 
-This is a provisional reduction, not a measured speed calibration or encoder speed regulator.
+The original fixed trim was provisional and is now superseded by the measured calibration below.
 PWM duty and Hiwonder's closed-loop counts/10ms commands are different quantities; equal
-percentages do not imply equal shaft speed. This adjustment affects motor diagnostics only:
+uncalibrated percentages do not imply equal shaft speed. This adjustment affects motor diagnostics only:
 Robot 1's navigation remains in its existing three-wheel mode. Do not interpret the trim as
 integrating the replacement motor into chassis driving.
 
 Updated wiring (2026-11-21): STBY=BCM25, PWMA=BCM18, AIN1=BCM23, AIN2=BCM24,
 C1=BCM22, C2=BCM27. All four wheels are physically attached. This pin update does not
 enable four-wheel navigation; TB6612 remains available through individual motor tests.
+
+## Measured matching (2026-11-21)
+
+The fixed 50% / manually tuned 23% duty trims have been replaced by direction-specific measured
+speed curves plus encoder feedback. The saved trim is now **100% of the matched speed target**,
+not 100% PWM. Dashboard speed settings use the same rounded counts/10ms command as the other
+motors, converted using the measured reference median of **103.7185 counts/s per command unit**.
+At a 25% request with the current cap of 10, all motors target command 2 (about 207 counts/s).
+The TB6612 feed-forward lookup estimates duty and a bounded PI correction adjusts it using
+both phases' edge rates over a moving 0.3 s window. A 0.2 s startup burst helps overcome breakaway
+friction, then the running-speed curve and encoder feedback take over. PWM remains 1 kHz, with fractional percentages passed directly to lgpio; gpiozero's
+LGPIO backend truncated these corrections to whole percentages and was inadequate here.
+
+The matching assumes identical encoder resolution and gear ratio across all four installed
+motors. It matches encoder count rates, not independently measured wheel RPM or floor travel.
+The Hiwonder convention uses x4 encoder counts ([vendor chassis explanation](https://wiki.hiwonder.com/projects/Black-Mecanum-Wheel-Chassis/en/latest/docs/4_Raspberry%20Pi_formatted.html));
+summing rising and falling edges on both GPIO phases gives the corresponding magnitude.
+No robot wheel dimension or marker calibration was changed.
+
+Reference motors M2/M3/M4 were tested at +10%, +30%, +50%, and -30%. The TB6612 was swept at
+2, 3, 4, 5, 6, 8, and 10% raw PWM duty in each direction. Reverse measurements were less
+consistent, so the fit pools non-monotonic observations and live feedback corrects the residual.
+Both phases now track one another closely. Only the selected motor was commanded in each run.
+
+Five-second independent compensated validation (rates measured after the first 0.75 s):
+
+| Requested speed | Reference target (counts/s) | TB6612 measured (counts/s) | Difference |
+| --- | ---: | ---: | ---: |
+| -50% | 518.6 | 520.0 | +0.3% |
+| -40% | 414.9 | 419.1 | +1.0% |
+| -30% | 311.2 | 297.2 | -4.5% |
+| -20% | 207.4 | 204.8 | -1.3% |
+| +20% | 207.4 | 188.7 | -9.0% |
+| +30% | 311.2 | 302.5 | -2.8% |
+| +40% | 414.9 | 392.6 | -5.4% |
+| +50% | 518.6 | 514.7 | -0.8% |
+
+The lowest tested 10% setting repeatedly stalled, sometimes alternating between stationary and
+moving periods. It is **not** marked calibrated. The runner rejects matched targets below
+207.4 or above 518.6 counts/s (command magnitudes 2–5; tested at 20–50% with the current cap).
+The greatest average error in accepted runs was 9%; this is approximate matching, not an
+exact RPM guarantee. At the lower boundary, short-window deviations reached about 12%.
+
+These results validate unloaded matching over the tested range, not loaded driving. The three
+original motors remain unchanged. Four-wheel chassis navigation is still pending integration.
+Tests end with outputs off, normal drive service restored, and click driving disarmed.
+
+Saved source and measurements:
+
+- `calib/motor_speed.json`: active curves and trim; also copied to the Pi at
+  `~/capstone-drive/motor_speed.json` as the direct runner's default.
+- `robot/motor_speed.py`: reusable speed matching and fractional PWM output.
+- `tools/measure_motor_speeds.py --wheels-lifted --output <recording.json>`: raw sweep;
+  explicitly bypasses matching while collecting raw data, restores previous trim afterward.
+- `tools/fit_motor_speeds.py <recording.json> --output <settings.json>`: monotonic curve fit.
+- `calib/recordings/robot1_motor_speed_sweep_2026-11-21.json`: full raw sweep.
+- `calib/recordings/robot1_motor_speed_validation_2026-11-21.json`: physical validation including excluded low-speed attempts.
+- `calib/recordings/robot1_motor_speed_midrange_validation_2026-11-21.json`: additional accepted midrange tests.
+- The initial fixed-duty baseline and initial validation are retained as diagnostic history.
+
+Dashboard target trim changes preserve the measured curves. Increasing a target beyond the
+measured range is rejected. The legacy `tb6612_encoder_test.py` remains a raw PWM test and does
+not apply this matching controller.

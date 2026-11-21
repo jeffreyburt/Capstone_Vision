@@ -30,7 +30,10 @@ class MotorTests:
             data = json.loads(self.settings_path.read_text())
         except FileNotFoundError:
             data = {}
-        return {'tb6612_scale': tb6612_scale(data)}
+        result = {'tb6612_scale': tb6612_scale(data)}
+        if data.get('tb6612_calibration'):
+            result['tb6612_calibration'] = data['tb6612_calibration']
+        return result
 
     def save_settings(self, data):
         scale = tb6612_scale(data)
@@ -38,7 +41,9 @@ class MotorTests:
             if self.process is not None:
                 raise ValueError('Stop the motor test before changing the speed trim')
             temporary = self.settings_path.with_suffix('.tmp')
-            temporary.write_text(json.dumps({'tb6612_scale': scale}, indent=2) + '\n')
+            settings = self.settings()
+            settings['tb6612_scale'] = scale
+            temporary.write_text(json.dumps(settings, indent=2) + '\n')
             temporary.replace(self.settings_path)
             return self.snapshot()
 
@@ -53,6 +58,8 @@ class MotorTests:
             self.monitor.waypoints.arm(False)
             self.monitor.waypoints.clear()
             payload = dict(robot_id=rid, channel=channel, speed=speed, seconds=seconds, **self.settings())
+            if data.get('tb6612_open_loop') is True:
+                payload['tb6612_open_loop'] = True
             command = 'python3 -u ~/capstone-drive/motor_diagnostic.py ' + shlex.quote(json.dumps(payload))
             self.state = {**payload, 'state':'connecting', 'samples':[], 'received_at':time.time()}
             self.process = subprocess.Popen([self.monitor.ssh, '-T', '-o', 'BatchMode=yes',

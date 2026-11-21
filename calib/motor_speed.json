@@ -1,3 +1,123 @@
 {
-  "tb6612_scale": 0.5
+  "tb6612_scale": 1.0,
+  "tb6612_calibration": {
+    "reference_counts_per_command": 103.71847765424495,
+    "count_convention": "sum of both GPIO phases, both edges (x4 magnitude)",
+    "encoder_resolution_assumption": "same encoder resolution and gearbox ratio on all four motors",
+    "calibration": "lifted-wheel measurements 2026-11-21",
+    "positive": [
+      [
+        0.0,
+        0.02
+      ],
+      [
+        209.9547511312217,
+        0.03
+      ],
+      [
+        310.40723981900453,
+        0.04
+      ],
+      [
+        396.38009049773757,
+        0.05
+      ],
+      [
+        471.9457013574661,
+        0.06
+      ],
+      [
+        656.2641338760741,
+        0.08
+      ],
+      [
+        732.3688969258591,
+        0.1
+      ]
+    ],
+    "negative": [
+      [
+        0.0,
+        0.02
+      ],
+      [
+        37.087290818634095,
+        0.03
+      ],
+      [
+        271.9457013574661,
+        0.04
+      ],
+      [
+        387.33235958040103,
+        0.055
+      ],
+      [
+        608.1447963800905,
+        0.08
+      ],
+      [
+        782.3529411764706,
+        0.1
+      ]
+    ],
+    "minimum_count_rate": 207.4369553084899,
+    "maximum_count_rate": 518.5923882712248,
+    "validation": {
+      "condition": "all wheels lifted, five-second individual runs",
+      "status": "validated_limited_range",
+      "results": [
+        {
+          "speed": -50,
+          "target_count_rate": 518.5923882712248,
+          "measured_count_rate": 519.990537023894,
+          "error_percent": 0.2696045650284473
+        },
+        {
+          "speed": -40,
+          "target_count_rate": 414.8739106169798,
+          "measured_count_rate": 419.11069063386947,
+          "error_percent": 1.021221124892846
+        },
+        {
+          "speed": -30,
+          "target_count_rate": 311.15543296273484,
+          "measured_count_rate": 297.1820980345726,
+          "error_percent": -4.490789312309939
+        },
+        {
+          "speed": -20,
+          "target_count_rate": 207.4369553084899,
+          "measured_count_rate": 204.83068908358987,
+          "error_percent": -1.256413651571442
+        },
+        {
+          "speed": 20,
+          "target_count_rate": 207.4369553084899,
+          "measured_count_rate": 188.68371212121212,
+          "error_percent": -9.040454319910785
+        },
+        {
+          "speed": 30,
+          "target_count_rate": 311.15543296273484,
+          "measured_count_rate": 302.50709555345315,
+          "error_percent": -2.7794267729586597
+        },
+        {
+          "speed": 40,
+          "target_count_rate": 414.8739106169798,
+          "measured_count_rate": 392.6118872839214,
+          "error_percent": -5.365973314627426
+        },
+        {
+          "speed": 50,
+          "target_count_rate": 518.5923882712248,
+          "measured_count_rate": 514.6572104018912,
+          "error_percent": -0.7588190568033171
+        }
+      ],
+      "lowest_speed_note": "10% stalled intermittently; excluded from reliable operating range",
+      "previous_manual_trim": 0.23
+    }
+  }
 }

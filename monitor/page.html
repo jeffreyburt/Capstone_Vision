@@ -111,7 +111,7 @@
 <p><label>TB6612 speed trim <input id="motor-trim" type="number" min="10" max="100" step="1" value="50" style="width:65px">%</label>
 <button id="motor-save-trim">Save trim</button> <span id="motor-trim-saved">50% starting adjustment</span></p>
 <p id="motor-status" role="status">Select one motor to test.</p>
-<p>Hiwonder speed is a percentage of the configured speed cap, in counts/10 ms. TB6612 PWM duty is the speed setting multiplied by its saved trim. Positive/negative describe electrical direction.</p>
+<p>Hiwonder speed is a percentage of the configured speed cap, in counts/10 ms. TB6612 uses measured speed matching when calibrated; otherwise its PWM duty is the speed setting multiplied by its saved trim. Positive/negative describe electrical direction.</p>
 <table style="width:100%;text-align:left"><thead><tr><th>Encoder</th><th>Change since start</th><th>Rate / second</th><th>GPIO level</th></tr></thead><tbody id="motor-readings"></tbody></table>
 <canvas id="motor-chart" width="1000" height="180" style="width:100%;height:180px" aria-label="Encoder counts over time"></canvas>
 </div></section>
@@ -652,13 +652,13 @@ let motorTrimLoaded=false;
 function renderMotors(state){
   const trim=Number(state.settings?.tb6612_scale??0.5)*100;
   if(!motorTrimLoaded){document.getElementById('motor-trim').value=Math.round(trim);motorTrimLoaded=true;}
-  document.getElementById('motor-trim-saved').textContent='Saved: '+Math.round(trim)+'% · 25% speed gives '+(25*trim/100).toFixed(1)+'% PWM duty';
+  document.getElementById('motor-trim-saved').textContent=state.settings?.tb6612_calibration?'Measured speed matching active · target trim '+Math.round(trim)+'% · reliable target range '+Math.round(state.settings.tb6612_calibration.minimum_count_rate)+'–'+Math.round(state.settings.tb6612_calibration.maximum_count_rate)+' counts/s':'Saved: '+Math.round(trim)+'% · 25% speed gives '+(25*trim/100).toFixed(1)+'% PWM duty';
   document.getElementById('motor-save-trim').disabled=state.running||motorRequestPending;
   document.getElementById('motor-start').disabled=motorRequestPending||state.running;
   document.getElementById('motor-stop').disabled=!state.running;
   const stale=state.running&&state.sample_age_s>1;
   document.getElementById('motor-status').textContent=[state.robot_id?'Robot '+state.robot_id+' · '+state.channel:'',state.state,
-    state.elapsed!=null?state.elapsed.toFixed(1)+' s':'',state.applied_duty_percent!=null?'Applied PWM: '+state.applied_duty_percent.toFixed(1)+'%':'',stale?'Waiting for fresh encoder data':'',state.error||'',state.elapsed>=1&&(state.counts||[]).every(n=>n===0)?'No encoder pulses detected':''].filter(Boolean).join(' · ');
+    state.elapsed!=null?state.elapsed.toFixed(1)+' s':'',state.applied_duty_percent!=null?'Applied PWM: '+state.applied_duty_percent.toFixed(1)+'%':'',stale?'Waiting for fresh encoder data':'',state.target_count_rate!=null?'Target: '+state.target_count_rate.toFixed(0)+' counts/s':'',state.measured_count_rate!=null?'Measured: '+state.measured_count_rate.toFixed(0)+' counts/s':'',state.error||'',state.elapsed>=1&&(state.counts||[]).every(n=>n===0)?'No encoder pulses detected':''].filter(Boolean).join(' · ');
   const rows=document.getElementById('motor-readings');rows.replaceChildren();
   (state.labels||[]).forEach((label,i)=>{
     const row=document.createElement('tr');
