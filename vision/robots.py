@@ -17,7 +17,7 @@ from dataclasses import dataclass
 import numpy as np
 import cv2
 
-from .joint_pose import HeadGeometry, fit_chassis
+from .joint_pose import HeadGeometry, center_ray_position, fit_chassis
 
 
 @dataclass
@@ -37,6 +37,8 @@ class RobotObservation:
     y: float
     heading_deg: float | None
     marker_ids: list
+    approximate: bool = False  # position from tag-centre rays only (no tag passed the full chassis fit)
+    source: str = "fit"        # "fit", "two tags" or "tag centre"
 
 
 def wrap_deg(a):
@@ -83,12 +85,41 @@ def face_on_floor(marker, spec, geometry):
     return center, normal
 
 
+def _two_tag_heading(tags, geometry):
+    """Chassis heading (radians) from two visible tags' centre rays: the world direction between the two tag
+    centres minus the same direction in the chassis frame. None unless two tags are far enough apart."""
+    best = None
+    for i in range(len(tags)):
+        for j in range(i + 1, len(tags)):
+            (ma, ca, _), (mb, cb, _) = tags[i], tags[j]
+            ca, cb = np.asarray(ca).mean(axis=0), np.asarray(cb).mean(axis=0)
+            pa = geometry.pixels_to_floor([np.asarray(ma.corners).mean(axis=0)], ca[2])[0]
+            pb = geometry.pixels_to_floor([np.asarray(mb.corners).mean(axis=0)], cb[2])[0]
+            local = cb[:2] - ca[:2]
+            if not (np.isfinite(pa).all() and np.isfinite(pb).all()) or np.hypot(*local) < 0.08:
+                continue
+            world = pb - pa
+            heading = math.atan2(world[1], world[0]) - math.atan2(local[1], local[0])
+            spread = np.hypot(*local)
+            if best is None or spread > best[0]:
+                best = spread, math.atan2(math.sin(heading), math.cos(heading))
+    return None if best is None else best[1]
+
+
 def estimate_robots(markers, specs, geometry, joint_positions=None, prior_headings=None):
-    """Detected markers -> one RobotObservation per robot that has at least one usable marker."""
+    """Detected markers -> one RobotObservation per robot that has at least one usable marker.
+
+    Head-mounted tags, in order of preference:
+      two or more tags visible -> each tag's centre ray gives a position, the direction between the tags gives
+                                  the heading (robust to head wobble and to the single-tag pan/heading trade-off);
+      one tag that passes the full image-space chassis fit -> that fit;
+      otherwise -> the tag's centre ray, swung by the tracker's last heading (or the expected facing direction).
+    """
     joint_positions = joint_positions or {}
     prior_headings = prior_headings or {}
     by_marker = {mid: spec for spec in specs for mid in spec.faces}
-    groups = {}
+    groups, sources = {}, {}
+    head_tags = {}  # robot id -> [(marker, corners, spec)]
     for m in markers:
         spec = by_marker.get(m.id)
         if spec is None:
@@ -96,29 +127,61 @@ def estimate_robots(markers, specs, geometry, joint_positions=None, prior_headin
         if spec.head is not None:
             units = joint_positions.get(spec.id) if spec.head.needs_feedback else spec.head.neutral_units
             corners = None if units is None else spec.head.corners(m.id, units)
-            pose = None if corners is None else fit_chassis(m,corners,geometry,prior_headings.get(spec.id),spec.head.max_rms_px,spec.head.heading_window)
-            if pose is None:
+            if corners is not None:
+                head_tags.setdefault(spec.id, []).append((m, corners, spec))
+            continue
+        face = face_on_floor(m, spec, geometry)
+        if face is None:
+            continue
+        center, normal = face
+        robot_center = center - normal * spec.center_offset_m
+        face_dir = math.degrees(math.atan2(normal[1], normal[0]))
+        heading = math.radians(face_dir - spec.faces[m.id])
+        groups.setdefault(spec.id, []).append((robot_center, heading, m.side_px, m.id))
+        sources[spec.id] = "fit"
+
+    for rid, tags in head_tags.items():
+        head = tags[0][2].head
+        heading, source = _two_tag_heading(tags, geometry), "two tags"
+        if heading is not None and head.heading_window is not None and abs(
+                (math.degrees(heading) - head.heading_window[0] + 180) % 360 - 180) > head.heading_window[1]:
+            heading = None
+        if heading is None:
+            fits = []
+            for m, corners, _ in tags:
+                if m.id in head.center_only:
+                    continue
+                pose = fit_chassis(m, corners, geometry, prior_headings.get(rid), head.max_rms_px, head.heading_window)
+                if pose is not None:
+                    fits.append((pose[0], pose[1], m.side_px, m.id))
+            if fits:
+                groups[rid], sources[rid] = fits, "fit"
                 continue
-            robot_center, heading = pose
-        else:
-            face = face_on_floor(m, spec, geometry)
-            if face is None:
+            source = "tag centre"
+            if rid in prior_headings:
+                heading = prior_headings[rid]
+            elif head.heading_window is not None:
+                heading = math.radians(head.heading_window[0])
+            else:
                 continue
-            center, normal = face
-            robot_center = center - normal * spec.center_offset_m
-            face_dir = math.degrees(math.atan2(normal[1], normal[0]))
-            heading = math.radians(face_dir - spec.faces[m.id])
-        weight = m.side_px  # bigger (closer / more head-on) markers are more trustworthy
-        groups.setdefault(spec.id, []).append((robot_center, heading, weight, m.id))
+        for m, corners, _ in tags:
+            xy = center_ray_position(m, corners, geometry, heading)
+            if xy is not None:
+                groups.setdefault(rid, []).append((xy, heading if source == "two tags" else None, m.side_px, m.id))
+                sources[rid] = source
 
     out = []
     for rid, items in groups.items():
         w = np.array([i[2] for i in items])
         xy = np.average([i[0] for i in items], axis=0, weights=w)
-        hx = np.sum(w * np.cos([i[1] for i in items]))
-        hy = np.sum(w * np.sin([i[1] for i in items]))
-        out.append(RobotObservation(rid, float(xy[0]), float(xy[1]),
-                                    wrap_deg(math.degrees(math.atan2(hy, hx))), [i[3] for i in items]))
+        headed = [i for i in items if i[1] is not None]
+        heading = None
+        if headed:
+            hw = np.array([i[2] for i in headed])
+            heading = wrap_deg(math.degrees(math.atan2(np.sum(hw * np.sin([i[1] for i in headed])),
+                                                       np.sum(hw * np.cos([i[1] for i in headed])))))
+        out.append(RobotObservation(rid, float(xy[0]), float(xy[1]), heading, [i[3] for i in items],
+                                    sources[rid] == "tag centre", sources[rid]))
     return out
 
 

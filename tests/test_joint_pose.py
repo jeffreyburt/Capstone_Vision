@@ -127,3 +127,43 @@ def test_single_missed_frame_retains_recent_fixed_pose_without_resetting_its_age
         wall[0]=100.8
         assert not pipeline.process(frame,100.6).message['robots'][0]['pose_compensated']
     finally:pipeline.close()
+
+
+def test_tag_centre_fallback_keeps_position_when_the_full_fit_fails():
+    cfg={'robots':[{'id':1,'faces':{2:180,3:270},'head_pose':{
+        'neutral_units':[0,0],'degrees_per_unit':[1,1],'pan_pivot_m':[0,0,0],'tilt_pivot_m':[0,0,0],
+        'heading_window_deg':[90,60],
+        'markers':{2:{'mount':'fixed','center_m':[-.14,0,.295]},
+                   3:{'mount':'fixed','center_only':True,'center_m':[-.02,-.108,.24]}}}}]}
+    spec=robot_specs_from_config(cfg)[0]
+    geometry=Geometry(CameraModel.from_fov(1600,900,102),FloorPose.look_at([0,0,.395],[0,3,0]))
+    angle=np.radians(90)  # robot facing +y at (0.2, 2.0)
+    rot=np.array([[np.cos(angle),-np.sin(angle),0],[np.sin(angle),np.cos(angle),0],[0,0,1]])
+    def seen(mid, wobble=0.0):
+        c=spec.head.corners(mid,None)@rot.T+[.2,2,0]
+        c[:2,0]+=wobble  # shift the top two corners sideways: a wobbling, leaning head
+        return MarkerDetection(mid,geometry.world_to_pixels(c))
+    obs,=estimate_robots([seen(3)],[spec],geometry)  # side tag only: centre ray + expected heading
+    assert obs.approximate and obs.heading_deg is None
+    assert (obs.x,obs.y)==pytest.approx((.2,2),abs=.01)
+    obs,=estimate_robots([seen(2,wobble=.03)],[spec],geometry,prior_headings={1:np.radians(90)})
+    assert obs.approximate and (obs.x,obs.y)==pytest.approx((.2,2),abs=.04)
+    obs,=estimate_robots([seen(2),seen(3)],[spec],geometry)  # two tags: centre rays + heading between them
+    assert obs.source=='two tags' and not obs.approximate and abs(wrap_deg(obs.heading_deg-90))<1.5
+    obs,=estimate_robots([seen(2)],[spec],geometry)  # one good tag: the full fit
+    assert obs.source=='fit' and abs(wrap_deg(obs.heading_deg-90))<1e-3
+
+
+def test_two_visible_tags_give_a_heading_without_a_full_fit():
+    cfg={'robots':[{'id':1,'faces':{2:180,3:270},'head_pose':{
+        'neutral_units':[0,0],'degrees_per_unit':[1,1],'pan_pivot_m':[0,0,0],'tilt_pivot_m':[0,0,0],
+        'markers':{2:{'mount':'fixed','center_only':True,'center_m':[-.14,0,.295]},
+                   3:{'mount':'fixed','center_only':True,'center_m':[-.02,-.108,.24]}}}}]}
+    spec=robot_specs_from_config(cfg)[0]
+    geometry=Geometry(CameraModel.from_fov(1600,900,102),FloorPose.look_at([0,0,.395],[0,3,0]))
+    angle=np.radians(70)
+    rot=np.array([[np.cos(angle),-np.sin(angle),0],[np.sin(angle),np.cos(angle),0],[0,0,1]])
+    tags=[MarkerDetection(mid,geometry.world_to_pixels(spec.head.corners(mid,None)@rot.T+[.2,2,0])) for mid in (2,3)]
+    obs,=estimate_robots(tags,[spec],geometry)
+    assert obs.source=='two tags' and abs(wrap_deg(obs.heading_deg-70))<1.5  # corner-mean pixel ~ projected centre
+    assert (obs.x,obs.y)==pytest.approx((.2,2),abs=.01)

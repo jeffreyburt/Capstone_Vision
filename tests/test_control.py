@@ -226,3 +226,20 @@ def test_max_turn_keeps_robots_nearly_facing_down_the_hallway():
     t = p.targets_for(0.0, 2.5)
     assert t[1].heading_deg == pytest.approx(70) and t[2].heading_deg == pytest.approx(110)  # 60/120 unclamped
     assert FormationPlanner({1: "center"}, facing_deg=-90, max_turn_deg=20).targets_for(0, 2)[1].heading_deg == pytest.approx(90)
+
+
+def test_dead_reckoning_bridges_a_short_tag_gap_then_stops():
+    from control.main import DeadReckoner
+    p = FormationPlanner({1: "center"}, distance_m=1.0, facing_deg=-90)
+    ctl = {1: RobotController(Limits(allow_strafe=True, max_speed_m_s=0.2))}
+    reck = {1: DeadReckoner(max_s=1.5)}
+    user = {"x": 0.0, "y": 3.0, "age": 0.0}
+    robot = {"id": 1, "x": 0.0, "y": 1.0, "heading": 90.0, "age": 0.0}
+    _, out = compute_commands(_msg([robot], user), 0.0, p, ctl, reckoners=reck, now=100.0)
+    fresh = out[1][0]
+    assert out[1][1] == "moving" and fresh[0] > 0
+    _, out = compute_commands(_msg([], user), 0.0, p, ctl, reckoners=reck, now=100.5)  # tags gone
+    assert out[1][1].startswith("dead reckoning") and 0 < out[1][0][0] <= fresh[0] * 0.5 + 1e-9
+    assert reck[1].pose["y"] > 1.0  # carried forward along +y by the sent command
+    _, out = compute_commands(_msg([], user), 0.0, p, ctl, reckoners=reck, now=102.0)  # too long: stop
+    assert out[1] == (STOP, "robot not seen")

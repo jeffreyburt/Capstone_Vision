@@ -120,3 +120,38 @@ def _message(error):
         if "Message:" in line:
             return line.split("Message:", 1)[1].split("</p>")[0].strip().rstrip(".")
     return error.reason or f"HTTP {error.code}"
+
+
+UNITS_PER_FRAME = (216.0, 171.0)  # servo units across the robot camera image (same estimate as tracking_control)
+FACE_BELOW_TOP_M = 0.12           # face centre below the top of the head
+
+
+def aim_from_main_camera(head_pose, robot, user, positions, signs, limits=None, units_per_frame=UNITS_PER_FRAME):
+    """Where the user's face should appear in the robot's head camera, from the main camera's view.
+
+    head_pose: the robot's `head_pose` config (neutral_units, degrees_per_unit, pan_pivot_m, tilt_pivot_m).
+    robot: {x, y, heading} on the floor; user: {x, y, height}. positions: current [pan, tilt] servo units;
+    signs: the tracking directions. Returns ({"center": [u, v], "units": [pan, tilt]}) with the target clamped
+    to `limits`, or None. Positive pan turns the head toward chassis left; positive tilt turns it down.
+    """
+    import math
+    neutral = head_pose["neutral_units"]
+    dpu = head_pose["degrees_per_unit"]
+    pivot = head_pose["pan_pivot_m"]
+    tilt_z = head_pose["tilt_pivot_m"][2]
+    h = math.radians(robot["heading"])
+    cx = robot["x"] + pivot[0] * math.cos(h) - pivot[1] * math.sin(h)
+    cy = robot["y"] + pivot[0] * math.sin(h) + pivot[1] * math.cos(h)
+    dx, dy = user["x"] - cx, user["y"] - cy
+    distance = math.hypot(dx, dy)
+    if distance < 0.2:
+        return None
+    pan_deg = (math.degrees(math.atan2(dy, dx) - h) + 180) % 360 - 180
+    face_z = float(user.get("height") or 1.6) - FACE_BELOW_TOP_M
+    tilt_deg = -math.degrees(math.atan2(face_z - tilt_z, distance))  # looking up is negative tilt
+    units = [neutral[0] + pan_deg / dpu[0], neutral[1] + tilt_deg / dpu[1]]
+    if limits:
+        units = [min(max(u, lo), hi) for u, (lo, hi) in zip(units, limits)]
+    center = [max(-.5, min(1.5, .5 + (t - p) / (s * u)))
+              for t, p, s, u in zip(units, positions, signs, units_per_frame)]
+    return {"center": center, "units": [round(u, 1) for u in units]}

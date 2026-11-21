@@ -66,6 +66,13 @@ Prior lifted-wheel measurements are saved in `calib/recordings/robot1_motor_spee
   clearance) and `y_limits_m: [0.6, 6.0]`. Turning on click driving or keyboard control turns Follow off.
   Robot sides were swapped to match the physical placement: Robot 1 is on the camera's left (`side: right`,
   the user's right when facing the camera). Follow speed is 0.15 m/s for both robots.
+- **Robot positions without a full tag fit (2026-11-21):** with two or more of a robot's head tags visible, each
+  tag's centre ray (at its known height) gives a position and the direction between the tags gives the heading;
+  with one tag, the full image-space fit is used if it passes; otherwise the tag-centre ray with the tracker's
+  last heading. Extra tags: Robot 1 side tag 3 (nominal geometry) and Robot 2 side tag 5 (2026-11-20 fit), both
+  `center_only`. The vision message reports `position_source` (fit / two tags / tag centre). When no tag is seen,
+  follow mode dead-reckons each robot on its own sent commands at half speed for up to `control.dead_reckon_s`
+  (1.5 s), then stops.
 - **Turned robots lost their pose (2026-11-21):** facing the user turns each chassis ~30°, which made the rear-tag
   fits worse (Robot 1 8.2 px, Robot 2 14.7 px with its head panned) and Robot 2's pose went stale; a backwards
   mirror solution (-39° vs 114°) also scored almost as well. Now `formation.max_turn_deg: 20` limits how far a

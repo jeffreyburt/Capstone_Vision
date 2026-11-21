@@ -89,6 +89,11 @@ robots:
           - 0.02168821587013519
           - 0.004358532131393825
           - -4.726632047745827e-05
+        '3':                      # right-side tag: tag-centre position only (nominal, mirrors Robot 2 tag 5)
+          mount: fixed
+          center_only: true
+          center_m: [-0.02, -0.108, 0.24]
+          rotation_vector_rad: [0, 0, 0]
     moving_head_markers: true  # chassis heading unavailable until head_pose calibration
     faces: {0: 0, 1: 90, 2: 180, 3: 270}
     center_offset_m: 0.15
@@ -126,6 +131,11 @@ robots:
           - 0.04043269929944133
           - -0.03819042930693983
           - 0
+        '5':                      # left-side tag (2026-11-20 fit): tag-centre position only after the camera move
+          mount: pan
+          center_only: true
+          center_m: [-0.020838988000895932, 0.1083818550129793, 0.23903912263783259]
+          rotation_vector_rad: [0.04048336968790622, -0.10513518773976117, -0.03411309100077434]
     moving_head_markers: true
     faces: {4: 0, 5: 90, 6: 180, 7: 270}
     center_offset_m: 0.15
@@ -187,6 +197,7 @@ control:
   vision_timeout_s: 1.0     # stop every robot if no vision message arrives for this long
   max_pose_age_s: 0.7       # stop a robot the camera hasn't seen for this long
   user_lost_s: 2.0          # stop every robot when the user hasn't been seen for this long
+  dead_reckon_s: 1.5        # follow mode: keep moving (half speed) on sent commands this long after a robot's tags vanish; 0 = off
   robots:                   # drive server address per robot. side = which side of the user, seen by the user
     1:
       host: 192.168.50.105

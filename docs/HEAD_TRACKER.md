@@ -74,6 +74,16 @@ image, and **Engage torque / Start tracking / Stop tracking / Disengage torque**
 - **Not yet tested with a person moving in front of the camera** at the new speed. If the head overshoots or
   oscillates, lower the speed from the dashboard (for example 200) before changing the gains.
 
+## Aiming from the main camera (2026-11-21)
+
+When Robot 2's own camera doesn't see a face, the system dashboard aims its head from the main camera instead:
+`GET /api/head/robot2/aim` takes the user's floor position and height and Robot 2's position and heading from
+vision, works out the pan/tilt that points the head camera at the face (head_pose neutral units, degrees per unit,
+pan pivot, tilt pivot height; positive pan = chassis left, positive tilt = down; face 0.12 m below the top of the
+head), clamps it to the tracking limits, and converts it to an image-space observation for the robot's existing
+tracking loop. Face detection in the head camera still wins when it sees a face. The head-tracking line on the
+dashboard shows which source is aiming. Untested with a person yet at the time of writing.
+
 The sections below describe general workflows and legacy neutral-only setup; use the current installed
 profile above for this robot pair.
 

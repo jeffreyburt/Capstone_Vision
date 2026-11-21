@@ -37,6 +37,7 @@ class HeadGeometry:
     unit_limits: np.ndarray | None = None
     max_rms_px: float = 3.0  # reject chassis fits whose corner reprojection RMS exceeds this (wobbly heads need more)
     heading_window: tuple | None = None  # (center_deg, half_width_deg): reject fits facing outside it (e.g. a hallway)
+    center_only: frozenset = frozenset()  # tags only good for a tag-centre position (never a full chassis fit)
 
     @property
     def needs_feedback(self):
@@ -48,7 +49,7 @@ class HeadGeometry:
         scale = _vector(cfg["degrees_per_unit"], 2)
         if np.any((neutral < 0) | (neutral > 1000)) or np.any(scale == 0):
             raise ValueError("invalid servo neutral_units or degrees_per_unit")
-        mounts = {}
+        mounts, center_only = {}, set()
         for key, marker in cfg["markers"].items():
             marker_id = int(key)
             mount = marker["mount"]
@@ -65,6 +66,8 @@ class HeadGeometry:
                 offsets = offsets @ rotation.T
             corners = center + offsets
             mounts[marker_id] = mount, corners
+            if marker.get('center_only'):
+                center_only.add(marker_id)
         if not mounts:
             raise ValueError("head_pose.markers must list at least one measured marker")
         limits = None
@@ -80,7 +83,8 @@ class HeadGeometry:
             if len(window) != 2 or not all(math.isfinite(float(v)) for v in window) or not 0 < float(window[1]) < 180:
                 raise ValueError('heading_window_deg must be [center_deg, half_width_deg] with 0 < half_width < 180')
             window = (float(window[0]), float(window[1]))
-        return cls(neutral, scale, _vector(cfg["pan_pivot_m"], 3), _vector(cfg["tilt_pivot_m"], 3), mounts, limits, max_rms, window)
+        return cls(neutral, scale, _vector(cfg["pan_pivot_m"], 3), _vector(cfg["tilt_pivot_m"], 3), mounts, limits, max_rms, window,
+                   frozenset(center_only))
 
     def corners(self, marker_id, units):
         if marker_id not in self.mounts:
@@ -98,6 +102,20 @@ class HeadGeometry:
         if mount in ("pan", "tilt"):
             corners = _rotate(corners, self.pan_pivot, pan, "pan")
         return corners
+
+
+def center_ray_position(marker, corners, geometry, heading):
+    """Chassis (x, y) from where the camera ray through the tag's centre reaches the tag's height.
+
+    Robust to head wobble and oblique views: the tag centre moves little, and an error in the assumed heading only
+    swings the small tag-to-chassis offset. Returns None if the ray never reaches that height."""
+    center = np.asarray(corners, dtype=float).mean(axis=0)
+    pixel = np.asarray(marker.corners, dtype=float).mean(axis=0)
+    point = geometry.pixels_to_floor([pixel], center[2])[0]
+    if not np.isfinite(point).all():
+        return None
+    c, s = math.cos(heading), math.sin(heading)
+    return point - np.array([c*center[0] - s*center[1], s*center[0] + c*center[1]])
 
 
 def fit_chassis(marker, corners, geometry, prior_heading=None, max_rms_px=3.0, heading_window=None):

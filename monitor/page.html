@@ -895,7 +895,7 @@ function headSummary(s) {
   const fresh = Number.isFinite(s.serverTime) && Number.isFinite(s.position_time) && s.serverTime - s.position_time < 2;
   return [s.position_error ? `Servos: ${s.position_error}` : fresh ? `Pan ${pos[0] ?? "—"} · tilt ${pos[1] ?? "—"}` : "Servo feedback stale",
           `torque ${t(torque[0])}/${t(torque[1])}`, `camera ${s.camera?.live ? "live" : "off"}`,
-          s.tracking?.active ? `tracking: ${s.tracking.status}` : `${s.status || "idle"}`].join(" · ");
+          s.tracking?.active ? `tracking: ${s.tracking.status}${heads[s.robot]?.source ? " · aiming from the " + heads[s.robot].source : heads[s.robot]?.aimNote ? " · no aim: " + heads[s.robot].aimNote : ""}` : `${s.status || "idle"}`].join(" · ");
 }
 async function pollHead(h) {
   try {
@@ -962,8 +962,15 @@ async function headDetectLoop(h) {
     faces.sort((a, b) => h.last ? Math.hypot(a.center[0] - h.last[0], a.center[1] - h.last[1]) - Math.hypot(b.center[0] - h.last[0], b.center[1] - h.last[1]) : b.area - a.area);
     h.last = faces[0]?.center || null;
     if (tracking) {
+      // The head camera's own face detection wins; otherwise aim from the main camera's view of the user.
+      let center = h.last;
+      h.source = center ? "head camera" : null; h.aimNote = null;
+      if (!center) {
+        const a = await (await fetch(`/api/head/${h.key}/aim`, { cache: "no-store", signal: AbortSignal.timeout(800) })).json();
+        center = a.center; h.source = center ? "main camera" : null; h.aimNote = a.reason || null;
+      }
       const o = await fetch(`/api/head/${h.key}/observation`, { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ center: h.last, frameTime, target: "face" }), signal: AbortSignal.timeout(1000) });
+        body: JSON.stringify({ center, frameTime, target: "face" }), signal: AbortSignal.timeout(1000) });
       if (!(await o.json()).ok) throw Error("tracking paused: frame too old or controller unavailable");
     }
     if (h.boxes.checked && shown) drawOverlay(h, faces, s.tracking?.mode === "predicted" ? s.tracking.center : null);

@@ -42,7 +42,7 @@ from .beacon import StatusListener, status_port
 from .calibration import CalibrationManager
 from .probes import find_ssh, gateway_probe, network_probe, parse_health, run_ssh, tcp_check
 from .tunnels import CameraTunnels
-from .heads import HeadRelay
+from .heads import HeadRelay, aim_from_main_camera
 from .motors import MotorTests
 from control.waypoints import WaypointStore, waypoint_feedback
 from control.manual import ManualControl
@@ -478,8 +478,10 @@ def make_server(monitor, relay, host, port, calibration=None, heads=None):
             elif path.startswith("/api/head/"):
                 parts = path.split("/")  # ['', 'api', 'head', key, 'state'|'frame']
                 node = head_node(parts[3]) if len(parts) == 5 else None
-                if node is None or parts[4] not in ("state", "frame"):
+                if node is None or parts[4] not in ("state", "frame", "aim"):
                     self.send_error(404)
+                elif parts[4] == "aim":
+                    self._send(200, "application/json", json.dumps(self._head_aim(node)).encode())
                 elif parts[4] == "state":
                     self._send(200, "application/json", json.dumps(heads.state(node)).encode())
                 else:
@@ -533,6 +535,31 @@ def make_server(monitor, relay, host, port, calibration=None, heads=None):
             monitor.manual.enable(data['robot_id'])
             monitor.waypoints.arm(False)
             monitor.waypoints.set_follow(False)  # keyboard always takes over from following
+
+        def _head_aim(self, node):
+            """Aim point for a robot's head from the main camera (user + robot pose), for when its own camera
+            doesn't see a face. Only for robots with a calibrated moving head."""
+            if not heads.enabled(node)[0]:
+                return {"center": None, "reason": heads.enabled(node)[1]}
+            head_pose = next((r.get("head_pose") for r in monitor.cfg.get("robots", [])
+                              if int(r["id"]) == node.robot_id), None)
+            (vmsg, vage), _ = monitor.heartbeats()
+            vision = assess.heartbeat(vmsg, vage)
+            if not head_pose or vision is None or vage is None or vage > 1.0:
+                return {"center": None, "reason": "main camera not available"}
+            msg = vision.get("message") or {}
+            robot = next((r for r in msg.get("robots", []) if r.get("id") == node.robot_id), None)
+            user = msg.get("user")
+            if not user or user.get("age", 99) > 1.0:
+                return {"center": None, "reason": "main camera does not see the user"}
+            if not robot or robot.get("heading") is None or robot.get("age", 99) > 1.0:
+                return {"center": None, "reason": "main camera does not see this robot"}
+            state = heads.state(node)
+            positions, config = state.get("positions"), (state.get("tracking") or {}).get("config")
+            if not positions or None in positions or not config:
+                return {"center": None, "reason": "head feedback or tracking settings unavailable"}
+            aim = aim_from_main_camera(head_pose, robot, user, positions, config["signs"], config.get("limits"))
+            return aim or {"center": None, "reason": "user too close to the robot"}
 
         def _head_post(self):
             origin = self.headers.get('Origin')

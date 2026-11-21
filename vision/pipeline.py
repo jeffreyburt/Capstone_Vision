@@ -154,7 +154,14 @@ class VisionPipeline:
                         robot['pose_status'] = 'Recent calibrated observation' if robot['age']>0 else 'Calibrated moving head' if head.needs_feedback else 'Secured fixed head'
                     if units is not None:
                         robot['head_units'] = units.tolist()
+        approximate = {o.robot_id for o in observations if getattr(o, 'approximate', False)}
+        source = {o.robot_id: getattr(o, 'source', 'fit') for o in observations}
         for robot in message['robots']:
+            if robot['id'] in source:
+                robot['position_source'] = source[robot['id']]
+            if robot['id'] in approximate:
+                if robot.get('pose_status') == 'Calibrated marker not reliably visible' or robot.get('pose_compensated'):
+                    robot['pose_status'] = 'Tag-centre position (heading held from earlier fits)'
             if robot['id'] in self.pending_head_ids:
                 robot.update(heading=None, pose_compensated=False, reference='uncalibrated_head_markers')
         if (self.cfg.get('camera') or {}).get('local_frame_timestamps'):

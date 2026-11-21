@@ -14,6 +14,7 @@ A robot is stopped whenever the camera hasn't seen it recently, the user is lost
 """
 
 import argparse
+import math
 import sys
 import time
 
@@ -30,7 +31,41 @@ STOP = (0.0, 0.0, 0.0)
 TIMING_DEFAULTS = {"vision_timeout_s": 1.0, "max_pose_age_s": 0.7, "user_lost_s": 2.0}
 
 
-def compute_commands(msg, msg_age_s, planner, controllers, timing=None, compensated_ids=()):
+class DeadReckoner:
+    """Carries a robot's pose forward from its last fresh camera pose using the commands sent since.
+
+    Used only for a short gap (a tag briefly out of view); commands are scaled down meanwhile, and after
+    `max_s` the robot stops as before. Mecanum wheels slip, so this is a bridge, not navigation."""
+    def __init__(self, max_s=1.5, speed_scale=0.5):
+        self.max_s, self.speed_scale = max_s, speed_scale
+        self.pose = None   # dict x, y, heading (deg)
+        self.t = None      # time of the last fresh camera pose
+        self.last = None   # (time, body command) of the last integration step
+
+    def observe(self, pose, now):
+        self.pose = {"x": pose["x"], "y": pose["y"], "heading": pose["heading"]}
+        self.t = now
+        self.last = (now, STOP)
+
+    def estimate(self, now):
+        """Pose integrated up to now, or None when there is nothing recent enough to carry forward."""
+        if self.pose is None or now - self.t > self.max_s:
+            return None
+        t0, (vx, vy, wz) = self.last
+        dt = max(0.0, now - t0)
+        h = math.radians(self.pose["heading"])
+        self.pose["x"] += (vx * math.cos(h) - vy * math.sin(h)) * dt
+        self.pose["y"] += (vx * math.sin(h) + vy * math.cos(h)) * dt
+        self.pose["heading"] = (self.pose["heading"] + math.degrees(wz * dt) + 180) % 360 - 180
+        self.last = (now, self.last[1])
+        return dict(self.pose)
+
+    def sent(self, cmd, now):
+        if self.pose is not None:
+            self.last = (now, cmd)
+
+
+def compute_commands(msg, msg_age_s, planner, controllers, timing=None, compensated_ids=(), reckoners=None, now=None):
     """One control step, without any I/O.
 
     msg: newest vision message (or None); msg_age_s: seconds since it arrived on this laptop.
@@ -38,6 +73,8 @@ def compute_commands(msg, msg_age_s, planner, controllers, timing=None, compensa
     Returns (targets, {robot_id: ((vx, vy, wz), reason)}); a stopped robot gets STOP.
     """
     timing = {**TIMING_DEFAULTS, **(timing or {})}
+    reckoners = reckoners or {}
+    now = time.time() if now is None else now
     if msg is None or msg_age_s is None or msg_age_s > timing["vision_timeout_s"]:
         for c in controllers.values():
             c.reset()
@@ -66,21 +103,35 @@ def compute_commands(msg, msg_age_s, planner, controllers, timing=None, compensa
             continue
         pose_expired = (msg.get('frame_clock') == 'local' and
                         not frame_current(msg, msg_age_s, (pose or {}).get('age',0)))
+        problem = None
         if rid in compensated_ids and ((pose or {}).get("pose_compensated") is not True or pose_expired or
                                       (msg.get('frame_clock') != 'local' and msg_age_s > .25)):
-            ctrl.reset()
-            out[rid] = (STOP, "compensated pose unavailable")
-            continue
-        if pose is None or pose.get("heading") is None or pose["age"] > timing["max_pose_age_s"]:
-            ctrl.reset()
-            out[rid] = (STOP, "robot not seen")
-            continue
+            problem = "compensated pose unavailable"
+        elif pose is None or pose.get("heading") is None or pose["age"] > timing["max_pose_age_s"]:
+            problem = "robot not seen"
+        reck = reckoners.get(rid)
+        scale = 1.0
+        if problem is None:
+            if reck is not None:
+                reck.observe(pose, now)
+        else:
+            estimate = reck.estimate(now) if reck is not None else None
+            if estimate is None:
+                ctrl.reset()
+                out[rid] = (STOP, problem)
+                continue
+            pose, scale = estimate, reck.speed_scale
+            problem = f"dead reckoning ({problem}, {now - reck.t:.1f} s)"
         lim = ctrl.limits
         obstacles = [(user[0], user[1], lim.keep_out_m)]
         obstacles += [(o["x"], o["y"], lim.robot_clearance_m) for oid, o in robots.items()
                       if oid != rid and o["age"] <= timing["max_pose_age_s"]]
         cmd = ctrl.command(pose, targets[rid], obstacles)
-        out[rid] = (cmd, "holding" if cmd == STOP else "moving")
+        if scale != 1.0:
+            cmd = tuple(v * scale for v in cmd)
+        if reck is not None:
+            reck.sent(cmd, now)
+        out[rid] = (cmd, problem or ("holding" if cmd == STOP else "moving"))
     return targets, out
 
 
@@ -157,6 +208,7 @@ def main(argv=None):
     progress = {rid: WaypointProgress() for rid in driven}
     motions = {rid: WaypointMotion(**(c.get("waypoint_motion") or {})) for rid in driven}
     timing = {k: c[k] for k in TIMING_DEFAULTS if k in c}
+    reckoners = {rid: DeadReckoner(float(c.get("dead_reckon_s", 1.5))) for rid in driven} if c.get("dead_reckon_s", 1.5) else {}
     period = 1.0 / float(c.get("rate_hz", 10))
 
     vision = VisionListener(int(c.get("vision_port", cfg.get("output", {}).get("port", 5005))))
@@ -198,13 +250,14 @@ def main(argv=None):
                     for motion in motions.values():motion.halt()
                 elif (nav or {}).get('follow') is True:
                     # Dashboard "Follow user": keep the listening triangle around the user.
-                    targets, results = compute_commands(msg, msg_age, planner, controllers, timing, compensated_ids)
+                    targets, results = compute_commands(msg, msg_age, planner, controllers, timing, compensated_ids,
+                                                        reckoners)
                     follow_mode = True
                     for motion in motions.values():motion.halt()
                 else:
                     targets, results = compute_waypoints(msg, msg_age, nav, controllers, timing, progress=progress, motions=motions)
             else:
-                targets, results = compute_commands(msg, msg_age, planner, controllers, timing, compensated_ids)
+                targets, results = compute_commands(msg, msg_age, planner, controllers, timing, compensated_ids, reckoners)
             if args.arm:
                 for rid, (cmd, _) in results.items():
                     if paused or cmd == STOP:

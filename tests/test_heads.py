@@ -179,3 +179,24 @@ def test_config_tracking_limits_override_saved_limits():
     assert start["limits"] == [[311, 471], [690, 785]] and start["signs"] == [-1, 1] and start["speed"] == 300
     with pytest.raises(ValueError):
         tracking_limits({"system": {"robots": {2: {"head_tracking_limits": [[500, 400], [0, 10]]}}}})
+
+
+def test_main_camera_aim_points_the_head_at_the_user():
+    from monitor.heads import aim_from_main_camera
+    head = {"neutral_units": [391, 770], "degrees_per_unit": [0.271, 0.226],
+            "pan_pivot_m": [0, 0, 0], "tilt_pivot_m": [0, 0, 0.32]}
+    robot = {"x": 0.0, "y": 1.0, "heading": 90.0}
+    # User straight ahead at head height of the camera: no pan, no tilt.
+    aim = aim_from_main_camera(head, robot, {"x": 0.0, "y": 3.0, "height": 0.44}, [391, 770], [-1, 1])
+    assert aim["units"] == [391, 770] and aim["center"] == pytest.approx([.5, .5])
+    # User 20 deg to the robot's left and above: pan up (toward chassis left), tilt negative (up).
+    import math
+    ux, uy = 2 * math.cos(math.radians(110)), 1 + 2 * math.sin(math.radians(110))
+    aim = aim_from_main_camera(head, robot, {"x": ux, "y": uy, "height": 1.6}, [391, 770], [-1, 1])
+    assert aim["units"][0] == pytest.approx(391 + 20 / 0.271, abs=0.2)
+    assert aim["units"][1] < 770
+    assert aim["center"][0] < .5 and aim["center"][1] < .5  # face appears left of and above image centre
+    # Clamped to the tracking limits.
+    aim = aim_from_main_camera(head, robot, {"x": ux, "y": uy, "height": 1.6}, [391, 770], [-1, 1],
+                               limits=[[311, 471], [690, 785]])
+    assert aim["units"] == [pytest.approx(464.8, abs=.2), 690]  # 20 deg pan fits; the tilt is clamped

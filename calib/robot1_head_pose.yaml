@@ -25,6 +25,17 @@ head_pose:
       - 0.02168821587013519
       - 0.004358532131393825
       - -4.726632047745827e-05
+    '3':
+      mount: fixed
+      center_only: true
+      center_m:
+      - -0.02
+      - -0.108
+      - 0.24
+      rotation_vector_rad:
+      - 0
+      - 0
+      - 0
   max_rms_px: 10.0
   heading_window_deg:
   - 90
