@@ -26,7 +26,7 @@ class Target:
 
 class FormationPlanner:
     def __init__(self, sides, distance_m=1.5, spread_deg=60.0, facing_deg=-90.0, replan_m=0.3, area=None,
-                 area_margin_m=0.3, x_limits=None, y_limits=None):
+                 area_margin_m=0.3, x_limits=None, y_limits=None, max_turn_deg=None):
         """sides: {robot_id: "left" | "right" | "center"}, from the user's point of view.
         area: {"x": [min, max], "y": [min, max]} floor rectangle the targets must stay inside (or None)."""
         for rid, side in sides.items():
@@ -38,6 +38,9 @@ class FormationPlanner:
         self.area, self.area_margin_m = area, area_margin_m
         # Hard bounds on robot centers, e.g. a hallway: [min, max] meters, or None. Applied after the area margin.
         self.x_limits, self.y_limits = x_limits, y_limits
+        # Robots face the user, but turn at most this far from facing straight back along facing_deg (None = no limit).
+        # Keeps the camera-side markers nearly square-on; a tracking head covers the rest of the angle.
+        self.max_turn_deg = max_turn_deg
         for lim in (x_limits, y_limits):
             if lim is not None and not (len(lim) == 2 and lim[0] < lim[1]):
                 raise ValueError("x_limits / y_limits must be [min, max] with min < max")
@@ -62,7 +65,12 @@ class FormationPlanner:
         for rid, side in self.sides.items():
             a = math.radians(self.facing_deg + offsets[side])  # left = counter-clockwise of the facing direction
             x, y = self._clamp(ux + self.distance_m * math.cos(a), uy + self.distance_m * math.sin(a))
-            out[rid] = Target(x, y, math.degrees(math.atan2(uy - y, ux - x)))
+            heading = math.degrees(math.atan2(uy - y, ux - x))
+            if self.max_turn_deg is not None:
+                base = self.facing_deg + 180
+                off = (heading - base + 180) % 360 - 180
+                heading = base + max(-self.max_turn_deg, min(self.max_turn_deg, off))
+            out[rid] = Target(x, y, heading)
         return out
 
     def update(self, user):

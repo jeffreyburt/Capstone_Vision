@@ -219,3 +219,10 @@ def test_hallway_limits_keep_targets_off_the_walls():
     assert all(t.y >= 0.6 for t in near_camera.values())
     with pytest.raises(ValueError):
         FormationPlanner({1: "left"}, x_limits=[1, 0])
+
+
+def test_max_turn_keeps_robots_nearly_facing_down_the_hallway():
+    p = FormationPlanner({1: "right", 2: "left"}, distance_m=1.0, spread_deg=60, facing_deg=-90, max_turn_deg=20)
+    t = p.targets_for(0.0, 2.5)
+    assert t[1].heading_deg == pytest.approx(70) and t[2].heading_deg == pytest.approx(110)  # 60/120 unclamped
+    assert FormationPlanner({1: "center"}, facing_deg=-90, max_turn_deg=20).targets_for(0, 2)[1].heading_deg == pytest.approx(90)

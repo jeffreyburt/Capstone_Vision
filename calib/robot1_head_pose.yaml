@@ -25,6 +25,9 @@ head_pose:
       - 0.02168821587013519
       - 0.004358532131393825
       - -4.726632047745827e-05
-  max_rms_px: 8.0
+  max_rms_px: 10.0
+  heading_window_deg:
+  - 90
+  - 60
 reference_date: '2026-11-20'
 user_rear_offset_m: -0.14

@@ -36,6 +36,7 @@ class HeadGeometry:
     mounts: dict
     unit_limits: np.ndarray | None = None
     max_rms_px: float = 3.0  # reject chassis fits whose corner reprojection RMS exceeds this (wobbly heads need more)
+    heading_window: tuple | None = None  # (center_deg, half_width_deg): reject fits facing outside it (e.g. a hallway)
 
     @property
     def needs_feedback(self):
@@ -74,7 +75,12 @@ class HeadGeometry:
         max_rms = float(cfg.get('max_rms_px', 3.0))
         if not 0 < max_rms <= 30:
             raise ValueError('max_rms_px must be in (0, 30]')
-        return cls(neutral, scale, _vector(cfg["pan_pivot_m"], 3), _vector(cfg["tilt_pivot_m"], 3), mounts, limits, max_rms)
+        window = cfg.get('heading_window_deg')
+        if window is not None:
+            if len(window) != 2 or not all(math.isfinite(float(v)) for v in window) or not 0 < float(window[1]) < 180:
+                raise ValueError('heading_window_deg must be [center_deg, half_width_deg] with 0 < half_width < 180')
+            window = (float(window[0]), float(window[1]))
+        return cls(neutral, scale, _vector(cfg["pan_pivot_m"], 3), _vector(cfg["tilt_pivot_m"], 3), mounts, limits, max_rms, window)
 
     def corners(self, marker_id, units):
         if marker_id not in self.mounts:
@@ -94,7 +100,7 @@ class HeadGeometry:
         return corners
 
 
-def fit_chassis(marker, corners, geometry, prior_heading=None, max_rms_px=3.0):
+def fit_chassis(marker, corners, geometry, prior_heading=None, max_rms_px=3.0, heading_window=None):
     """Fit a level chassis directly in image space.
 
     Intersecting each corner ray with its assumed height is ill-conditioned when the
@@ -161,6 +167,8 @@ def fit_chassis(marker, corners, geometry, prior_heading=None, max_rms_px=3.0):
             score = float(np.mean(error**2))
             if score > max_rms_px**2:  # never trade reprojection validity for temporal continuity
                 continue
+            if heading_window is not None and abs((math.degrees(state[2])-heading_window[0]+180)%360-180) > heading_window[1]:
+                continue  # a mirror-image solution facing the wrong way
             selection = score
             if prior_heading is not None:
                 difference=(state[2]-prior_heading+math.pi)%(2*math.pi)-math.pi

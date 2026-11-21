@@ -62,7 +62,8 @@ robots:
   # center_offset_m: distance from the marker surface to the robot's center (half of a 30 cm robot)
   - id: 1
     head_pose:
-      max_rms_px: 8.0   # secured head wobbles: 2.9-5.3 px observed after the 2026-11-21 camera move
+      max_rms_px: 10.0  # secured head wobbles: 2.9-5.3 px facing the camera, 8.2 px turned 35 deg (2026-11-21)
+      heading_window_deg: [90, 60]  # hallway: always faces roughly +y; rejects mirror-image fits
       neutral_units:
       - 0
       - 0
@@ -112,7 +113,8 @@ robots:
         - 471
       - - 690
         - 785
-      max_rms_px: 10.0  # head wobble: ~8 px rear-tag RMS after the camera move (default 3)
+      max_rms_px: 15.0  # head wobble: ~8 px facing the camera, 14.7 px turned 25 deg with the head panned (2026-11-21)
+      heading_window_deg: [90, 60]  # hallway: always faces roughly +y; rejects mirror-image fits (e.g. -39 vs 114 deg)
       markers:
         '6':
           mount: tilt
@@ -219,6 +221,7 @@ control:
     # exact shape while the user is within ~0.05 m of the hallway center line; further off, targets are clamped here.
     x_limits_m: [-0.52, 0.55]
     y_limits_m: [0.6, 6.0]    # never closer than 0.6 m to the camera (its cables and footprint)
+    max_turn_deg: 20          # chassis turns at most 20 deg toward the user: rear tags stay square-on (fits failed at ~30 deg)
   limits:
     max_speed_m_s: 0.15
     max_yaw_rad_s: 0.4

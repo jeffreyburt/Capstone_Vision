@@ -149,7 +149,8 @@ def main(argv=None):
     planner = FormationPlanner({rid: robots_cfg[rid].get("side", "center") for rid in driven},
                                f.get("distance_m", 1.5), f.get("spread_deg", 60.0), f.get("facing_deg", -90.0),
                                f.get("replan_m", 0.3), cfg.get("area"),
-                               x_limits=f.get("x_limits_m"), y_limits=f.get("y_limits_m"))
+                               x_limits=f.get("x_limits_m"), y_limits=f.get("y_limits_m"),
+                               max_turn_deg=f.get("max_turn_deg"))
     limits = Limits.from_config(c.get("limits"))
     controllers = {rid: RobotController(Limits.from_config({
         **(c.get('limits') or {}), **(robots_cfg[rid].get('limits') or {})})) for rid in driven}
