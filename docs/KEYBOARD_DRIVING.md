@@ -73,3 +73,18 @@ unit tests could not be run in the authoring environment (missing numpy/cv2/pyte
 - Deploy: copy `robot/drive_server.py` to `~/capstone-drive/` on each robot, restart
   `capstone-drive-<id>.service`, and restart the local monitor/controller. Do the first test with the
   robot lifted or in open space.
+
+Deployment, 2026-11-21 (all tests passed beforehand: 223 passed, 10 subtests):
+
+- Live `~/capstone-drive/drive_server.py` backed up on both robots as
+  `drive_server.py.bak-2026-11-21-prespeed`, then replaced with this commit's file.
+- **Robot 1:** `capstone-drive-1.service` restarted; logs show cap 5 counts/10 ms and zero outputs.
+- **Robot 2:** file copied, but **the service was NOT restarted**. `capstone-pi2` has no passwordless sudo
+  rule for it (see MOTOR_DIAGNOSTICS.md), so it still runs the previous file until someone runs
+  `sudo systemctl restart capstone-drive-2.service` on it. The old file already clamps at 0.3 m/s with
+  the same 25-count cap, so 0.19 m/s works now; only the faster acceleration waits on the restart.
+  Robot 2's previous live file predated the mixed-drive change; the new file's mixed path only runs
+  when the config has a `tb6612` section, which `robot2_wheels.json` does not.
+- Laptop `monitor` and `control.main --robots 1,2 --waypoints --arm` restarted from `.venv`; dashboard
+  came back disarmed with keyboard mode off and both links OK. No motion commands were sent.
+- Rollback: copy the `.bak-2026-11-21-prespeed` file back over `drive_server.py` and restart the service.
