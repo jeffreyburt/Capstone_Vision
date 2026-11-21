@@ -5,8 +5,7 @@
     python -m monitor --bind 0.0.0.0   # also reachable from other machines (e.g. a phone)
 
 Runs on its own, so it keeps working when vision.main or control.main are stopped or crash. Status
-probes are read-only. Grid clicks store waypoints for a separate controller; this server never arms
-or directly commands wheel hardware. Where the information comes from:
+probes are read-only. Grid clicks store waypoints for a separate controller; motor diagnostics explicitly pause navigation and temporarily take exclusive wheel control. Where the information comes from:
 
     laptop programs   heartbeats from vision.main and control.main (UDP 127.0.0.1:5007, monitor/beacon.py)
     every Pi          TCP connect to SSH (is it up?), SSH health script with the laptop's key (monitor/probes.py)
@@ -43,6 +42,7 @@ from .beacon import StatusListener, status_port
 from .calibration import CalibrationManager
 from .probes import find_ssh, gateway_probe, network_probe, parse_health, run_ssh, tcp_check
 from .tunnels import CameraTunnels
+from .motors import MotorTests
 from control.waypoints import WaypointStore, waypoint_feedback
 
 PAGE = Path(__file__).with_name("page.html")
@@ -416,6 +416,7 @@ def calibration_action(cal, name, data):
 
 def make_server(monitor, relay, host, port, calibration=None):
     calibration = calibration or make_calibration(monitor)
+    motor_tests = MotorTests(monitor)
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
@@ -433,6 +434,8 @@ def make_server(monitor, relay, host, port, calibration=None):
             path = self.path.split("?")[0]
             if path == "/":
                 self._send(200, "text/html; charset=utf-8", PAGE.read_bytes())
+            elif path == "/api/motors":
+                self._send(200, "application/json", json.dumps(motor_tests.snapshot()).encode())
             elif path == "/state":
                 self._send(200, "application/json", json.dumps(monitor.snapshot()).encode())
             elif path == "/calibration":
@@ -486,6 +489,23 @@ def make_server(monitor, relay, host, port, calibration=None):
                 self._send(400, 'application/json', json.dumps({'error': str(error)}).encode())
 
         def do_POST(self):
+            if self.path in ('/api/motors/start', '/api/motors/stop'):
+                origin = self.headers.get('Origin')
+                if origin and origin != 'http://' + self.headers.get('Host', ''):
+                    self.send_error(403)
+                    return
+                try:
+                    size = int(self.headers.get('Content-Length', '0'))
+                    if not 0 < size <= 2048:
+                        raise ValueError('Missing or oversized JSON request')
+                    data = json.loads(self.rfile.read(size))
+                    if not isinstance(data, dict):
+                        raise ValueError('JSON object required')
+                    result = motor_tests.start(data) if self.path.endswith('/start') else motor_tests.stop()
+                    self._send(200, 'application/json', json.dumps(result).encode())
+                except (ValueError, TypeError, KeyError, OSError, StopIteration) as error:
+                    self._send(400, 'application/json', json.dumps({'error': str(error)}).encode())
+                return
             if self.path.startswith('/api/calibration/'):
                 self._calibration_post()
                 return
@@ -512,6 +532,8 @@ def make_server(monitor, relay, host, port, calibration=None):
                 if not 0 < size <= 2048:
                     raise ValueError('Missing or oversized JSON request')
                 data = json.loads(self.rfile.read(size))
+                if motor_tests.snapshot()['running']:
+                    raise ValueError('Stop the motor test before changing navigation')
                 if self.path.endswith('/arm'):
                     monitor.waypoints.arm(data['enabled'])
                 elif self.path.endswith('/clear'):

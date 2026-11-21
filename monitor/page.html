@@ -98,6 +98,22 @@
 </header>
 <div id="lost">Lost connection to the system GUI. Is <code>python -m monitor</code> still running?</div>
 <main>
+<section class="panel" style="grid-column:1/-1" id="motor-tests">
+<h2>Individual motor tests <span class="sub">Live encoder feedback</span></h2>
+<div style="padding:12px">
+<p>Lift the wheels before testing. Tests disable click driving; re-enable it afterward when ready. Robot 1 M1 is disabled; its replacement uses TB6612 channel A.</p>
+<label>Robot <select id="motor-robot"><option value="1">1 · left</option><option value="2">2 · right</option></select></label>
+<label>Motor <select id="motor-channel"><option>M2</option><option>M3</option><option>M4</option><option>TB6612</option></select></label>
+<label>Direction <select id="motor-direction"><option value="1">Positive</option><option value="-1">Negative</option></select></label>
+<label>Speed <input id="motor-speed" type="number" min="1" max="50" value="25" style="width:65px">%</label>
+<label>Duration <input id="motor-seconds" type="number" min="0.2" max="5" step="0.1" value="3" style="width:65px">s</label>
+<button id="motor-start">Run selected motor</button> <button id="motor-stop">Stop test</button>
+<p id="motor-status" role="status">Select one motor to test.</p>
+<p>Hiwonder speed is a percentage of the configured speed cap, in counts/10 ms. TB6612 speed is PWM duty. Positive/negative describe electrical direction.</p>
+<table style="width:100%;text-align:left"><thead><tr><th>Encoder</th><th>Change since start</th><th>Rate / second</th><th>GPIO level</th></tr></thead><tbody id="motor-readings"></tbody></table>
+<canvas id="motor-chart" width="1000" height="180" style="width:100%;height:180px" aria-label="Encoder counts over time"></canvas>
+</div></section>
+
   <section class="panel" id="main-camera">
     <h2>Main camera · live tracking <span class="grow"></span><button id="restart-camera" title="Restart the camera sender on the main Pi">Restart camera</button><button id="restart-vision" title="Restart the laptop vision program">Restart vision</button><span class="pill" id="main-camera-pill">checking</span></h2>
     <p id="main-camera-status" role="status">Checking the main camera…</p>
@@ -605,6 +621,56 @@ for (const [id, path, ask] of [["restart-camera", "/api/camera/restart", "Restar
   });
 }
 
+
+let motorRequestPending=false;
+const motorColors=['#2f8cff','#ff8c00','#3fae5a','#d882ef'];
+document.getElementById('motor-robot').onchange=()=>{
+  const channels=document.getElementById('motor-robot').value==='1'?['M2','M3','M4','TB6612']:['M1','M2','M3','M4'];
+  document.getElementById('motor-channel').replaceChildren(...channels.map(c=>new Option(c,c)));
+};
+async function motorAction(action){
+  if(motorRequestPending)return;
+  motorRequestPending=true;
+  document.getElementById('motor-start').disabled=true;
+  const data={robot_id:Number(document.getElementById('motor-robot').value),channel:document.getElementById('motor-channel').value,
+    speed:Number(document.getElementById('motor-speed').value)*Number(document.getElementById('motor-direction').value),seconds:Number(document.getElementById('motor-seconds').value)};
+  try{
+    const response=await fetch('/api/motors/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+    const state=await response.json();
+    if(!response.ok)throw Error(state.error||'Request failed');
+    renderMotors(state);
+  }catch(error){document.getElementById('motor-status').textContent=error.message;}
+  finally{motorRequestPending=false;}
+}
+document.getElementById('motor-start').onclick=()=>motorAction('start');
+document.getElementById('motor-stop').onclick=()=>motorAction('stop');
+function renderMotors(state){
+  document.getElementById('motor-start').disabled=motorRequestPending||state.running;
+  document.getElementById('motor-stop').disabled=!state.running;
+  const stale=state.running&&state.sample_age_s>1;
+  document.getElementById('motor-status').textContent=[state.robot_id?'Robot '+state.robot_id+' · '+state.channel:'',state.state,
+    state.elapsed!=null?state.elapsed.toFixed(1)+' s':'',stale?'Waiting for fresh encoder data':'',state.error||'',state.elapsed>=1&&(state.counts||[]).every(n=>n===0)?'No encoder pulses detected':''].filter(Boolean).join(' · ');
+  const rows=document.getElementById('motor-readings');rows.replaceChildren();
+  (state.labels||[]).forEach((label,i)=>{
+    const row=document.createElement('tr');
+    [label,(state.counts||[])[i]+' '+state.units,Number((state.rates||[])[i]||0).toFixed(1),state.levels?state.levels[i]:'—'].forEach(text=>{
+      const cell=document.createElement('td');cell.textContent=text;row.append(cell);
+    });row.style.color=motorColors[i];rows.append(row);
+  });
+  const canvas=document.getElementById('motor-chart'),ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);
+  const samples=(state.samples||[]).filter(s=>s.counts&&s.elapsed!=null);if(!samples.length)return;
+  const values=samples.flatMap(s=>s.counts),low=Math.min(0,...values),high=Math.max(1,...values),end=Math.max(1,...samples.map(s=>s.elapsed));
+  ctx.fillStyle='#8a939e';ctx.fillText('Counts / edges since test start',8,14);ctx.fillText(low+' to '+high,8,30);ctx.fillText(end.toFixed(1)+' seconds',880,175);
+  (state.labels||[]).forEach((_,i)=>{ctx.beginPath();ctx.strokeStyle=motorColors[i];samples.forEach((s,j)=>{
+    const x=80+s.elapsed/end*900,y=155-(s.counts[i]-low)/(high-low)*115;j?ctx.lineTo(x,y):ctx.moveTo(x,y);
+  });ctx.stroke();});
+}
+async function pollMotors(){
+  try{const response=await fetch('/api/motors',{cache:'no-store'});if(!response.ok)throw Error('Motor test connection unavailable');renderMotors(await response.json());}
+  catch(error){document.getElementById('motor-status').textContent=error.message;document.getElementById('motor-start').disabled=true;}
+  setTimeout(pollMotors,200);
+}
+pollMotors();
 async function poll() {
   try {
     const r = await fetch("/state", { cache: "no-store" });
