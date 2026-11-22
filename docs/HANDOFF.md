@@ -59,6 +59,14 @@ Prior lifted-wheel measurements are saved in `calib/recordings/robot1_motor_spee
 
 ## Dashboard and ownership
 
+- **2026-11-22 afternoon:** merged Jeffrey's `feature/fov-soft-stop` (camera-view guard; see below). Robot 1 had
+  stopped driving because its drive server had latched "TB6612 encoder pulses stopped" (most likely while its 7.4 V
+  supply was off: no FR power, no encoder pulses); restarting `capstone-drive-1.service` clears it. Vision's head
+  feedback now re-opens a dead SSH tunnel (Robot 2 had stayed "Fresh head feedback unavailable" after a main-Pi
+  reboot). With no heading history and no full fit, a single tag's own orientation now gives the heading
+  (`position_source: one tag`), but only while the head is within 35 deg of forward (`SINGLE_TAG_MAX_PAN_DEG`);
+  further aside the robot waits for a heading rather than risk turning on a bad one.
+
 - **Camera view guard (branch `feature/fov-soft-stop`, 2026-11-22; software and simulation only, not yet run on
   the robots):** robots were leaving the main camera's image. `vision.main` now adds `view.polygon` to every
   message: the floor area where a robot's tags (heights = each robot's marker height +- half a tag) appear inside

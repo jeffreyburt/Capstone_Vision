@@ -17,7 +17,7 @@ from dataclasses import dataclass
 import numpy as np
 import cv2
 
-from .joint_pose import HeadGeometry, center_ray_position, fit_chassis, tag_center_world
+from .joint_pose import HeadGeometry, center_ray_position, fit_chassis, tag_center_world, tag_pose_world
 
 
 @dataclass
@@ -87,6 +87,28 @@ def face_on_floor(marker, spec, geometry):
     normal /= np.linalg.norm(normal)
     center = pts.mean(axis=0)
     return center, normal
+
+
+SINGLE_TAG_MAX_PAN_DEG = 35.0  # one-tag headings only while the head is within this of forward
+
+
+def _single_tag_heading(tags, geometry, size_m=0.10, blur_px=0.0):
+    """Chassis heading (radians) from one tag's own pose: the horizontal direction of its edge (corner 0 -> 1) in
+    the world, minus the same edge in the chassis frame at the current head angles (so the head's pan is taken
+    out). Noisier than a full fit or two tags, but works with a single oblique tag. Largest tag wins."""
+    best = None
+    for m, corners, *_ in tags:
+        world = tag_pose_world(m, size_m, geometry, blur_px)
+        if world is None:
+            continue
+        w = world[1, :2] - world[0, :2]
+        c = np.asarray(corners)[1, :2] - np.asarray(corners)[0, :2]
+        if np.hypot(*w) < 1e-6 or np.hypot(*c) < 1e-6:
+            continue
+        heading = math.atan2(w[1], w[0]) - math.atan2(c[1], c[0])
+        if best is None or m.side_px > best[0]:
+            best = m.side_px, math.atan2(math.sin(heading), math.cos(heading))
+    return None if best is None else best[1]
 
 
 def _two_tag_heading(tags, geometry, size_m=0.10, blur_px=0.0):
@@ -167,8 +189,18 @@ def estimate_robots(markers, specs, geometry, joint_positions=None, prior_headin
                 groups[rid], sources[rid] = fits, "fit"
                 continue
             source = "tag centre"
+            own = _single_tag_heading(tags, geometry, size, blur)
+            units = joint_positions.get(rid) if head.needs_feedback else None
+            if own is not None and units is not None and abs(
+                    (units[0] - head.neutral_units[0]) * head.degrees_per_unit[0]) > SINGLE_TAG_MAX_PAN_DEG:
+                own = None  # head turned far aside: the tag is too oblique and the pan model too extrapolated to trust
+            if own is not None and head.heading_window is not None and abs(
+                    (math.degrees(own) - head.heading_window[0] + 180) % 360 - 180) > head.heading_window[1]:
+                own = None
             if rid in prior_headings:
                 heading = prior_headings[rid]
+            elif own is not None:
+                heading, source = own, "one tag"  # no history yet: the tag's own orientation gives the heading
             elif head.heading_window is not None:
                 heading = math.radians(head.heading_window[0])
             else:
@@ -176,7 +208,7 @@ def estimate_robots(markers, specs, geometry, joint_positions=None, prior_headin
         for m, corners, *_ in tags:
             xy = center_ray_position(m, corners, geometry, heading, size, blur)
             if xy is not None:
-                groups.setdefault(rid, []).append((xy, heading if source == "two tags" else None, m.side_px, m.id))
+                groups.setdefault(rid, []).append((xy, heading if source in ("two tags", "one tag") else None, m.side_px, m.id))
                 sources[rid] = source
 
     out = []

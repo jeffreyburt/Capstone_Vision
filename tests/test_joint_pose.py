@@ -147,8 +147,8 @@ def test_tag_centre_fallback_keeps_position_when_the_full_fit_fails():
             R=np.eye(3)+np.sin(ang)*K+(1-np.cos(ang))*K@K
             c=(c-centre)@R.T+centre-[0,0,wobble]
         return MarkerDetection(mid,geometry.world_to_pixels(c))
-    obs,=estimate_robots([seen(3)],[spec],geometry)  # side tag only: centre ray + expected heading
-    assert obs.approximate and obs.heading_deg is None
+    obs,=estimate_robots([seen(3)],[spec],geometry)  # side tag only, no history: its own orientation gives the heading
+    assert obs.source=='one tag' and abs(wrap_deg(obs.heading_deg-90))<1
     assert (obs.x,obs.y)==pytest.approx((.2,2),abs=.01)
     obs,=estimate_robots([seen(2,wobble=.02)],[spec],geometry,prior_headings={1:np.radians(90)})
     assert obs.approximate and (obs.x,obs.y)==pytest.approx((.2,2),abs=.04)  # height-plane rays were ~30 cm off
@@ -171,3 +171,34 @@ def test_two_visible_tags_give_a_heading_without_a_full_fit():
     obs,=estimate_robots(tags,[spec],geometry)
     assert obs.source=='two tags' and abs(wrap_deg(obs.heading_deg-70))<1.5  # corner-mean pixel ~ projected centre
     assert (obs.x,obs.y)==pytest.approx((.2,2),abs=.01)
+
+
+def test_one_oblique_tag_still_gives_a_heading_without_history():
+    cfg={'robots':[{'id':1,'faces':{2:180},'head_pose':{
+        'neutral_units':[500,500],'degrees_per_unit':[0.24,0.24],'pan_pivot_m':[0,0,0],'tilt_pivot_m':[-.05,0,.32],
+        'heading_window_deg':[90,60],'max_rms_px':0.01,  # force the full fit to fail (as with a wobbling head)
+        'markers':{2:{'mount':'tilt','center_m':[-.14,0,.295]}}}}]}
+    spec=robot_specs_from_config(cfg)[0]
+    geometry=Geometry(CameraModel.from_fov(1600,900,102),FloorPose.look_at([0,0,.395],[0,3,0]))
+    units=np.array([600.,540.])  # head panned 24 deg and tilted
+    angle=np.radians(80)
+    rot=np.array([[np.cos(angle),-np.sin(angle),0],[np.sin(angle),np.cos(angle),0],[0,0,1]])
+    pixels=geometry.world_to_pixels(spec.head.corners(2,units)@rot.T+[.2,1.6,0])
+    tag=MarkerDetection(2,pixels+np.random.default_rng(0).normal(0,.5,pixels.shape))  # detection noise: full fit fails
+    obs,=estimate_robots([tag],[spec],geometry,{1:units})
+    assert obs.source=='one tag' and abs(wrap_deg(obs.heading_deg-80))<3
+    assert (obs.x,obs.y)==pytest.approx((.2,1.6),abs=.03)
+
+
+def test_one_tag_heading_is_not_trusted_with_the_head_turned_far_aside():
+    cfg={'robots':[{'id':1,'faces':{2:180},'head_pose':{
+        'neutral_units':[500,500],'degrees_per_unit':[0.24,0.24],'pan_pivot_m':[0,0,0],'tilt_pivot_m':[-.05,0,.32],
+        'heading_window_deg':[90,60],'max_rms_px':0.01,
+        'markers':{2:{'mount':'tilt','center_m':[-.14,0,.295]}}}}]}
+    spec=robot_specs_from_config(cfg)[0]
+    geometry=Geometry(CameraModel.from_fov(1600,900,102),FloorPose.look_at([0,0,.395],[0,3,0]))
+    units=np.array([700.,500.])  # head panned 48 deg
+    pixels=geometry.world_to_pixels(spec.head.corners(2,units)+[.2,1.6,0])
+    tag=MarkerDetection(2,pixels+np.random.default_rng(0).normal(0,.5,pixels.shape))
+    obs,=estimate_robots([tag],[spec],geometry,{1:units})
+    assert obs.heading_deg is None and obs.source=='tag centre'  # position only; the robot waits for a heading
