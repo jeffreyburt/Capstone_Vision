@@ -47,6 +47,22 @@ image, and **Engage torque / Start tracking / Stop tracking / Disengage torque**
   signs pan -1 / tilt +1, tilt 433–812, prediction 0.8 s). Observations were accepted; frame fetch plus detection
   took about 40 ms. Tests: `tests/test_heads.py`.
 
+## Robot 1 head tracking (2026-11-22)
+
+- Limits from the dashboard's range seen (pan 307-1062, tilt 684-1093), with margins and the 0-1000 command range:
+  `system.robots.1.head_tracking_limits: [[327, 980], [692, 980]]`. **Tilt only moves down from level** on this
+  mount (+tilt looks down, measured from Robot 1's camera: 70 units moved the image 221 px), so Robot 1 cannot look up
+  at a standing face unless the stop near 684 is changed.
+- Directions `head_tracking_signs: [-1, 1]` (pan matches Robot 2; the pan image test was weak against a plain wall).
+  With no settings saved on the robot, Start uses these config limits/signs; Speed/Predict default to 300 / 1.5 s.
+- Vision now treats Robot 1's head as moving: forward = units 772/686 (where the secured head sat for the fixed
+  calibration), rear tag 2 on the tilt stage, side tag 3 on pan (centre only), valid range pan 307-1000 / tilt
+  680-1000. **Pivots and degrees-per-unit are estimates** (LX-224 nominal 0.24 deg/unit, Robot 2's pivots) until the
+  Calibration page's robot step is run with the robots back in front of the main camera; it fits them.
+- Fixed in `head_tracker/dashboard.py`: error replies containing '–' crashed the robot's handler and dropped the
+  connection. Deployed to Robot 1; Robot 2 still has the old file (it was offline) and should get it when back.
+- Robot 1 tracking started from the dashboard; ~15 face-detection frames/s from its camera. Not yet tested with a face.
+
 ## Robot 1 head servos on a USB BusLinker; live positions for finding limits (2026-11-22)
 
 Robot 1's pan (ID 1) and tilt (ID 2) LX servos are daisy-chained on a BusLinker V2 plugged into the Pi by USB

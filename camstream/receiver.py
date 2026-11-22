@@ -89,6 +89,7 @@ class FrameReceiver:
         self._history = {n: deque(maxlen=60) for n in names}  # (t_received, bytes, seq, t_capture)
         self._dropped = {n: 0 for n in names}
         self._clock_offsets = {n: None for n in names}
+        self._clock_jumps = {}
         self._running = True
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
@@ -108,9 +109,19 @@ class FrameReceiver:
                     if prev is not None and header["seq"] > prev.seq + 1:
                         self._dropped[name] += header["seq"] - prev.seq - 1
                     offset = self._clock_offsets[name]
+                    if prev is not None and header["seq"] < prev.seq:
+                        offset = None  # the sender restarted (its Pi may have rebooted with a different clock)
                     capture, sent = header.get('t_capture'), header.get('t_sent')
                     if all(type(v) in (int,float) and math.isfinite(v) for v in (capture,sent)) and 0 <= sent-capture <= 2:
                         candidate = now-sent
+                        # The offset is the smallest (least delayed) one seen, but a sender clock jump makes every
+                        # new candidate far larger: after several such frames in a row, start over.
+                        if offset is not None and candidate - offset > 1.0:
+                            self._clock_jumps[name] = self._clock_jumps.get(name, 0) + 1
+                            if self._clock_jumps[name] >= 5:
+                                offset, self._clock_jumps[name] = None, 0
+                        else:
+                            self._clock_jumps[name] = 0
                         offset = candidate if offset is None else min(offset,candidate)
                         self._clock_offsets[name] = offset
                     self._latest[name] = Frame(name, header, payload, now, offset)

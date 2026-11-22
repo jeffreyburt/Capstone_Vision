@@ -31,6 +31,18 @@ def tracking_limits(cfg):
     return out
 
 
+def tracking_signs(cfg):
+    """robot key -> [pan sign, tilt sign] from `system.robots.<id>.head_tracking_signs`, if set."""
+    out = {}
+    for rid, entry in ((cfg.get("system") or {}).get("robots") or {}).items():
+        signs = (entry or {}).get("head_tracking_signs")
+        if signs is not None:
+            if not isinstance(signs, list) or len(signs) != 2 or any(v not in (-1, 1) for v in signs):
+                raise ValueError(f"robot {rid}: head_tracking_signs must be [±1, ±1]")
+            out[f"robot{int(rid)}"] = list(signs)
+    return out
+
+
 def enabled_robots(cfg):
     """robot key -> (enabled, reason) from `system.robots.<id>.head_tracking` (default enabled)."""
     out = {}
@@ -46,6 +58,7 @@ class HeadRelay:
     def __init__(self, cfg, endpoint, *, urlopen=urllib.request.urlopen):
         self.flags = enabled_robots(cfg)
         self.limits = tracking_limits(cfg)
+        self.signs = tracking_signs(cfg)
         self.endpoint = endpoint  # (host, port) -> reachable (host, port), e.g. through the SSH tunnel
         self.urlopen = urlopen
 
@@ -102,11 +115,14 @@ class HeadRelay:
         if {"limits", "signs"} <= set(data):
             return {**data, "target": "face"}
         saved = (self.state(node).get("tracking") or {}).get("config")
+        if not saved and node.key in self.limits and node.key in self.signs:
+            saved = {"limits": self.limits[node.key], "signs": self.signs[node.key]}  # nothing saved on the robot yet
         if not saved:
             raise ValueError("No saved tracking settings on this robot; teach limits on its own dashboard first")
         # Limits: config head_tracking_limits (e.g. the range the camera pose model is calibrated for), else the
         # robot's taught limits. Directions always come from the robot; speed and prediction may be overridden.
-        return {"target": "face", "limits": self.limits.get(node.key, saved["limits"]), "signs": saved["signs"],
+        return {"target": "face", "limits": self.limits.get(node.key, saved["limits"]),
+                "signs": self.signs.get(node.key, saved["signs"]),
                 "speed": data.get("speed", saved.get("speed", 180)),
                 "prediction": data.get("prediction", saved.get("prediction", 1.2))}
 

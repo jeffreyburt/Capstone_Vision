@@ -63,36 +63,23 @@ robots:
   #        (0 = front, 90 = left side, 180 = back, 270 = right side)
   # center_offset_m: distance from the marker surface to the robot's center (half of a 30 cm robot)
   - id: 1
-    head_pose:
-      max_rms_px: 5.0   # px at 2304x1296 (was 10 at 4608x2592): secured head wobble, turned up to ~35 deg
-      heading_window_deg: [90, 60]  # hallway: always faces roughly +y; rejects mirror-image fits
-      neutral_units:
-      - 0
-      - 0
-      degrees_per_unit:
-      - 1
-      - 1
-      pan_pivot_m:
-      - 0
-      - 0
-      - 0
-      tilt_pivot_m:
-      - 0
-      - 0
-      - 0
+    head_pose:  # written by the dashboard calibration
+      max_rms_px: 5.0
+      heading_window_deg: [90, 60]
+      neutral_units: [772, 686]
+      degrees_per_unit: [0.24, 0.24]
+      pan_pivot_m: [-0.013, -0.078, 0.0]
+      tilt_pivot_m: [-0.047, 0.0, 0.32]
+      valid_units:
+      - [307, 1000]
+      - [680, 1000]
       markers:
         '2':
-          mount: fixed
-          center_m:
-          - -0.14
-          - 0
-          - 0.2952609205636474
-          rotation_vector_rad:
-          - 0.02168821587013519
-          - 0.004358532131393825
-          - -4.726632047745827e-05
-        '3':                      # right-side tag: tag-centre position only (nominal, mirrors Robot 2 tag 5)
-          mount: fixed
+          mount: tilt
+          center_m: [-0.14, 0, 0.2952609205636474]
+          rotation_vector_rad: [0.02168821587013519, 0.004358532131393825, -4.726632047745827e-05]
+        '3':
+          mount: pan
           center_only: true
           center_m: [-0.02, -0.108, 0.24]
           rotation_vector_rad: [0, 0, 0]
@@ -260,8 +247,11 @@ system:
   probe_via: vision@192.168.1.20  # read-only probes/cameras through main Pi; null for a routed laptop
   master: {host: 192.168.1.20, wifi_host: 192.168.50.1, ssh_user: vision}
   robots:                   # address + drive port from control.robots, camera from streams.robotN
-    1: {ssh_user: robot-pi1, dashboard_port: 8080, head_tracking: false,
-        head_tracking_reason: "Head tracking off for Robot 1 until its pan/tilt travel limits are measured (servos now on a USB BusLinker)"}
+    1: {ssh_user: robot-pi1, dashboard_port: 8080,
+        # 2026-11-22: servos on a USB BusLinker. Limits from the dashboard's range-seen (pan 307-1062, tilt 684-1093)
+        # with margins and the 0-1000 command range; tilt only goes down from level on this mount.
+        head_tracking_limits: [[327, 980], [692, 980]],
+        head_tracking_signs: [-1, 1]}   # measured from Robot 1's camera: +tilt looks down; pan matches Robot 2
     2: {ssh_user: capstone-pi2, dashboard_port: 8080,   # William's image
         # Head tracking stays inside the range vision's head-pose model covers (robots[id=2].head_pose.valid_units),
         # so Robot 2 stays located while its head follows the user.

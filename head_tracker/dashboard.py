@@ -233,6 +233,10 @@ def track_head(config):
 
 class Handler(BaseHTTPRequestHandler):
  def log_message(self,*args):pass
+ def send_error(self,code,message=None,explain=None):
+  # The status line must be latin-1; messages like '5–400' crashed the handler and dropped the connection.
+  if message is not None:message=str(message).replace('\u2013','-').encode('latin-1','replace').decode('latin-1')
+  super().send_error(code,message,explain)
  def do_GET(self):
   self.path=self.path.split('?',1)[0]
   if self.path=='/api/state':

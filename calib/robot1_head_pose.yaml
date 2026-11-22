@@ -1,22 +1,31 @@
-status: active_fixed_secured_head
+status: active_moving_head_estimate_2026-11-22
 head_pose:
+  max_rms_px: 5.0
+  heading_window_deg:
+  - 90
+  - 60
   neutral_units:
-  - 0
-  - 0
+  - 772
+  - 686
   degrees_per_unit:
-  - 1
-  - 1
+  - 0.24
+  - 0.24
   pan_pivot_m:
-  - 0
-  - 0
-  - 0
+  - -0.013
+  - -0.078
+  - 0.0
   tilt_pivot_m:
-  - 0
-  - 0
-  - 0
+  - -0.047
+  - 0.0
+  - 0.32
+  valid_units:
+  - - 307
+    - 1000
+  - - 680
+    - 1000
   markers:
     '2':
-      mount: fixed
+      mount: tilt
       center_m:
       - -0.14
       - 0
@@ -26,7 +35,7 @@ head_pose:
       - 0.004358532131393825
       - -4.726632047745827e-05
     '3':
-      mount: fixed
+      mount: pan
       center_only: true
       center_m:
       - -0.02
@@ -36,9 +45,8 @@ head_pose:
       - 0
       - 0
       - 0
-  max_rms_px: 5.0
-  heading_window_deg:
-  - 90
-  - 60
 reference_date: '2026-11-20'
 user_rear_offset_m: -0.14
+note_2026_11_22: Pan (ID 1) and tilt (ID 2) servos on a USB BusLinker. Forward = units
+  772/686 (where the secured head sat for the fixed calibration). Pivots and scales
+  are estimates until the Calibration page robot step runs.

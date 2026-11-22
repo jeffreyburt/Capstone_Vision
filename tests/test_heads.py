@@ -201,3 +201,15 @@ def test_main_camera_aim_points_the_head_at_the_user():
     aim = aim_from_main_camera(head, robot, {"x": ux, "y": uy, "height": 1.6}, [391, 770], [-1, 1],
                                limits=[[311, 471], [690, 785]])
     assert aim["units"] == [pytest.approx(464.8, abs=.2), 690]  # 20 deg pan fits; the tilt is clamped
+
+
+def test_start_without_saved_settings_uses_config_limits_and_signs():
+    from monitor.heads import HeadRelay
+    cfg = {"system": {"robots": {1: {"head_tracking_limits": [[327, 980], [692, 980]], "head_tracking_signs": [-1, 1]}}}}
+    relay = HeadRelay(cfg, lambda h, p: (h, p))
+    relay.state = lambda node: {"tracking": {"config": None}}
+    node = type("N", (), {"key": "robot1"})()
+    start = relay._start_request(node, {"speed": 300, "prediction": 1.5})
+    assert start == {"target": "face", "limits": [[327, 980], [692, 980]], "signs": [-1, 1], "speed": 300, "prediction": 1.5}
+    with pytest.raises(ValueError):
+        HeadRelay({"system": {"robots": {1: {"head_tracking_signs": [2, 1]}}}}, lambda h, p: (h, p))

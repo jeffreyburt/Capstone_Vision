@@ -914,7 +914,7 @@ async function pollHead(h) {
     const ready = s.enabled && torqueReady;
     const engaged = (s.torque || []).every(v => v === 1);
     h.el.querySelector('[data-a="engage"]').disabled = !torqueReady || active;
-    h.el.querySelector('[data-a="start"]').disabled = !ready || active || !engaged || !s.camera?.live || !s.tracking?.config;
+    h.el.querySelector('[data-a="start"]').disabled = !ready || active || !engaged || !s.camera?.live;
     h.el.querySelector('[data-a="stop"]').disabled = !s.reachable;
     h.el.querySelector('[data-a="disengage"]').disabled = !torqueReady;
     // Lowest/highest positions seen since "Reset range": move the head by hand (torque off) to find its limits.
@@ -926,7 +926,10 @@ async function pollHead(h) {
     } else if (!h.seen) h.seenEl.textContent = "Range seen: waiting for positions";
     h.boxes.disabled = !s.enabled;
     const cfg = s.tracking?.config;
-    if (cfg && !h.prefilled) { h.speed.value = Math.max(cfg.speed, 300); h.predict.value = Math.max(cfg.prediction ?? 1.2, 1.5); h.prefilled = true; }
+    if (!h.prefilled && s.reachable) {  // nothing saved on the robot yet: start from the usual 300 units/s, 1.5 s
+      h.speed.value = cfg ? Math.max(cfg.speed, 300) : 300; h.predict.value = cfg ? Math.max(cfg.prediction ?? 1.2, 1.5) : 1.5;
+      h.prefilled = true;
+    }
     h.speed.disabled = h.predict.disabled = !s.enabled || active;
     if (active && cfg) { h.speed.value = cfg.speed; h.predict.value = cfg.prediction; }
     if (!s.enabled) clearOverlay(h);

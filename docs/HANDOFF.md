@@ -59,6 +59,11 @@ Prior lifted-wheel measurements are saved in `calib/recordings/robot1_motor_spee
 
 ## Dashboard and ownership
 
+- **Main camera timestamps after a main-Pi reboot (2026-11-22):** the receiver kept the smallest laptop-minus-Pi clock
+  offset ever seen, so after the main Pi rebooted with a different clock every frame looked ~18 h old and vision
+  stalled. `camstream/receiver.py` now re-learns the offset when the sender restarts or 5 frames in a row disagree by
+  over 1 s.
+
 - **Follow user (2026-11-21):** the dashboard's floor-map panel has a **Follow user** switch (off after every
   monitor restart). With it on, `control.main --waypoints` keeps both robots in an equilateral listening
   triangle with the user (`control.formation`: 1.0 m sides, facing -90° = toward the camera, down the hallway).
