@@ -195,8 +195,8 @@ control:
         yaw_tolerance_deg: 12.0  # ...and ~±10° heading spread; 2.0 made the chassis chase that noise
         allow_strafe: true
   formation:                # listening triangle: user at one corner, the speakers at the other two
-    usable_width_m: 2.5  # usable space centred on the camera (dashboard calibration)
-    line_y_m: 1.5           # robots' line: distance in front of the camera. The user is the triangle's third corner, so it
+    usable_width_m: 3.0  # usable space centred on the camera (dashboard calibration)
+    line_y_m: 1.0  # robots' line: distance in front of the camera (dashboard calibration)
                             # opens as they walk away and closes as they come nearer; if it would cross x_limits_m the robots
                             # step forward off the line (still equilateral) and return when it fits. Remove for a fixed size.
     min_side_m: 0.8         # never closer than this to the user (or each other)
@@ -207,7 +207,7 @@ control:
     # Hallway (2026-11-21 floor calibration): walls at x = -0.87 (left) and +0.90 (right) m, parallel to +y.
     # Robot centers stay 0.35 m inside each wall (0.15 m half body + 0.20 m clearance). The triangle keeps its
     # exact shape while the user is within ~0.05 m of the hallway center line; further off, targets are clamped here.
-    x_limits_m: [-0.9, 0.9]  # robot centres: walls at +-1.25 m minus 0.15 m half robot and 0.20 m clearance
+    x_limits_m: [-1.15, 1.15]  # robot centres: walls at +-1.50 m minus 0.15 m half robot and 0.20 m clearance
     y_limits_m: [0.6, 6.0]    # never closer than 0.6 m to the camera (its cables and footprint)
     max_turn_deg: 20          # chassis turns at most 20 deg toward the user: rear tags stay square-on (fits failed at ~30 deg)
   feedforward:              # follow mode: move with the user instead of chasing them (control/main.py user_feedforward)

@@ -18,7 +18,7 @@
       "y": 0.0
     },
     "robot_body_size_m": 0.3,
-    "usable_width_m": 2.5,
+    "usable_width_m": 3.0,
     "wall_clearance_m": 0.2
   },
   "confirmations": {
@@ -115,6 +115,16 @@
       "at": "2026-11-22T12:21:05-05:00",
       "event": "robots-applied",
       "detail": "dashboard calibration: head tags and Robot 2 head motion"
+    },
+    {
+      "at": "2026-11-22T12:40:34-05:00",
+      "event": "measurements",
+      "detail": "usable_width_m, wall_clearance_m"
+    },
+    {
+      "at": "2026-11-22T12:40:34-05:00",
+      "event": "walls-applied",
+      "detail": "usable width 3.00 m, robot x limits [-1.15, 1.15]"
     }
   ],
   "verification": null,
