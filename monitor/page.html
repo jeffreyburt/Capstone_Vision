@@ -1016,6 +1016,25 @@ function drawOverlay(h, faces, predicted, aimPoint) {
   }
 }
 const headInput = document.createElement("canvas"); headInput.width = 640; headInput.height = 480;
+const FACE_GRACE_MS = 500;
+// The detector (BlazeFace short range) shrinks its input to 128x128, so a face ~1 m away in the 320x240 head frame
+// ends up ~16 px wide: at its limit, and lost to a hand or the slightest blur. Measured 2026-11-22 on both heads
+// with a person in view: whole frame 57% / 0% of frames detected (Robot 1 / 2), a 120 px crop around the face
+// 100% / 100%; with 1 px of blur 93% / 0% vs 100% / 93%. So also look at a crop CROP_FRACTION of the frame wide
+// around the last face, scaled up, and merge (crop boxes win where both see the same face).
+const CROP_FRACTION = 0.4, crop = document.createElement("canvas");
+function detectFaces(frame, focus) {
+  const W = frame.width, H = frame.height, cw = Math.round(W * CROP_FRACTION), ch = Math.round(H * CROP_FRACTION);
+  const x0 = Math.max(0, Math.min(W - cw, Math.round(focus[0] - cw / 2))), y0 = Math.max(0, Math.min(H - ch, Math.round(focus[1] - ch / 2)));
+  const scale = 256 / cw;
+  crop.width = 256; crop.height = Math.round(ch * scale);
+  crop.getContext("2d").drawImage(frame, x0, y0, cw, ch, 0, 0, crop.width, crop.height);
+  const zoomed = window.faceDetect(crop).map(d => { const b = d.boundingBox;
+    return { originX: x0 + b.originX / scale, originY: y0 + b.originY / scale, width: b.width / scale, height: b.height / scale }; });
+  const whole = window.faceDetect(frame).map(d => d.boundingBox);
+  const same = (a, b) => Math.hypot(a.originX + a.width / 2 - b.originX - b.width / 2, a.originY + a.height / 2 - b.originY - b.height / 2) < Math.max(a.width, b.width) / 2;
+  return [...zoomed, ...whole.filter(b => !zoomed.some(z => same(z, b)))];
+}
 async function headDetectLoop(h) {
   let wait = 300;
   try {
@@ -1035,22 +1054,31 @@ async function headDetectLoop(h) {
     if (headInput.width !== W || headInput.height !== H) { headInput.width = W; headInput.height = H; }
     const g = headInput.getContext("2d");
     g.setTransform(-1, 0, 0, -1, W, H); g.drawImage(bitmap, 0, 0, W, H); g.resetTransform(); bitmap.close();  // camera is mounted upside down
-    const faces = window.faceDetect(headInput).map(d => { const b = d.boundingBox; return {
+    // Whole frame plus a zoomed crop around where the face was (else the image centre, where tracking keeps it).
+    const focus = h.lastPx && Date.now() - (h.faceAt || 0) < 1000 ? h.lastPx : [W / 2, H / 2];
+    const faces = detectFaces(headInput, focus).map(b => ({
       box: { originX: b.originX * sx, originY: b.originY * sy, width: b.width * sx, height: b.height * sy },
       center: [Math.min(1, Math.max(0, (b.originX + b.width / 2) / W)), Math.min(1, Math.max(0, (b.originY + b.height / 2) / H))],
-      area: b.width * b.height * sx * sy }; });
+      area: b.width * b.height * sx * sy, px: [b.originX + b.width / 2, b.originY + b.height / 2] }));
     faces.sort((a, b) => h.last ? Math.hypot(a.center[0] - h.last[0], a.center[1] - h.last[1]) - Math.hypot(b.center[0] - h.last[0], b.center[1] - h.last[1]) : b.area - a.area);
     h.last = faces[0]?.center || null;
+    if (faces[0]) h.lastPx = faces[0].px;
     if (tracking) {
-      // The head camera's own face detection wins; otherwise aim from the main camera's view of the user.
+      // The head camera's own face detection wins. A face missed for a moment (a shake while the chassis drives)
+      // leaves the robot to predict from its recent track; only after FACE_GRACE_MS without one does the main
+      // camera's view (about 0.35 s old, and noisy while the robots move) take over.
       let center = h.last;
+      const now = Date.now();
+      if (center) h.faceAt = now;
       h.source = center ? "head camera" : null; h.aimNote = null;
-      if (!center) {
+      if (!center && now - (h.faceAt || 0) < FACE_GRACE_MS) h.source = "prediction";
+      else if (!center) {
         const a = await (await fetch(`/api/head/${h.key}/aim`, { cache: "no-store", signal: AbortSignal.timeout(800) })).json();
         center = a.center; h.source = center ? "main camera" : null; h.aimNote = a.reason || null;
       }
       const o = await fetch(`/api/head/${h.key}/observation`, { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ center, size: h.source === "head camera" ? faces[0].box.width / 640 : null, frameTime, target: "face" }),
+        body: JSON.stringify({ center, size: h.source === "head camera" ? faces[0].box.width / 640 : null, frameTime, target: "face",
+                               source: h.source }),
         signal: AbortSignal.timeout(1000) });
       if (!(await o.json()).ok) throw Error("tracking paused: frame too old or controller unavailable");
     }

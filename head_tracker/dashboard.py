@@ -8,10 +8,10 @@ import argparse
 import socket
 if __package__:
  from .tracking_control import validate as validate_tracking, correction, approach, aim_offset_fraction, search_pattern, SEARCH_SPEED, TargetMemory, image_to_servo, servo_to_image
- from .camera_feed import CameraFeed, parse_size as parse_camera_size
+ from .camera_feed import CameraFeed, parse_size as parse_camera_size, DEFAULT_EXPOSURE, DEFAULT_EV
 else:
  from tracking_control import validate as validate_tracking, correction, approach, aim_offset_fraction, search_pattern, SEARCH_SPEED, TargetMemory, image_to_servo, servo_to_image
- from camera_feed import CameraFeed, parse_size as parse_camera_size
+ from camera_feed import CameraFeed, parse_size as parse_camera_size, DEFAULT_EXPOSURE, DEFAULT_EV
 camera_feed=None
 
 def servo_port():
@@ -236,7 +236,10 @@ def track_head(config):
     else:lagging=0
     if holding and None not in positions:targets=list(map(float,positions))
    with lock:
-    state['tracking'].update(status=message,mode=mode,center=control_center if live else None,lastSeenAge=round(age,2) if age is not None else None,targets=[round(v,1) for v in targets])
+    face_time=state['tracking'].get('faceTime')
+    state['tracking'].update(status=message,mode=mode,center=control_center if live else None,lastSeenAge=round(age,2) if age is not None else None,targets=[round(v,1) for v in targets],
+                             source=(observation or {}).get('source') if fresh else None,
+                             faceAge=None if face_time is None else round(time.time()-face_time,2))
     state['status']='Head tracking · '+message
    stop.wait(max(0,.025-(time.monotonic()-now)))
  except Exception as error:
@@ -327,6 +330,7 @@ class Handler(BaseHTTPRequestHandler):
      threading.Thread(target=track_head,args=(config,),daemon=True).start()
     else:
      center=data.get('center');stamp=data.get('frameTime');face_size=data.get('size')
+     source=data.get('source') if data.get('source') in ('head camera','main camera','prediction') else None
      if face_size is not None and (type(face_size) not in (int,float) or not math.isfinite(face_size) or not 0<face_size<=1):raise ValueError('Invalid face size')
      # Up to half a frame beyond the edges: the main camera can aim at a person the head camera cannot see yet.
      if center is not None and (not isinstance(center,list) or len(center)!=2 or any(type(v) not in (int,float) or not math.isfinite(v) or not -.5<=v<=1.5 for v in center)):raise ValueError('Invalid face center')
@@ -334,7 +338,9 @@ class Handler(BaseHTTPRequestHandler):
      with lock:
       if state['tracking']['active']:
        if tracking_observation is None or stamp>tracking_observation['frameTime']:
-        tracking_observation={'center':center,'received':time.monotonic(),'frameTime':stamp,'size':face_size}
+        tracking_observation={'center':center,'received':time.monotonic(),'frameTime':stamp,'size':face_size,
+                              'source':source}
+        if source=='head camera' and center is not None:state['tracking']['faceTime']=stamp
    except (ValueError,TypeError,AttributeError) as error:self.send_error(400,str(error));return
   elif self.path=='/api/capture':
    with lock:
@@ -462,6 +468,9 @@ if __name__=='__main__':
  parser.add_argument('--robot-id',type=int)
  parser.add_argument('--camera-size',default='320x240',
                      help='robot camera frame size, e.g. 320x240 (default; faster tracking) or 640x480')
+ parser.add_argument('--camera-exposure',choices=('normal','short','long'),default=None,
+                     help='auto-exposure mode (default: camera_feed.DEFAULT_EXPOSURE); short = less motion blur')
+ parser.add_argument('--camera-ev',type=float,default=None,help='exposure compensation in stops, -8 to 8')
  parser.add_argument('--camera-fps',type=int,default=30,
                      help='robot camera frame rate, 5-60; above 30 is untested (try with --camera-size 320x240)')
  args=parser.parse_args()
@@ -479,7 +488,10 @@ if __name__=='__main__':
   feedback_robot_id=args.robot_id
   feedback_socket=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
   feedback_socket.setblocking(False)
- camera_feed=CameraFeed(camera_size,args.camera_fps)
+ exposure=args.camera_exposure or DEFAULT_EXPOSURE
+ ev=DEFAULT_EV if args.camera_ev is None else args.camera_ev
+ if not -8<=ev<=8:parser.error('--camera-ev must be -8 to 8')
+ camera_feed=CameraFeed(camera_size,args.camera_fps,exposure,ev)
  threading.Thread(target=monitor,daemon=True).start()
  print('Servo dashboard: http://0.0.0.0:8080 · servo bus '+SERIAL_PORT,flush=True)
  ThreadingHTTPServer(('0.0.0.0',8080),Handler).serve_forever()

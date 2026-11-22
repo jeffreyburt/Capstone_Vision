@@ -200,7 +200,7 @@ def cmd_summary(args):
     for e in events:
         if e["event"] == "view_changed" and e.get("polygon"):
             view = CameraView(e["polygon"])  # the latest view is used for edge distances
-    modes, reasons, seen = Counter(), {}, {}
+    modes, reasons, seen, heads = Counter(), {}, {}, {}
     closest, outside, last_t, first_t, prev_t, n = {}, Counter(), None, None, None, 0
     for tick in read_ticks(session):
         n += 1
@@ -212,6 +212,12 @@ def cmd_summary(args):
         modes[(tick.get("nav_mode"), tick.get("mode"))] += dt
         for rid, out in tick.get("out", {}).items():
             reasons.setdefault(rid, Counter())[reason_kind(out["reason"])] += dt
+            hs = (tick.get("heads") or {}).get(rid)
+            if hs and hs.get("active"):
+                cmd = out.get("cmd") or [0, 0, 0]
+                moving = abs(cmd[0]) + abs(cmd[1]) > 0.03 or abs(cmd[2]) > 0.05
+                aim = hs.get("source") or ("no aim" if hs.get("mode") == "holding" else hs.get("mode"))
+                heads.setdefault(rid, {}).setdefault(moving, Counter())[aim] += dt
             r = tick.get("robots", {}).get(rid)
             ok = r is not None and r.get("heading") is not None and (r.get("age") or 0) <= 0.7
             seen.setdefault(rid, Counter())[ok] += dt
@@ -242,6 +248,11 @@ def cmd_summary(args):
         print("  time per reason:")
         for kind, v in reasons[rid].most_common(8):
             print(f"    {v:7.1f} s  {kind}")
+        for moving, label in ((True, "driving"), (False, "stopped")):
+            c = heads.get(rid, {}).get(moving)
+            if c:
+                total = sum(c.values()) or 1
+                print(f"  head aimed by, while {label}: " + ", ".join(f"{k} {100 * v / total:.0f}%" for k, v in c.most_common()))
     marks = [e for e in events if e["event"] == "mark"]
     if marks:
         print("\nMarks:")

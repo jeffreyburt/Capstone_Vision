@@ -2,6 +2,7 @@
 
 import gzip
 import json
+import re
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -49,9 +50,12 @@ def _run_scenario(tmp_path, snapshot_url=None):
             out = {1: ((0.0, -0.1, 0.0), f"returning to camera view (estimate {now - t0 - 1:.1f} s old)")}
         if k == 50:
             nav = {**nav, "mark": {"seq": 4, "note": "R1 went off screen"}}
+        # Head tracker state as the black box polls it: mostly the head camera, every 4th step the main camera.
+        head = {"active": True, "mode": "observed", "source": "head camera" if k % 4 else "main camera",
+                "faceAge": 0.1}
         bb.record(now, mode="ARMED", navigation_mode="follow", msg=msg, msg_age=0.05, nav=nav,
                   targets={1: Target(-0.6, 1.5, 90.0)}, results=out, link_ages={1: 0.1}, link_status={1: "ok"},
-                  reckoners=reck, guard=guard)
+                  reckoners=reck, guard=guard, heads={"1": head})
     bb.event(t0 + 3.0, "stopped")
     bb.close()
     return bb, t0
@@ -87,6 +91,7 @@ def test_reader_commands(tmp_path, capsys):
     out = capsys.readouterr().out
     assert bb.dir.name in out and "lost 1x, view-guard returns 1x" in out and "R1 went off screen" in out
     assert "closest to the camera-view edge while seen: +0.22 m at" in out  # (-0.69, 1) vs the line y = -x
+    assert re.search(r"head aimed by, while driving: head camera 7\d%, main camera 2\d%", out)
     reader.main(["--dir", base, "events", "--kind", "robot_lost,mark"])
     out = capsys.readouterr().out
     assert "robot_lost" in out and "mark" in out and "reason" not in out
@@ -145,3 +150,38 @@ def test_snapshot_from_mjpeg(tmp_path):
         server.shutdown()
         server.server_close()
     assert grab_jpeg("http://127.0.0.1:9/none", timeout=0.2) is None
+
+
+def test_head_states_poll_the_dashboard():
+    from control.blackbox import HeadStates
+
+    class Reply:
+        def __init__(self, body):
+            self.body = body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def read(self, *a):
+            return self.body
+
+    def urlopen(url, timeout):
+        if "robot2" in url:
+            raise OSError("unreachable")
+        return Reply(json.dumps({"positions": [400, 700], "camera": {"exposure": {"exposure_ms": 9.9}},
+                                 "tracking": {"active": True, "mode": "predicted", "source": "prediction",
+                                              "faceAge": 0.3, "config": {"big": 1}}}).encode())
+
+    hs = HeadStates("http://x", [1, 2], interval_s=0.01, urlopen=urlopen)
+    import time
+    deadline = time.time() + 2
+    while len(hs.snapshot()) < 2 and time.time() < deadline:
+        time.sleep(0.01)
+    hs.close()
+    snap = hs.snapshot()
+    assert snap["1"] == {"mode": "predicted", "source": "prediction", "faceAge": 0.3, "active": True,
+                         "positions": [400, 700], "exposure": {"exposure_ms": 9.9}}
+    assert snap["2"] is None

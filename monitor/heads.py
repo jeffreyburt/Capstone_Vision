@@ -102,7 +102,8 @@ class HeadRelay:
             return out
         tracking = raw.get("tracking") or {}
         out.update(reachable=True, **{k: raw.get(k) for k in STATE_FIELDS},
-                   tracking={k: tracking.get(k) for k in ("active", "status", "mode", "center", "config", "targets")})
+                   tracking={k: tracking.get(k) for k in ("active", "status", "mode", "center", "config", "targets",
+                                                          "source", "faceAge")})
         return out
 
     def frame(self, node):

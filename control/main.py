@@ -316,6 +316,10 @@ def main(argv=None):
         blackbox = BlackBox(bb_cfg, argv=["control.main", *(sys.argv[1:] if argv is None else argv)], robots=driven,
                             config_path=args.config or resolve_path(cfg, "config.yaml"))
         print(f"Black box recording to {blackbox.dir}")
+    head_states = None
+    if blackbox and args.waypoints:  # the dashboard (monitor) is running: record the head trackers too
+        from .blackbox import HeadStates
+        head_states = HeadStates(f"http://127.0.0.1:{int((cfg.get('system') or {}).get('gui_port', 8090))}", driven)
 
     print(("ARMED: driving robots " if args.arm else "DRY RUN (nothing is sent; add --arm to drive): robots ")
           + ", ".join(f"{rid} @ {robots_cfg[rid]['host']}" for rid in driven))
@@ -386,7 +390,8 @@ def main(argv=None):
             if blackbox:
                 blackbox.record(now, mode=mode, navigation_mode=report['navigation_mode'], msg=msg, msg_age=msg_age,
                                 nav=nav, targets=targets, results=results, link_ages=link_ages,
-                                link_status=link.status, reckoners=reckoners, guard=guard)
+                                link_status=link.status, reckoners=reckoners, guard=guard,
+                                heads=head_states.snapshot() if head_states else None)
                 report['blackbox'] = blackbox.status()
             beacon.update(report)
             if now - last_print >= 1.0:
@@ -402,6 +407,8 @@ def main(argv=None):
         if args.arm:
             link.stop_all()
             print("Sent stop to all robots.")
+        if head_states:
+            head_states.close()
         if blackbox:
             blackbox.event(time.time(), "stopped")
             blackbox.close()

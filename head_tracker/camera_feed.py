@@ -24,9 +24,19 @@ def parse_size(text):
  return width,height
 
 
+# Exposure for the head camera. It looks up past the user into ceiling lights, so auto-exposure darkens the
+# (backlit) face, and at 30 fps a dark scene gets ~30 ms exposures: chassis vibration while driving then blurs the
+# face and the detector loses it. 'short' makes the auto-exposure prefer short shutter times (more gain), and
+# ev (exposure compensation, stops) brightens the face against the lights. 'normal' / 0 = the libcamera defaults.
+DEFAULT_EXPOSURE='short'
+DEFAULT_EV=1.0
+
+
 class CameraFeed:
- def __init__(self,size=DEFAULT_SIZE,fps=30):
+ def __init__(self,size=DEFAULT_SIZE,fps=30,exposure=DEFAULT_EXPOSURE,ev=DEFAULT_EV):
   self.size,self.fps=tuple(size),fps
+  self.exposure_mode,self.ev=exposure,float(ev)
+  self.exposure=None  # latest {'exposure_ms', 'gain', 'lux'} reported by the camera
   self.condition=threading.Condition()
   self.frame=None
   self.updated=0
@@ -39,7 +49,14 @@ class CameraFeed:
  def info(self):
   with self.condition:
    return {'status':self.status,'model':self.model,'updated':self.updated,'size':list(self.size),'fps':self.fps,
-           'live':bool(self.frame and time.time()-self.updated<3)}
+           'live':bool(self.frame and time.time()-self.updated<3),
+           'exposure_mode':self.exposure_mode,'ev':self.ev,'exposure':self.exposure}
+ def controls(self):
+  """libcamera controls for the exposure settings (see DEFAULT_EXPOSURE)."""
+  from libcamera import controls
+  mode={'normal':controls.AeExposureModeEnum.Normal,'short':controls.AeExposureModeEnum.Short,
+        'long':controls.AeExposureModeEnum.Long}[self.exposure_mode]
+  return {'FrameRate':self.fps,'AeExposureMode':mode,'ExposureValue':self.ev}
  def run(self):
   while True:
    camera=None
@@ -51,13 +68,20 @@ class CameraFeed:
     if cameras:
      camera=Picamera2(cameras[0]['Num'])
      self.model=cameras[0].get('Model','Pi camera')
-     camera.configure(camera.create_video_configuration(main={'size':self.size},controls={'FrameRate':self.fps}))
+     try:wanted=self.controls()
+     except Exception:wanted={'FrameRate':self.fps}  # older libcamera: frame rate only
+     camera.configure(camera.create_video_configuration(main={'size':self.size},controls=wanted))
      owner=self
      class Output(io.BufferedIOBase):
       def write(self,buf):owner.publish(buf);return len(buf)
      camera.start_recording(JpegEncoder(),FileOutput(Output()))
      while True:
-      time.sleep(2)
+      time.sleep(1)
+      try:
+       md=camera.capture_metadata()
+       self.exposure={'exposure_ms':round(md.get('ExposureTime',0)/1000,2),'gain':round(md.get('AnalogueGain',0),2),
+                      'lux':round(md.get('Lux',0) or 0)}
+      except Exception:pass
       if not self.info()['live']:raise RuntimeError('Camera stopped delivering frames')
     else:
      # Only USB capture nodes, not the Pi's codec/ISP video devices.

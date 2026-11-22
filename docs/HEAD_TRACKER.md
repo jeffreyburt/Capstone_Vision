@@ -47,6 +47,45 @@ image, and **Engage torque / Start tracking / Stop tracking / Disengage torque**
   signs pan -1 / tilt +1, tilt 433–812, prediction 0.8 s). Observations were accepted; frame fetch plus detection
   took about 40 ms. Tests: `tests/test_heads.py`.
 
+## Head tracking lost while driving (2026-11-22)
+
+**Report:** while the robots drive, the heads stop tracking, then re-find the user once the robots stop.
+
+**Black box** (Follow run `20261122_135421`, from each robot's head servo positions and the main camera's
+user/robot positions): the head pointed at the user within a median 2.7° (Robot 1) / 1.8° (Robot 2) while stopped,
+but 6.4° / 5.1° while driving, with 13–16° worst cases. While driving, Robot 2's pan swung up to about 55° back and
+forth, following the main-camera bearing about 0.6 s late and overshooting.
+
+**Live measurements with a person about 1 m in front:**
+- **Small faces:** in the 320×240 head frame the face is about 40 px wide. The detector (BlazeFace short range)
+  shrinks its input to 128×128, so the face is only about 16 px there. Whole-frame detection found it in 57%
+  (Robot 1) and 0% (Robot 2) of frames, even with no motion.
+- **Blur:** 1 px of blur already hurts, and 2 px stopped detection entirely. A head panning at tracking speed
+  (about 36°/s) smears about 2 px in 10 ms and 5 px in 25 ms; chassis vibration adds to that.
+- **Dark faces:** the cameras look up past the user into ceiling lights, so auto-exposure darkens the face.
+- **What took over:** a missed face fell straight back to the main-camera aim. That aim is about 0.35 s old and
+  noisy while the robots move, so the head swung and then re-found the face once everything stopped.
+
+**Fixes:**
+- **Zoomed crop** (`detectFaces` in `monitor/page.html`): the detector also runs on a crop 40% of the frame wide
+  around the last face (or the image centre), scaled up, and the results are merged. Measured: 100% / 100%
+  detection with no motion, and 100% / 93% with 1 px of blur. While tracking, what aims each head changed from
+  head camera 61% (Robot 1) / 2% (Robot 2) to 100% / 96%.
+- **Exposure** (`head_tracker/camera_feed.py`): auto-exposure now prefers short shutter times (`AeExposureMode`
+  Short) with +1 stop of compensation (`DEFAULT_EXPOSURE`, `DEFAULT_EV`, or `--camera-exposure` /
+  `--camera-ev`). Measured: about 10 ms at gain 2.4–4 (it was 8–11 ms at gain 1.1 looking at the lights, and up
+  to about 33 ms on darker scenes), with mean image brightness 98 → 173. Both robots report the exposure they use
+  (`camera.exposure`).
+- **Grace period** (`FACE_GRACE_MS`, 500 ms): after a missed face, the robot first predicts from its own recent
+  track. The main-camera aim only takes over after 0.5 s without a face.
+- **Black box:** it now records each head's mode, what aimed it (`source`: head camera, main camera or
+  prediction) and `faceAge`. `tools/blackbox.py summary` shows "head aimed by, while driving / stopped".
+
+Deployed to both robots; the previous copies are in `bak-2026-11-22-exposure/`.
+
+**Not yet checked:** a run with the robots driving. After the next Follow test, `summary` shows how often the
+head camera still loses the face while driving.
+
 ## Homing the heads (2026-11-22)
 
 The system dashboard has a **Home head** button in each robot's head panel, plus a **Home both heads** button in

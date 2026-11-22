@@ -110,3 +110,25 @@ def test_home_rejects_bad_requests_and_reports_a_missed_pose(robot):
     with pytest.raises(urllib.error.HTTPError) as error:
         home(base, {"positions": [688, 692], "duration": 0.3})
     assert error.value.code == 503 and "not reached" in dash.state["status"]
+
+
+def test_observation_records_its_source_and_the_last_head_camera_face(robot):
+    import time
+    base, dash = robot(FakeBus([600, 820]))
+    dash.state["tracking"] = {"active": True, "status": "x", "center": None, "targets": None}
+
+    def observe(center, source):
+        body = json.dumps({"center": center, "frameTime": time.time(), "target": "face", "source": source}).encode()
+        request = urllib.request.Request(base + "/api/tracking/observation", data=body, method="POST",
+                                         headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(request, timeout=5) as response:
+            return response.status
+
+    assert observe([0.5, 0.5], "head camera") == 204
+    face_time = dash.state["tracking"]["faceTime"]
+    assert dash.tracking_observation["source"] == "head camera"
+    time.sleep(0.01)
+    assert observe([0.4, 0.5], "main camera") == 204 and observe(None, "prediction") == 204
+    assert dash.tracking_observation["source"] == "prediction"
+    assert dash.state["tracking"]["faceTime"] == face_time  # only a head-camera face moves it
+    assert observe(None, "made up") == 204 and dash.tracking_observation["source"] is None

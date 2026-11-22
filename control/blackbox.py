@@ -115,7 +115,7 @@ class BlackBox:
     # ---- public API (called from the control loop; never blocks on disk) ----
 
     def record(self, now, *, mode, navigation_mode, msg, msg_age, nav, targets, results, link_ages, link_status,
-               reckoners=None, guard=None):
+               reckoners=None, guard=None, heads=None):
         robots = {r["id"]: r for r in (msg or {}).get("robots", [])}
         view = (msg or {}).get("view")
         key = json.dumps(view, sort_keys=True) if view else None
@@ -138,7 +138,8 @@ class BlackBox:
                 "links": {str(rid): {"age": link_ages.get(rid), "reply": link_status.get(rid)} for rid in results},
                 "reckon": {str(rid): None if r.pose is None else {"pose": r.pose, "since": now - r.t, "travelled": r.travelled}
                            for rid, r in (reckoners or {}).items()},
-                "guard": {str(k): v for k, v in (getattr(guard, "state", {}) or {}).items()}}
+                "guard": {str(k): v for k, v in (getattr(guard, "state", {}) or {}).items()},
+                "heads": heads}  # head trackers: mode, source, faceAge (s since the head camera saw a face)
         self._put(("tick", _round(tick)))
         self.ticks += 1
         self._detect(now, tick, msg, nav)
@@ -275,3 +276,37 @@ class BlackBox:
                 shutil.rmtree(oldest, ignore_errors=True)
         except OSError:
             pass
+
+
+class HeadStates:
+    """Polls each robot's head tracker through the system dashboard (4x a second, in the background) so the black
+    box can record what the heads were doing: tracking mode, what aimed them (head camera / main camera /
+    prediction) and how long since the head camera last saw a face."""
+
+    FIELDS = ("mode", "source", "faceAge", "active")
+
+    def __init__(self, base_url, robot_ids, interval_s=0.25, urlopen=None):
+        import urllib.request
+        self.base, self.ids, self.interval = base_url.rstrip("/"), list(robot_ids), interval_s
+        self.urlopen = urlopen or urllib.request.urlopen
+        self.latest, self._stop = {}, threading.Event()
+        threading.Thread(target=self._run, daemon=True, name="blackbox-heads").start()
+
+    def _run(self):
+        while not self._stop.is_set():
+            for rid in self.ids:
+                try:
+                    with self.urlopen(f"{self.base}/api/head/robot{rid}/state", timeout=1.0) as r:
+                        s = json.load(r)
+                    t = s.get("tracking") or {}
+                    self.latest[str(rid)] = {**{k: t.get(k) for k in self.FIELDS}, "positions": s.get("positions"),
+                                             "exposure": (s.get("camera") or {}).get("exposure")}
+                except (OSError, ValueError):
+                    self.latest[str(rid)] = None
+            self._stop.wait(self.interval)
+
+    def snapshot(self):
+        return dict(self.latest)
+
+    def close(self):
+        self._stop.set()
