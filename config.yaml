@@ -67,7 +67,7 @@ robots:
       max_rms_px: 5.0
       heading_window_deg: [90, 60]
       neutral_units: [772, 686]
-      degrees_per_unit: [0.24, 0.24]
+      degrees_per_unit: [0.24, -0.24]
       pan_pivot_m: [-0.013, -0.078, 0.0]
       tilt_pivot_m: [-0.047, 0.0, 0.32]
       valid_units:
@@ -256,12 +256,15 @@ system:
     1: {ssh_user: robot-pi1, dashboard_port: 8080,
         # 2026-11-22: servos on a USB BusLinker. Limits from the dashboard's range-seen (pan 307-1062, tilt 684-1093)
         # with margins and the 0-1000 command range; tilt only goes down from level on this mount.
-        head_tracking_limits: [[327, 980], [692, 980]],
-        head_tracking_signs: [-1, 1]}   # measured from Robot 1's camera: +tilt looks down; pan matches Robot 2
+        head_tracking_limits: [[327, 980], [692, 980]],   # +tilt looks UP on Robot 1 (level ~686, up to ~980)
+        head_tracking_signs: [-1, -1],                    # measured 2026-11-22 (the earlier +1 tilt made it run away upward)
+        head_tracking_units_per_frame: [168, 116]}        # servo units across its 320x240 image, measured
     2: {ssh_user: capstone-pi2, dashboard_port: 8080,   # William's image
         # Head tracking stays inside the range vision's head-pose model covers (robots[id=2].head_pose.valid_units),
         # so Robot 2 stays located while its head follows the user.
-        head_tracking_limits: [[141, 641], [450, 812]]}  # ~±68 deg pan; tilt within the owner-taught 433-812
+        head_tracking_limits: [[141, 641], [450, 812]],   # ~±68 deg pan; tilt within the owner-taught 433-812
+        head_tracking_signs: [-1, 1],                     # measured 2026-11-22 (+tilt looks down on Robot 2)
+        head_tracking_units_per_frame: [171, 117]}        # servo units across its 320x240 image, measured
 
 debug:
   stream_port: 8080         # MJPEG debug stream port when run with --stream

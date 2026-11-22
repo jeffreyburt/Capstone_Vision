@@ -47,6 +47,28 @@ image, and **Engage torque / Start tracking / Stop tracking / Disengage torque**
   signs pan -1 / tilt +1, tilt 433–812, prediction 0.8 s). Observations were accepted; frame fetch plus detection
   took about 40 ms. Tests: `tests/test_heads.py`.
 
+## Robot 1 tilt direction, measured image scale, steadier prediction (2026-11-22)
+
+- **Robot 1 can look up.** Its camera is mounted upside down like Robot 2's, and **+tilt units look up** on Robot 1
+  (down on Robot 2). The earlier test that said "down only" misread the image-shift sign; with tilt direction +1 the
+  head tilted away from the face until it lost it. Now `head_tracking_signs: [-1, -1]` for Robot 1 (`[-1, 1]` for
+  Robot 2) and its tracking range tilt 692-980 runs from level up to ~70 deg up. Its vision head model has tilt
+  `degrees_per_unit` -0.24.
+- **Measured image scale.** Moving each joint +-40 units against a textured view (phase correlation 0.4-0.7):
+
+  | | Pan: +units turn the camera | Units across the 320x240 width | Tilt: +units turn the camera | Units across the height |
+  | --- | --- | --- | --- | --- |
+  | Robot 1 | left | 168 | up | 116 |
+  | Robot 2 | left | 171 | down | 117 |
+
+  The tracker had assumed 216 x 171, so every correction and prediction aimed 30-50% too far: the "getting lost"
+  overshoot. Per robot: `system.robots.<id>.head_tracking_units_per_frame`, sent with Start as `units_per_frame`;
+  the main-camera aim uses it too. Default `UNITS_PER_FRAME = (170, 117)`.
+- **Prediction no longer swings away:** face velocity is estimated over the last 0.3 s instead of two frames 33 ms
+  apart (detection jitter looked like fast motion), capped at 150 units/s, and a lost face is followed for at most
+  0.6 s before the head holds the predicted spot.
+- Deployed to both robots (identical files; backups `bak-2026-11-22-scale/`); both tracking afterwards.
+
 ## No overshoot at high speed; both robots on the same tracker (2026-11-22)
 
 - **Cause of the oscillation:** the loop chased the face's *image* offset, which only updates once per detected

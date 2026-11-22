@@ -43,6 +43,18 @@ def tracking_signs(cfg):
     return out
 
 
+def tracking_units(cfg):
+    """robot key -> [width, height] servo units across its camera image (`head_tracking_units_per_frame`)."""
+    out = {}
+    for rid, entry in ((cfg.get("system") or {}).get("robots") or {}).items():
+        units = (entry or {}).get("head_tracking_units_per_frame")
+        if units is not None:
+            if not isinstance(units, list) or len(units) != 2 or any(not 50 <= v <= 600 for v in units):
+                raise ValueError(f"robot {rid}: head_tracking_units_per_frame must be [width, height], 50-600")
+            out[f"robot{int(rid)}"] = [float(v) for v in units]
+    return out
+
+
 def enabled_robots(cfg):
     """robot key -> (enabled, reason) from `system.robots.<id>.head_tracking` (default enabled)."""
     out = {}
@@ -59,6 +71,7 @@ class HeadRelay:
         self.flags = enabled_robots(cfg)
         self.limits = tracking_limits(cfg)
         self.signs = tracking_signs(cfg)
+        self.units = tracking_units(cfg)
         self.endpoint = endpoint  # (host, port) -> reachable (host, port), e.g. through the SSH tunnel
         self.urlopen = urlopen
 
@@ -124,7 +137,8 @@ class HeadRelay:
         return {"target": "face", "limits": self.limits.get(node.key, saved["limits"]),
                 "signs": self.signs.get(node.key, saved["signs"]),
                 "speed": data.get("speed", saved.get("speed", 180)),
-                "prediction": data.get("prediction", saved.get("prediction", 1.2))}
+                "prediction": data.get("prediction", saved.get("prediction", 1.2)),
+                "units_per_frame": self.units.get(node.key, saved.get("units_per_frame", list(UNITS_PER_FRAME)))}
 
 
 def _message(error):
@@ -139,7 +153,7 @@ def _message(error):
     return error.reason or f"HTTP {error.code}"
 
 
-UNITS_PER_FRAME = (216.0, 171.0)  # servo units across the robot camera image (same estimate as tracking_control)
+UNITS_PER_FRAME = (170.0, 117.0)  # servo units across the robot camera image (measured; same as tracking_control)
 FACE_BELOW_TOP_M = 0.12           # face centre below the top of the head
 
 

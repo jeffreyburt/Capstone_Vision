@@ -1,4 +1,5 @@
 import math
+import numpy as np
 import unittest
 
 from head_tracker.tracking_control import TargetMemory, correction, image_to_servo, servo_to_image, validate
@@ -82,14 +83,16 @@ class TrackingTests(unittest.TestCase):
         memory.observe(image_to_servo([.8, .5], [500, 500], [1, 1]), 10.0)
         memory.observe(image_to_servo([.9, .5], [500, 500], [1, 1]), 10.1)
         predicted_at_1s = memory.predict(11.1, 1.5)
-        self.assertAlmostEqual(predicted_at_1s[0], 500 + .4 * 216 + 1.0 * 216 * .6, delta=1)
+        from head_tracker.tracking_control import UNITS_PER_FRAME
+        u = UNITS_PER_FRAME[0]
+        self.assertAlmostEqual(predicted_at_1s[0], 500 + .4 * u + 1.0 * u * .6, delta=1)
         # Drive the head with the prediction: it turns to the predicted spot and settles, not past it.
         positions, velocity, active = [500.0, 500.0], [0, 0], [False, False]
         goal = memory.predict(10.6, 1.5)
         for _ in range(200):
             center = servo_to_image(goal, positions, config['signs'])
             positions, velocity = correction(positions, velocity, center, config, .025, active)
-        self.assertLess(abs(positions[0] - goal[0]), .1 * 216)
+        self.assertLess(abs(positions[0] - goal[0]), .1 * u)
         self.assertEqual(round(positions[1]), 500)
 
 
@@ -136,3 +139,38 @@ class HeadOvershootTests(unittest.TestCase):
     def test_old_image_error_chase_overshoots_with_camera_delay(self):
         path = _simulate("correction")
         self.assertGreater(max(path) - 541, 20)      # the behaviour this replaces
+
+
+class ScaleTests(unittest.TestCase):
+    def test_wrong_image_scale_overshoots_and_the_measured_one_does_not(self):
+        """The tracker assumed 216 x 171 units across the image; the heads measure ~170 x 117. Aiming with the
+        too-large scale overshoots the face on every detection; the measured one lands on it."""
+        import head_tracker.tracking_control as tc
+        real = (170.0, 117.0)
+        face = [470.0, 650.0]
+        for assumed, should_overshoot in (((216.0, 171.0), True), (real, False)):
+            head = [391.0, 770.0]
+            centre = [0.5 + (f - h) * -1 / u for f, h, u in zip(face, head, real)]  # signs [-1, -1] as on Robot 1
+            goal = tc.image_to_servo(centre, head, [-1, -1], assumed)
+            overshoot = max(abs(g - h) - abs(f - h) for g, h, f in zip(goal, head, face))
+            self.assertEqual(overshoot > 10, should_overshoot)
+        with self.assertRaises(ValueError):
+            tc.validate({"limits": [[0, 1000], [100, 900]], "signs": [1, 1], "units_per_frame": [10, 117]})
+
+
+class PredictionStabilityTests(unittest.TestCase):
+    def test_jitter_does_not_become_a_fast_prediction_and_travel_is_bounded(self):
+        rng = np.random.default_rng(3)
+        twitchy = TargetMemory(max_speed=400, bounds=(0, 1000))
+        steady = TargetMemory(max_speed=150, bounds=(0, 1000), window_s=.3, travel_s=.6)
+        for k in range(30):  # a still face with +-4 units of detection jitter at 30 fps
+            sample = [500 + rng.normal(0, 4), 700 + rng.normal(0, 4)]
+            twitchy.observe(sample, 10 + k / 30)
+            steady.observe(sample, 10 + k / 30)
+        far = lambda m: max(abs(p - c) for p, c in zip(m.predict(11.5, 1.5), (500, 700)))
+        self.assertLess(far(steady), 25)                      # holds near the face
+        self.assertGreater(far(twitchy), far(steady))         # the old two-frame estimate wanders further
+        walker = TargetMemory(max_speed=150, bounds=(0, 1000), window_s=.3, travel_s=.6)
+        for k in range(10):  # a face really moving at 300 units/s: capped at 150, and only for 0.6 s
+            walker.observe([400 + 10 * k, 700], 10 + k / 30)
+        self.assertLessEqual(walker.predict(10.3 + 1.4, 1.5)[0] - 490, 150 * .6 + 1)

@@ -137,10 +137,11 @@ def test_start_uses_robot_saved_settings_and_sends_no_origin(setup):
     (engage, _, origin), (start, data, _) = robots[2].posts
     assert engage == "/api/engage" and origin is None
     assert start == "/api/tracking/start"
-    assert data == {"target": "face", "limits": [[0, 1000], [433, 812]], "signs": [-1, 1], "speed": 60, "prediction": 0.8}
+    assert data == {"target": "face", "limits": [[0, 1000], [433, 812]], "signs": [-1, 1], "speed": 60, "prediction": 0.8,
+                    "units_per_frame": [170.0, 117.0]}
     assert post(base, "/api/head/robot2/start", {"speed": 300, "prediction": 1.5})[1]["ok"]
     assert robots[2].posts[-1][1] == {"target": "face", "limits": [[0, 1000], [433, 812]], "signs": [-1, 1],
-                                      "speed": 300, "prediction": 1.5}
+                                      "speed": 300, "prediction": 1.5, "units_per_frame": [170.0, 117.0]}
 
 
 def test_robot_errors_and_frames_pass_through(setup):
@@ -205,11 +206,13 @@ def test_main_camera_aim_points_the_head_at_the_user():
 
 def test_start_without_saved_settings_uses_config_limits_and_signs():
     from monitor.heads import HeadRelay
-    cfg = {"system": {"robots": {1: {"head_tracking_limits": [[327, 980], [692, 980]], "head_tracking_signs": [-1, 1]}}}}
+    cfg = {"system": {"robots": {1: {"head_tracking_limits": [[327, 980], [692, 980]], "head_tracking_signs": [-1, -1],
+                                     "head_tracking_units_per_frame": [168, 116]}}}}
     relay = HeadRelay(cfg, lambda h, p: (h, p))
     relay.state = lambda node: {"tracking": {"config": None}}
     node = type("N", (), {"key": "robot1"})()
     start = relay._start_request(node, {"speed": 300, "prediction": 1.5})
-    assert start == {"target": "face", "limits": [[327, 980], [692, 980]], "signs": [-1, 1], "speed": 300, "prediction": 1.5}
+    assert start == {"target": "face", "limits": [[327, 980], [692, 980]], "signs": [-1, -1], "speed": 300, "prediction": 1.5,
+                     "units_per_frame": [168.0, 116.0]}
     with pytest.raises(ValueError):
         HeadRelay({"system": {"robots": {1: {"head_tracking_signs": [2, 1]}}}}, lambda h, p: (h, p))

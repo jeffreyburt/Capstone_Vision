@@ -162,7 +162,10 @@ def track_head(config):
    raise RuntimeError('Current positions are outside the taught limits; recapture limits before tracking')
   targets=list(map(float,positions));velocities=[0.,0.];previous=time.monotonic();last_feedback=previous;last_sent=None;holding=False;misses=0;filtered=None;active_axes=[False,False];last_command=0
   # Remember the face in head (servo) coordinates so prediction allows for the head's own movement.
-  memory=TargetMemory(max_speed=400,bounds=(0,1000));aim=collections.deque(maxlen=80)
+  # Face velocity over 0.3 s (not 33 ms of jitter), capped at 150 units/s; a lost face is followed for 0.6 s at
+  # most, then the head holds the predicted spot for the rest of the prediction time.
+  memory=TargetMemory(max_speed=150,bounds=(0,1000),window_s=.3,travel_s=.6);aim=collections.deque(maxlen=80)
+  units=config.get('units_per_frame')  # servo units across the camera image, measured per robot
   while not stop.is_set():
    now=time.monotonic();dt=now-previous;previous=now
    aim.append((time.time(),targets[:]))
@@ -174,13 +177,13 @@ def track_head(config):
      # Where the head was aimed when that frame was captured, not now: the goal is where the face IS in servo
      # units, which stays right however far the head has turned since.
      then=next((t for s,t in reversed(aim) if s<=observation['frameTime']),aim[0][1])
-     goal=image_to_servo(observation['center'],then,config['signs'])
+     goal=image_to_servo(observation['center'],then,config['signs'],units)
      memory.observe(goal,observation['frameTime'])
      control_center=observation['center'];mode='observed'
     else:
      predicted=memory.predict(time.time(),config.get('prediction',1.2))
      if predicted is not None:
-      goal=predicted;control_center=servo_to_image(predicted,targets,config['signs']);mode='predicted'
+      goal=predicted;control_center=servo_to_image(predicted,targets,config['signs'],units);mode='predicted'
      elif max(map(abs,velocities))>.1:goal=targets[:];control_center=[.5,.5];mode='braking'
     if memory.stamp is not None:age=max(0,time.time()-memory.stamp)
    live=goal is not None
@@ -197,13 +200,13 @@ def track_head(config):
     else:  # light smoothing of the goal (servo units) against detection jitter
      alpha=1-math.exp(-min(dt,.1)/.05)
      filtered=[old+alpha*(new-old) for old,new in zip(filtered,goal)]
-    targets,velocities=approach(targets,velocities,filtered,config,dt,active_axes)
+    targets,velocities=approach(targets,velocities,filtered,config,dt,active_axes,units)
     commanded=[round(v) for v in targets]
     changed=last_sent is None or max(abs(a-b) for a,b in zip(commanded,last_sent))>=2
     if changed and now-last_command>=.025:
      for sid,value in enumerate(commanded,1):send(p,sid,7,[value&255,value>>8,35,0])
      send(p,254,11);last_sent=commanded;last_command=now
-    errors=[(g-t)/u for g,t,u in zip(filtered,targets,(216.,171.))]  # as fractions of the image
+    errors=[(g-t)/u for g,t,u in zip(filtered,targets,units)]  # as fractions of the image
     if all(abs(e)<=config['deadzone'] for e in errors):message='Head centered — holding'
     elif any(targets[i]<=config['limits'][i][0] or targets[i]>=config['limits'][i][1] for i in (0,1)):message='Taught limit reached'
     else:message='Following head'

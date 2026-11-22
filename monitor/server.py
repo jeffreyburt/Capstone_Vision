@@ -567,7 +567,8 @@ def make_server(monitor, relay, host, port, calibration=None, heads=None):
             positions, config = state.get("positions"), (state.get("tracking") or {}).get("config")
             if not positions or None in positions or not config:
                 return {"center": None, "reason": "head feedback or tracking settings unavailable"}
-            aim = aim_from_main_camera(head_pose, robot, user, positions, config["signs"], config.get("limits"))
+            aim = aim_from_main_camera(head_pose, robot, user, positions, config["signs"], config.get("limits"),
+                                       config.get("units_per_frame") or heads.units.get(node.key) or (170.0, 117.0))
             return aim or {"center": None, "reason": "user too close to the robot"}
 
         def _head_post(self):

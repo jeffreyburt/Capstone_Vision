@@ -19,7 +19,11 @@ def validate(config):
  if type(speed) not in (int,float) or not math.isfinite(speed) or not 5<=speed<=400:raise ValueError('Tracking speed must be 5–400 units per second')
  prediction=config.get('prediction',1.2)
  if type(prediction) not in (int,float) or not math.isfinite(prediction) or not 0<=prediction<=3:raise ValueError('Prediction time must be 0–3 seconds')
- return {'prediction':prediction,'limits':limits,'signs':signs,'speed':speed,'deadzone':0.06,'settlezone':0.04}
+ units=config.get('units_per_frame',list(UNITS_PER_FRAME))
+ if not isinstance(units,(list,tuple)) or len(units)!=2 or any(type(v) not in (int,float) or not 50<=v<=600 for v in units):
+  raise ValueError('units_per_frame must be [width, height] servo units, 50-600')
+ return {'prediction':prediction,'limits':limits,'signs':signs,'speed':speed,'deadzone':0.06,'settlezone':0.04,
+         'units_per_frame':[float(v) for v in units]}
 
 def correction(positions, velocities, center, config, dt, active=None):
  """Velocity ramp, proportional image error, and hard taught limits."""
@@ -42,17 +46,20 @@ def correction(positions, velocities, center, config, dt, active=None):
  return targets,speeds
 
 
-# Servo units spanned by the full image width / height. Camera Module 3 at 640x480 sees about 52 x 41 degrees
-# and an LX-224 unit is 0.24 degrees. An estimate: errors only scale how far a prediction turns the head.
-UNITS_PER_FRAME=(216.,171.)
+# Servo units spanned by the full image width / height. Measured 2026-11-22 on both robots by moving each joint
+# 40 units and tracking the image shift (Robot 1 168 x 116, Robot 2 171 x 117; the earlier 216 x 171 estimate made
+# every correction and prediction overshoot by 30-50%). Each robot can override it: tracking config 'units_per_frame'.
+UNITS_PER_FRAME=(170.,117.)
 
 
-def image_to_servo(center,positions,signs,units=UNITS_PER_FRAME):
+def image_to_servo(center,positions,signs,units=None):
+ units=units or UNITS_PER_FRAME
  """Servo positions that would center this image point, i.e. where the face is in head coordinates."""
  return [p+s*(c-.5)*u for c,p,s,u in zip(center,positions,signs,units)]
 
 
-def servo_to_image(target,positions,signs,units=UNITS_PER_FRAME):
+def servo_to_image(target,positions,signs,units=None):
+ units=units or UNITS_PER_FRAME
  """Image point where a head-coordinate target appears from the current servo positions."""
  return [max(-.5,min(1.5,.5+(t-p)/(s*u))) for t,p,s,u in zip(target,positions,signs,units)]
 
@@ -93,8 +100,12 @@ class TargetMemory:
 
  Default units are image fractions. The head tracker uses servo units (limit 400 units/s, bounds 0-1000) so a
  prediction accounts for the head having turned since the face was last seen."""
- def __init__(self,max_speed=1.5,bounds=(-.5,1.5)):
-  self.max_speed,self.bounds=max_speed,bounds
+ def __init__(self,max_speed=1.5,bounds=(-.5,1.5),window_s=None,travel_s=None):
+  """window_s: estimate velocity across this much recent history instead of the last two frames (detection jitter
+  between frames 33 ms apart looks like fast motion). travel_s: a prediction moves for at most this long, then
+  holds the predicted spot until the horizon expires (a long extrapolation turns the head away from the person)."""
+  self.max_speed,self.bounds,self.window_s,self.travel_s=max_speed,bounds,window_s,travel_s
+  self.recent=[]
   self.center=None
   self.stamp=None
   self.velocity=[0.,0.]
@@ -103,12 +114,19 @@ class TargetMemory:
   if self.center is not None:
    dt=stamp-self.stamp
    if .02<=dt<=.7:
-    measured=[max(-self.max_speed,min(self.max_speed,(a-b)/dt)) for a,b in zip(center,self.center)]
+    ref,ref_t=self.center,self.stamp
+    if self.window_s:  # oldest sample still inside the window: a longer baseline averages out jitter
+     older=[(c,t) for c,t in self.recent if stamp-t<=self.window_s]
+     if older:ref,ref_t=older[0]
+    span=max(stamp-ref_t,dt)
+    measured=[max(-self.max_speed,min(self.max_speed,(a-b)/span)) for a,b in zip(center,ref)]
     self.velocity=[.4*old+.6*new for old,new in zip(self.velocity,measured)]
-   else:self.velocity=[0.,0.]
+   else:self.velocity=[0.,0.];self.recent=[]
   self.center=list(center);self.stamp=stamp
+  self.recent=[(c,t) for c,t in self.recent if stamp-t<=(self.window_s or 0)]+[(list(center),stamp)]
  def predict(self,now,horizon):
   if self.center is None or horizon<=0:return None
   elapsed=max(0.,now-self.stamp)
   if elapsed>horizon:return None
+  if self.travel_s is not None:elapsed=min(elapsed,self.travel_s)
   return [max(self.bounds[0],min(self.bounds[1],p+v*elapsed)) for p,v in zip(self.center,self.velocity)]
