@@ -205,6 +205,19 @@ control:
     x_limits_m: [-0.9, 0.9]  # robot centres: walls at +-1.25 m minus 0.15 m half robot and 0.20 m clearance
     y_limits_m: [0.6, 6.0]    # never closer than 0.6 m to the camera (its cables and footprint)
     max_turn_deg: 20          # chassis turns at most 20 deg toward the user: rear tags stay square-on (fits failed at ~30 deg)
+  view_guard:               # keep robots inside the main camera's view (control/view_guard.py, docs/HANDOFF.md)
+    enabled: true           # false = no soft stop / return (vision also stops publishing the view)
+    # vision side: the view is computed from the lens + floor calibration, no extra calibration. Heights default to
+    # each robot's marker_center_height_m +- half the tag size; the lens model's own valid radius also bounds it.
+    edge_margin_frac: 0.02  # tags must project at least this fraction of the image width inside the frame edge
+    max_range_m: 8.0        # view clipped this far from the camera
+    # control side (robot centre vs the view edge; head tags sit up to ~0.12 m off centre, body half-width 0.15 m)
+    stop_m: 0.20            # no outward motion once the robot centre is this close to the edge
+    slow_m: 0.50            # outward speed falls linearly from full here to zero at stop_m
+    return_speed_m_s: 0.10  # an unseen robot estimated at/outside stop_m drives back in at this speed...
+    return_inset_m: 0.15   # ...toward a point this far inside stop_m, heading held
+    return_timeout_s: 4.0   # watchdog: give up once the last camera pose is this old (then stop, reason shown)
+    return_max_m: 0.6       # ...or once the estimate has moved this far since the last camera pose
   feedforward:              # follow mode: move with the user instead of chasing them (control/main.py user_feedforward)
     enabled: true           # false = proportional position control only (previous behavior)
     gain: 1.0               # fraction of the user's measured velocity added to each robot's command

@@ -1,6 +1,6 @@
 # Agent handoff: current robot system
 
-Updated 2026-11-21. Start here; dated sections of older runbooks may describe superseded hardware.
+Updated 2026-11-22. Start here; dated sections of older runbooks may describe superseded hardware.
 This repository is shared by multiple workers. Git files and live service state, not chat history,
 are the source of truth. See also [four-wheel drive](FOUR_WHEEL_DRIVE.md),
 [keyboard driving](KEYBOARD_DRIVING.md), [motor diagnostics](MOTOR_DIAGNOSTICS.md),
@@ -58,6 +58,38 @@ loaded speed matching, and floor mecanum behavior still need a supervised physic
 Prior lifted-wheel measurements are saved in `calib/recordings/robot1_motor_speed_*.json`.
 
 ## Dashboard and ownership
+
+- **Camera view guard (branch `feature/fov-soft-stop`, 2026-11-22; software and simulation only, not yet run on
+  the robots):** robots were leaving the main camera's image. `vision.main` now adds `view.polygon` to every
+  message: the floor area where a robot's tags (heights = each robot's marker height +- half a tag) appear inside
+  the image, 2% of its width from the edges. It is computed from the existing lens + floor calibration, so there
+  is **no extra calibration step**; it is re-derived whenever vision reloads its geometry. Because the main camera
+  is only ~0.33 m high, almost level with the tags, the view is a ~±50° wedge (the calibrated lens model stops
+  being valid at 51.5° off axis, `lens_fold_radius`, so that also bounds it). With the 2026-11-22 calibration the
+  tag view spans x -0.63..+0.74 m at y = 0.6 m, -1.06..+1.25 m at 1.0 m and -1.61..+1.89 m at 1.5 m, so near the
+  camera it is narrower than `x_limits_m` (±0.9). The floor map draws it as a dotted blue outline.
+  `control/view_guard.py` post-processes every mode's commands in `control.main`:
+  - *Soft stop (all modes, including WASD):* for a robot the camera sees, the velocity part pointing out of the
+    view falls linearly from full speed at `slow_m` (0.50 m) inside the edge to zero at `stop_m` (0.20 m); motion
+    along the edge or inward is untouched. No-strafe chassis scale their forward speed instead. Simulated on the
+    real calibration with camera delay: 0.30 m/s with 0.3 s delay stopped at 0.20 m; 0.53 m/s with 0.4 s delay at
+    0.18 m. Waypoints beyond the edge stop at it (then "no camera progress" after 6 s). Needs a heading; a robot
+    without one is not limited.
+  - *Return (Follow, armed waypoints, plain `control.main`; never keyboard, paused, or without live calibrated
+    vision):* a robot the camera has lost whose dead-reckoned estimate (last camera pose + commands actually sent
+    since; now kept in every mode) is within `stop_m` of the edge or outside it drives at 0.10 m/s, heading held,
+    toward a point 0.15 m inside the stop line, still avoiding the user and the other robot. It stops when the
+    camera sees it again or when the estimate says it is back inside ("waiting for the camera").
+  - *Watchdog:* returning ends for good once the last camera pose is older than `return_timeout_s` (4 s) or the
+    estimate has moved `return_max_m` (0.6 m); the robot then stays stopped with "lost outside the camera view ...
+    bring it back into view by hand or keyboard" until it is seen again.
+  - Settings: `control.view_guard` in `config.yaml`. **Deploy:** restart `python -m vision.main --gui` (publishes
+    the view) and the sole `control.main` on the Mac; without a `view` in the vision message the guard does
+    nothing. **Rollback:** `view_guard.enabled: false` and restart both, or revert the branch.
+  - Tests: `tests/test_view_guard.py` (polygon vs direct projection, soft stop, return, both watchdogs).
+    Unverified on hardware: whether 0.20 m keeps the head tags detectable at the edge (tag 2/6 sit 0.10 m behind
+    the centre and swing with the pan), and how far dead reckoning drifts in 4 s on the floor. First check: drive
+    one robot by WASD toward a side edge at low speed and confirm it holds with its tags still detected.
 
 - **Line formation (2026-11-22):** the robots stay on a line `control.formation.line_y_m` (1.5 m) in front of the
   camera and the user is the third corner of an equilateral triangle (side = 2h/sqrt(3), h = user's distance beyond
