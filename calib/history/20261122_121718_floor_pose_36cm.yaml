@@ -1,0 +1,23 @@
+rvec:
+- 1.7665134509676235
+- 0.006663226596202707
+- 0.06314304422172631
+tvec:
+- -0.015121856152043905
+- 0.31950555566790556
+- 0.0632766366154165
+camera_position_m:
+- 0.0
+- -0.0
+- 0.326
+method: 'dashboard calibration: tags [1, 0] (0.15 m), +y towards their midpoint, scaled
+  to tape'
+height_m: 0.3261
+pitch_deg: 11.19
+tape:
+  1:
+  - -1.0
+  - 2.0
+  0:
+  - 1.0
+  - 2.0

@@ -72,6 +72,12 @@ class HeadRelay:
         self.limits = tracking_limits(cfg)
         self.signs = tracking_signs(cfg)
         self.units = tracking_units(cfg)
+        # Calibrated forward/level head pose per robot: the search scan is centred there.
+        self.forward = {}
+        for r in cfg.get("robots", []):
+            hp = r.get("head_pose") or {}
+            if hp.get("neutral_units") and list(hp.get("degrees_per_unit", [1, 1])) != [1, 1]:  # moving heads only
+                self.forward[f"robot{int(r['id'])}"] = [float(v) for v in hp["neutral_units"]]
         self.speaker = {f"robot{int(rid)}": (float((e or {}).get("speaker_offset_m", 0.0)), float((e or {}).get("face_width_m", 0.15)))
                         for rid, e in ((cfg.get("system") or {}).get("robots") or {}).items()}
         self.endpoint = endpoint  # (host, port) -> reachable (host, port), e.g. through the SSH tunnel
@@ -142,7 +148,8 @@ class HeadRelay:
                 "prediction": data.get("prediction", saved.get("prediction", 1.2)),
                 "units_per_frame": self.units.get(node.key, saved.get("units_per_frame", list(UNITS_PER_FRAME))),
                 "aim_offset_m": self.speaker.get(node.key, (0.0, 0.15))[0],
-                "face_width_m": self.speaker.get(node.key, (0.0, 0.15))[1]}
+                "face_width_m": self.speaker.get(node.key, (0.0, 0.15))[1],
+                **({"search_center": self.forward[node.key]} if node.key in self.forward else {})}
 
 
 def _message(error):

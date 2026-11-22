@@ -74,15 +74,10 @@ class FrameReceiver:
         self.ctx = zmq.Context.instance()
         self.poller = zmq.Poller()
         self.sockets = {}
-        for n, s in self.streams.items():
-            sock = self.ctx.socket(zmq.SUB)
-            sock.setsockopt(zmq.RCVHWM, 2)
-            sock.setsockopt(zmq.CONFLATE, 1)
-            sock.setsockopt(zmq.LINGER, 0)
-            sock.setsockopt(zmq.SUBSCRIBE, b"")
-            sock.connect(f"tcp://{s['host']}:{s['port']}")
-            self.poller.register(sock, zmq.POLLIN)
-            self.sockets[sock] = n
+        self._last_rx = {}
+        self.reconnects = {n: 0 for n in names}
+        for n in self.streams:
+            self._open(n)
 
         self._cond = threading.Condition()
         self._latest = {n: None for n in names}
@@ -94,10 +89,38 @@ class FrameReceiver:
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
 
+    STALL_RECONNECT_S = 5.0  # no frame for this long: drop the socket and connect again (sender's Pi rebooted)
+
+    def _open(self, name):
+        s = self.streams[name]
+        sock = self.ctx.socket(zmq.SUB)
+        sock.setsockopt(zmq.RCVHWM, 2)
+        sock.setsockopt(zmq.CONFLATE, 1)
+        sock.setsockopt(zmq.LINGER, 0)
+        sock.setsockopt(zmq.SUBSCRIBE, b"")
+        sock.connect(f"tcp://{s['host']}:{s['port']}")
+        self.poller.register(sock, zmq.POLLIN)
+        self.sockets[sock] = name
+        self._last_rx[name] = time.time()
+
+    def _reconnect_stalled(self):
+        """A conflating SUB socket can stay silent after the sender's machine reboots; a fresh socket recovers.
+        Runs on the receive thread only (zmq sockets are not thread-safe)."""
+        now = time.time()
+        for sock, name in list(self.sockets.items()):
+            if now - self._last_rx.get(name, now) > self.STALL_RECONNECT_S:
+                self.poller.unregister(sock)
+                del self.sockets[sock]
+                sock.close()
+                self.reconnects[name] += 1
+                self._open(name)
+
     def _loop(self):
         while self._running:
+            self._reconnect_stalled()
             for sock, _ in self.poller.poll(200):
                 name = self.sockets[sock]
+                self._last_rx[name] = time.time()
                 try:
                     msg = sock.recv(zmq.NOBLOCK)
                     header, payload = unpack(msg)

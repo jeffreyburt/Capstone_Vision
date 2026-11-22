@@ -207,3 +207,27 @@ class SearchTests(unittest.TestCase):
         self.assertEqual(search_goal([600, 950], robot1)[1], 980)  # clamped to the limit
         with self.assertRaises(ValueError):
             validate({"limits": [[0, 1000], [100, 900]], "signs": [1, 1], "search_up_units": 900})
+
+
+class SearchPatternTests(unittest.TestCase):
+    def test_scan_sweeps_side_to_side_looking_up(self):
+        from head_tracker.tracking_control import search_pattern
+        robot2 = validate({"limits": [[141, 641], [450, 812]], "signs": [-1, 1]})  # up = -tilt units
+        points = search_pattern([391, 743], robot2)
+        self.assertEqual(len(points), 10)
+        self.assertEqual({p[1] for p in points[:5]}, {643})          # first row: 100 units up
+        self.assertEqual({p[1] for p in points[5:]}, {703})          # second row: 40 units up
+        self.assertEqual([p[0] for p in points[:5]], [241, 316, 391, 466, 541])
+        self.assertEqual([p[0] for p in points[5:]], [541, 466, 391, 316, 241])  # back the other way
+        robot1 = validate({"limits": [[327, 980], [692, 980]], "signs": [-1, -1]})  # up = +tilt units
+        self.assertTrue(all(p[1] > 705 for p in search_pattern([700, 705], robot1)))
+        self.assertEqual(min(p[0] for p in search_pattern([340, 705], robot1)), 327)  # clamped to limits
+
+
+class SearchCentreTests(unittest.TestCase):
+    def test_scan_is_centred_on_the_calibrated_forward_pose(self):
+        from head_tracker.tracking_control import search_pattern
+        cfg = validate({"limits": [[141, 641], [450, 812]], "signs": [-1, 1], "search_center": [388, 743]})
+        points = search_pattern([630, 478], cfg)  # head started turned far right and looking up
+        self.assertEqual([p[0] for p in points[:5]], [238, 313, 388, 463, 538])
+        self.assertEqual(points[0][1], 643)

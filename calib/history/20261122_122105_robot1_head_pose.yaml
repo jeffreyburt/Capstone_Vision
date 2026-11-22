@@ -1,0 +1,49 @@
+status: active_dashboard_calibration_2026-11-22
+head_pose:
+  max_rms_px: 5.0
+  heading_window_deg:
+  - 90
+  - 60
+  neutral_units:
+  - 690
+  - 699
+  degrees_per_unit:
+  - 0.24575
+  - -0.23921
+  pan_pivot_m:
+  - -0.0109
+  - 0.011
+  - 0.0
+  tilt_pivot_m:
+  - -0.0089
+  - 0.0
+  - 0.3216
+  markers:
+    '2':
+      mount: tilt
+      center_m:
+      - -0.1
+      - -0.0
+      - 0.2826
+      rotation_vector_rad:
+      - 0.0197
+      - 0.031
+      - 0.0034
+    '3':
+      mount: pan
+      center_m:
+      - 0.0101
+      - -0.0948
+      - 0.2244
+      rotation_vector_rad:
+      - 0.005
+      - -0.008
+      - 0.0133
+      center_only: true
+  valid_units:
+  - - 327
+    - 980
+  - - 692
+    - 980
+reference_date: '2026-11-22'
+user_rear_offset_m: -0.14

@@ -168,3 +168,38 @@ def test_walls_endpoint_validates_and_map_reports_walls():
         server.shutdown()
         server.server_close()
         thread.join()
+
+
+def test_head_sweep_tilts_up_in_each_robots_own_direction(monkeypatch):
+    """Robot 1 looks up with +units, Robot 2 with -units: the sweep must reach well up on both."""
+    from monitor import autocal
+    planned = {}
+
+    class Stop(Exception):
+        pass
+
+    def fake_urlopen(req, timeout=0):
+        body = json.loads(req.data)
+        planned.setdefault("targets", []).append(body["a"])
+        if len(planned["targets"]) >= 12:
+            raise Stop
+        class R:
+            def read(self): return b""
+        return R()
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    for rid, signs, limits, neutral, up in ((1, [-1, -1], [[327, 980], [692, 980]], [686, 705], 1),
+                                            (2, [-1, 1], [[141, 641], [450, 812]], [388, 743], -1)):
+        planned.clear()
+        cfg = {"system": {"robots": {rid: {"head_tracking_signs": signs, "head_tracking_limits": limits}}}}
+        heads = type("H", (), {"_url": lambda self, n, p: "http://x" + p,
+                               "state": lambda self, n: {"running": False, "positions": [0, 0]}})()
+        runner = autocal.AutoCalibration(type("M", (), {"cfg": cfg, "nodes": []})(), heads, None)
+        monkeypatch.setattr(runner, "_frames", lambda *a, **k: [])
+        monkeypatch.setattr(runner, "_tag_worlds", lambda *a, **k: {rid: {}})
+        spec = type("S", (), {"id": rid})()
+        with pytest.raises((Stop, RuntimeError)):
+            runner._sweep(cfg, spec, None, neutral, {}, None, None, 0, {})
+        tilts = [t[1] for t in planned["targets"]]
+        assert max((t - neutral[1]) * up for t in tilts) >= 200  # reached far up
+        assert all(limits[1][0] <= t <= limits[1][1] for t in tilts)

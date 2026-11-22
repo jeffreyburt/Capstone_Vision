@@ -470,9 +470,13 @@ class AutoCalibration:
         limits = ((cfg.get("system") or {}).get("robots") or {}).get(spec.id, {}).get("head_tracking_limits") \
             or [[neutral[0] - 150, neutral[0] + 150], [neutral[1] - 150, min(1000, neutral[1] + 30)]]
         clamp = lambda u, i: int(min(max(u, limits[i][0]), limits[i][1]))
+        # 'Up' differs per robot (Robot 1: +units, Robot 2: -units): the opposite of its tilt tracking direction.
+        signs = ((cfg.get("system") or {}).get("robots") or {}).get(spec.id, {}).get("head_tracking_signs") or [1, 1]
+        up = -signs[1]
         targets = [[clamp(neutral[0] + d, 0), neutral[1]] for d in (-180, -110, -50, 50, 110, 180)]
-        targets += [[neutral[0], clamp(neutral[1] + d, 1)] for d in (-220, -150, -80, 25)]
-        targets += [[clamp(neutral[0] + a, 0), clamp(neutral[1] + b, 1)] for a, b in ((-100, -120), (100, -120))]
+        targets += [[neutral[0], clamp(neutral[1] + up * d, 1)] for d in (80, 150, 220, -25)]
+        targets += [[clamp(neutral[0] + a, 0), clamp(neutral[1] + up * 120, 1)] for a in (-100, 100)]
+        self._log(f"robot {spec.id}: sweeping pan and tilt ({'+' if up > 0 else '-'} tilt units look up)")
         samples = []
         url = self.heads._url(node, "/api/start")
         import json

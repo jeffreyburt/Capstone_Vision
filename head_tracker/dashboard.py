@@ -7,10 +7,10 @@ import math
 import argparse
 import socket
 if __package__:
- from .tracking_control import validate as validate_tracking, correction, approach, aim_offset_fraction, search_goal, TargetMemory, image_to_servo, servo_to_image
+ from .tracking_control import validate as validate_tracking, correction, approach, aim_offset_fraction, search_pattern, SEARCH_SPEED, TargetMemory, image_to_servo, servo_to_image
  from .camera_feed import CameraFeed, parse_size as parse_camera_size
 else:
- from tracking_control import validate as validate_tracking, correction, approach, aim_offset_fraction, search_goal, TargetMemory, image_to_servo, servo_to_image
+ from tracking_control import validate as validate_tracking, correction, approach, aim_offset_fraction, search_pattern, SEARCH_SPEED, TargetMemory, image_to_servo, servo_to_image
  from camera_feed import CameraFeed, parse_size as parse_camera_size
 camera_feed=None
 
@@ -166,7 +166,10 @@ def track_head(config):
   # most, then the head holds the predicted spot for the rest of the prediction time.
   memory=TargetMemory(max_speed=150,bounds=(0,1000),window_s=.3,travel_s=.6);aim=collections.deque(maxlen=80)
   units=config.get('units_per_frame')  # servo units across the camera image, measured per robot
-  searching=search_goal(positions,config)  # until a face (or the main camera's aim) is seen: look up for the user
+  # Until a face (or the main camera's aim) is seen, and again after 4 s without one, scan for the user.
+  scan=search_pattern(positions,config);scan_index=0
+  search_config={**config,'speed':min(config['speed'],SEARCH_SPEED)}
+  lagging=0
   while not stop.is_set():
    now=time.monotonic();dt=now-previous;previous=now
    aim.append((time.time(),targets[:]))
@@ -188,8 +191,9 @@ def track_head(config):
      predicted=memory.predict(time.time(),config.get('prediction',1.2))
      if predicted is not None:
       goal=predicted;control_center=servo_to_image(predicted,targets,config['signs'],units);mode='predicted'
-     elif memory.center is None and searching is not None:
-      goal=searching[:];control_center=servo_to_image(goal,targets,config['signs'],units);mode='searching'
+     elif scan and (memory.center is None or time.time()-memory.stamp>4):
+      if max(abs(a-b) for a,b in zip(targets,scan[scan_index]))<12:scan_index=(scan_index+1)%len(scan)
+      goal=scan[scan_index][:];control_center=servo_to_image(goal,targets,config['signs'],units);mode='searching'
      elif max(map(abs,velocities))>.1:goal=targets[:];control_center=[.5,.5];mode='braking'
     if memory.stamp is not None:age=max(0,time.time()-memory.stamp)
    live=goal is not None
@@ -206,7 +210,7 @@ def track_head(config):
     else:  # light smoothing of the goal (servo units) against detection jitter
      alpha=1-math.exp(-min(dt,.1)/.05)
      filtered=[old+alpha*(new-old) for old,new in zip(filtered,goal)]
-    targets,velocities=approach(targets,velocities,filtered,config,dt,active_axes,units)
+    targets,velocities=approach(targets,velocities,filtered,search_config if mode=='searching' else config,dt,active_axes,units)
     commanded=[round(v) for v in targets]
     changed=last_sent is None or max(abs(a-b) for a,b in zip(commanded,last_sent))>=2
     if changed and now-last_command>=.025:
@@ -216,7 +220,7 @@ def track_head(config):
     if all(abs(e)<=config['deadzone'] for e in errors):message='Head centered — holding'
     elif any(targets[i]<=config['limits'][i][0] or targets[i]>=config['limits'][i][1] for i in (0,1)):message='Taught limit reached'
     else:message='Following head'
-    if mode=='searching':message='Looking up for the user'
+    if mode=='searching':message=f'Searching for the user · point {scan_index+1}/{len(scan)}'
     if mode=='predicted':message=f'Predicting offscreen head · {max(0,config.get("prediction",1.2)-age):.1f}s remaining'
     elif mode=='braking':message='Prediction expired — slowing to hold'
    if now-last_feedback>=(.07 if feedback_socket is not None else .18):
@@ -225,7 +229,11 @@ def track_head(config):
     if misses>=2:raise RuntimeError('Servo feedback lost; tracking stopped')
     limit=max(45,.3*config['speed']) # the servo lags further behind its target at higher tracking speeds
     if live and None not in positions and any(abs(a-b)>limit for a,b in zip(positions,targets)):
-     raise RuntimeError(f'Servo tracking error exceeded {limit:.0f} units; stopped')
+     # A loaded joint (e.g. tilting far up) can fall behind: restart from where it really is instead of stopping,
+     # and only give up if it stays stuck (~2 s of feedback reads).
+     lagging+=1;targets=list(map(float,positions));velocities=[0.,0.];last_sent=None
+     if lagging>=10:raise RuntimeError(f'Servo stuck more than {limit:.0f} units behind for 2 s; stopped')
+    else:lagging=0
     if holding and None not in positions:targets=list(map(float,positions))
    with lock:
     state['tracking'].update(status=message,mode=mode,center=control_center if live else None,lastSeenAge=round(age,2) if age is not None else None,targets=[round(v,1) for v in targets])
@@ -320,7 +328,8 @@ class Handler(BaseHTTPRequestHandler):
     else:
      center=data.get('center');stamp=data.get('frameTime');face_size=data.get('size')
      if face_size is not None and (type(face_size) not in (int,float) or not math.isfinite(face_size) or not 0<face_size<=1):raise ValueError('Invalid face size')
-     if center is not None and (not isinstance(center,list) or len(center)!=2 or any(type(v) not in (int,float) or not math.isfinite(v) or not 0<=v<=1 for v in center)):raise ValueError('Invalid face center')
+     # Up to half a frame beyond the edges: the main camera can aim at a person the head camera cannot see yet.
+     if center is not None and (not isinstance(center,list) or len(center)!=2 or any(type(v) not in (int,float) or not math.isfinite(v) or not -.5<=v<=1.5 for v in center)):raise ValueError('Invalid face center')
      if type(stamp) not in (int,float) or not math.isfinite(stamp) or not 0<=time.time()-stamp<.7:raise ValueError('Camera observation is stale')
      with lock:
       if state['tracking']['active']:

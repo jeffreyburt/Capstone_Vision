@@ -47,6 +47,24 @@ image, and **Engage torque / Start tracking / Stop tracking / Disengage torque**
   signs pan -1 / tilt +1, tilt 433–812, prediction 0.8 s). Observations were accepted; frame fetch plus detection
   took about 40 ms. Tests: `tests/test_heads.py`.
 
+## Finding the user when tracking starts (2026-11-22)
+
+- **Main camera first:** whenever the main camera sees both the user and the robot, the dashboard aims the head at
+  the user from that (also when the user is outside the head camera's view: the robot now accepts aim points up to
+  half a frame beyond the image edges; before, those were rejected as invalid and the head just held).
+- **Otherwise scan:** before any face has been seen, and again after 4 s without one, the head sweeps side to side
+  (+-150 units) on two rows looking up (`search_up_units` 100, then 40), at 150 units/s so a face is caught mid-sweep,
+  centred on the head's calibrated forward/level pose (`head_pose.neutral_units`, sent as `search_center`).
+  Face detection takes over as soon as a face is seen.
+- **Lagging servo:** if a joint falls more than max(45, 0.3 x speed) units behind (e.g. tilting far up under load),
+  the target re-syncs to where it is; tracking only stops if that persists for ~2 s.
+- **Calibration page robot step:** the head sweep now tilts in each robot's own "up" direction (Robot 1 +units,
+  Robot 2 -units, from `head_tracking_signs`). Before, Robot 1's tilt sweep hit its lower limit and barely moved:
+  run **Calibrate robots** again to fit Robot 1's tilt properly.
+- **Main camera receiver:** if no frame arrives for 5 s (main Pi rebooted), it reopens the stream itself.
+- 2026-11-22: Robot 1's servos read 3.95 V with all fault flags set and would not hold torque: its 7.4 V servo
+  supply was off or flat. Check it before running Robot 1's head.
+
 ## Aiming the speaker, not the camera (2026-11-22)
 
 Each speaker driver sits ~4 in (0.1016 m) below its camera centre. To put the speaker's axis on the face the head
