@@ -261,7 +261,7 @@ system:
   master: {host: 192.168.1.20, wifi_host: 192.168.50.1, ssh_user: vision}
   robots:                   # address + drive port from control.robots, camera from streams.robotN
     1: {ssh_user: robot-pi1, dashboard_port: 8080, head_tracking: false,
-        head_tracking_reason: "Head tracking disabled: Robot 1's head servos are not connected"}
+        head_tracking_reason: "Head tracking off for Robot 1 until its pan/tilt travel limits are measured (servos now on a USB BusLinker)"}
     2: {ssh_user: capstone-pi2, dashboard_port: 8080,   # William's image
         # Head tracking stays inside the range vision's head-pose model covers (robots[id=2].head_pose.valid_units),
         # so Robot 2 stays located while its head follows the user.

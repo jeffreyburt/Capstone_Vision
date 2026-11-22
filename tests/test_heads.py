@@ -116,14 +116,15 @@ def test_state_is_relayed_without_history(setup):
     assert disabled["positions"] == [476, 582]  # still shown read-only
 
 
-def test_disabled_robot_refuses_motion_but_accepts_stop(setup):
+def test_disabled_robot_refuses_tracking_but_allows_stop_and_torque(setup):
     base, robots = setup
-    for action in ("engage", "start", "observation", "disengage"):
+    for action in ("start", "observation"):
         code, body = post(base, f"/api/head/robot1/{action}", {"center": [.5, .5], "frameTime": 1, "target": "face"})
         assert code == 409 and body["message"] == "servos not connected"
     assert robots[1].posts == []
     assert post(base, "/api/head/robot1/stop")[1]["ok"]
-    assert [p[0] for p in robots[1].posts] == ["/api/stop"]
+    assert post(base, "/api/head/robot1/disengage")[1]["ok"]
+    assert [p[0] for p in robots[1].posts] == ["/api/stop", "/api/disengage"]
     with pytest.raises(urllib.error.HTTPError) as error:
         get(base, "/api/head/robot1/frame")
     assert error.value.code == 409

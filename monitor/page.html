@@ -856,6 +856,7 @@ function headUI(key) {
     <div class="row"><button data-a="engage">Engage torque</button><button data-a="start">Start tracking</button>
       <button data-a="stop">Stop tracking</button><button data-a="disengage">Disengage torque</button>
       <label class="vals"><input type="checkbox" class="boxes" checked> Show face boxes</label></div>
+    <div class="row vals range"><span class="seen"></span><button class="reset-seen" type="button">Reset range</button></div>
     <div class="row vals"><label>Speed <input class="speed" type="number" min="5" max="400" step="5" style="width:65px"> units/s</label>
       <label>Predict off-screen for <input class="predict" type="number" min="0" max="3" step="0.1" style="width:55px"> s</label>
       <span>(used when tracking starts; 400 ≈ 96°/s)</span></div>
@@ -864,7 +865,9 @@ function headUI(key) {
   const h = { key, el, card: c, pill: el.querySelector(".pill"), vals: el.querySelector(".vals"), off: el.querySelector(".off"),
               msg: el.querySelector(".msg"), boxes: el.querySelector(".boxes"), state: null, last: null, frames: 0,
               canvas: c.cam.querySelector(".headov"),  // the camera block lives in the robot camera panel
-              speed: el.querySelector(".speed"), predict: el.querySelector(".predict"), lastFrame: 0 };
+              speed: el.querySelector(".speed"), predict: el.querySelector(".predict"), lastFrame: 0,
+              seenEl: el.querySelector(".seen"), seen: null };
+  el.querySelector(".reset-seen").onclick = () => { h.seen = null; h.seenEl.textContent = "Range seen: waiting for positions"; };
   h.boxes.checked = store.get(`head-boxes-${key}`, true);
   h.boxes.onchange = () => { store.set(`head-boxes-${key}`, h.boxes.checked); if (!h.boxes.checked) clearOverlay(h); };
   el.querySelectorAll("button").forEach(b => b.onclick = () => headAction(h, b.dataset.a));
@@ -894,8 +897,9 @@ function headSummary(s) {
   const t = v => v === 1 ? "on" : v === 0 ? "off" : "?";
   const fresh = Number.isFinite(s.serverTime) && Number.isFinite(s.position_time) && s.serverTime - s.position_time < 2;
   return [s.position_error ? `Servos: ${s.position_error}` : fresh ? `Pan ${pos[0] ?? "—"} · tilt ${pos[1] ?? "—"}` : "Servo feedback stale",
+          s.servoPort ? `bus ${s.servoPort.replace(/^.*\//, "")}` : null,
           `torque ${t(torque[0])}/${t(torque[1])}`, `camera ${s.camera?.live ? "live" : "off"}`,
-          s.tracking?.active ? `tracking: ${s.tracking.status}${heads[s.robot]?.source ? " · aiming from the " + heads[s.robot].source : heads[s.robot]?.aimNote ? " · no aim: " + heads[s.robot].aimNote : ""}` : `${s.status || "idle"}`].join(" · ");
+          s.tracking?.active ? `tracking: ${s.tracking.status}${heads[s.robot]?.source ? " · aiming from the " + heads[s.robot].source : heads[s.robot]?.aimNote ? " · no aim: " + heads[s.robot].aimNote : ""}` : `${s.status || "idle"}`].filter(Boolean).join(" · ");
 }
 async function pollHead(h) {
   try {
@@ -905,13 +909,21 @@ async function pollHead(h) {
     h.pill.className = `pill ${!s.enabled ? "off" : !s.reachable || s.position_error ? "bad" : active ? "ok" : "warn"}`;
     h.pill.textContent = !s.enabled ? "disabled" : !s.reachable ? "unreachable" : active ? "tracking" : "not tracking";
     h.vals.textContent = headSummary(s);
-    h.off.hidden = s.enabled; h.off.textContent = s.disabled_reason || "";
-    const ready = s.enabled && s.reachable && !s.position_error && !s.controlling;
+    h.off.hidden = s.enabled; h.off.textContent = (s.disabled_reason || "") + " (torque on/off and the live positions still work)";
+    const torqueReady = s.reachable && !s.position_error && !s.controlling;
+    const ready = s.enabled && torqueReady;
     const engaged = (s.torque || []).every(v => v === 1);
-    h.el.querySelector('[data-a="engage"]').disabled = !ready || active;
+    h.el.querySelector('[data-a="engage"]').disabled = !torqueReady || active;
     h.el.querySelector('[data-a="start"]').disabled = !ready || active || !engaged || !s.camera?.live || !s.tracking?.config;
     h.el.querySelector('[data-a="stop"]').disabled = !s.reachable;
-    h.el.querySelector('[data-a="disengage"]').disabled = !ready;
+    h.el.querySelector('[data-a="disengage"]').disabled = !torqueReady;
+    // Lowest/highest positions seen since "Reset range": move the head by hand (torque off) to find its limits.
+    const pos = s.positions || [];
+    const fresh = Number.isFinite(s.serverTime) && Number.isFinite(s.position_time) && s.serverTime - s.position_time < 2;
+    if (fresh && pos.length === 2 && pos.every(Number.isInteger)) {
+      h.seen = h.seen ? h.seen.map((r, i) => [Math.min(r[0], pos[i]), Math.max(r[1], pos[i])]) : pos.map(v => [v, v]);
+      h.seenEl.textContent = `Range seen: pan ${h.seen[0][0]}–${h.seen[0][1]} · tilt ${h.seen[1][0]}–${h.seen[1][1]}`;
+    } else if (!h.seen) h.seenEl.textContent = "Range seen: waiting for positions";
     h.boxes.disabled = !s.enabled;
     const cfg = s.tracking?.config;
     if (cfg && !h.prefilled) { h.speed.value = Math.max(cfg.speed, 300); h.predict.value = Math.max(cfg.prediction ?? 1.2, 1.5); h.prefilled = true; }
@@ -984,7 +996,7 @@ async function headDetectLoop(h) {
 }
 async function pollHeads() {
   for (const key of Object.keys(cards)) if (cards[key].panel) { const h = headUI(key); if (h) await pollHead(h); }
-  setTimeout(pollHeads, 500);
+  setTimeout(pollHeads, 250);  // positions refresh ~4x a second (the robot reads its servos every 0.2 s)
 }
 pollHeads();
 </script>

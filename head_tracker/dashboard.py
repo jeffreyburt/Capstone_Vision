@@ -13,6 +13,14 @@ else:
  from tracking_control import validate as validate_tracking, correction, TargetMemory, image_to_servo, servo_to_image
  from camera_feed import CameraFeed
 camera_feed=None
+
+def servo_port():
+ """Servo bus: CAPSTONE_SERVO_PORT if set, else a USB BusLinker (CH340) if plugged in, else the Pi UART."""
+ import os,glob
+ if os.environ.get('CAPSTONE_SERVO_PORT'):return os.environ['CAPSTONE_SERVO_PORT']
+ usb=sorted(glob.glob('/dev/serial/by-id/*1a86*')+glob.glob('/dev/serial/by-id/*CH340*'))
+ return usb[0] if usb else '/dev/serial0'
+SERIAL_PORT=servo_port()
 feedback_socket=None
 feedback_target=None
 feedback_robot_id=None
@@ -62,7 +70,7 @@ def monitor():
     with lock:running=state['running']
     if not running:
      try:
-      with serial.Serial('/dev/serial0',115200,timeout=.01,exclusive=True) as p:
+      with serial.Serial(SERIAL_PORT,115200,timeout=.01,exclusive=True) as p:
        publish_positions([read(p,s) for s in (1,2)])
        torque=[read(p,s,32) for s in (1,2)]
        with lock:state['torque']=torque
@@ -82,7 +90,7 @@ def sweep(config):
  bus_lock.acquire()
  p=None
  try:
-  p=serial.Serial('/dev/serial0',115200,timeout=.01,exclusive=True)
+  p=serial.Serial(SERIAL_PORT,115200,timeout=.01,exclusive=True)
   start=time.monotonic()
   actual=[read(p,s) for s in (1,2)]
   publish_positions(actual)
@@ -145,7 +153,7 @@ def track_head(config):
  p=None
  bus_lock.acquire()
  try:
-  p=serial.Serial('/dev/serial0',115200,timeout=.01,exclusive=True)
+  p=serial.Serial(SERIAL_PORT,115200,timeout=.01,exclusive=True)
   positions=[read(p,sid) for sid in (1,2)]
   publish_positions(positions)
   if any(v is None for v in positions):raise RuntimeError('Missing servo feedback')
@@ -228,7 +236,7 @@ class Handler(BaseHTTPRequestHandler):
  def do_GET(self):
   self.path=self.path.split('?',1)[0]
   if self.path=='/api/state':
-   with lock:body=json.dumps({**state,'samples':list(history),'camera':camera_feed.info(),'serverTime':time.time()}).encode()
+   with lock:body=json.dumps({**state,'samples':list(history),'camera':camera_feed.info(),'serverTime':time.time(),'servoPort':SERIAL_PORT}).encode()
    kind='application/json'
   elif self.path.startswith('/assets/'):
    root=Path(__file__).with_name('assets').resolve()
@@ -312,7 +320,7 @@ class Handler(BaseHTTPRequestHandler):
     with lock:
      if state['running'] or state['controlling']:
       self.send_error(409,'Stop motion before capturing');return
-    with serial.Serial('/dev/serial0',115200,timeout=.01,exclusive=True) as p:
+    with serial.Serial(SERIAL_PORT,115200,timeout=.01,exclusive=True) as p:
      positions=[read(p,s) for s in (1,2)]
     publish_positions(positions)
     if any(v is None or not 0<=v<=1000 for v in positions):
@@ -332,7 +340,7 @@ class Handler(BaseHTTPRequestHandler):
     acquired=bus_lock.acquire(timeout=4)
     if not acquired:raise RuntimeError('Waiting for sweep to stop; try again')
     engage=self.path=='/api/engage'
-    with serial.Serial('/dev/serial0',115200,timeout=.01,exclusive=True) as p:
+    with serial.Serial(SERIAL_PORT,115200,timeout=.01,exclusive=True) as p:
      send(p,254,12)
      if engage:
       positions=[read(p,s) for s in (1,2)]
@@ -400,5 +408,5 @@ if __name__=='__main__':
   feedback_socket.setblocking(False)
  camera_feed=CameraFeed()
  threading.Thread(target=monitor,daemon=True).start()
- print('Servo dashboard: http://0.0.0.0:8080',flush=True)
+ print('Servo dashboard: http://0.0.0.0:8080 · servo bus '+SERIAL_PORT,flush=True)
  ThreadingHTTPServer(('0.0.0.0',8080),Handler).serve_forever()

@@ -4,7 +4,7 @@ The robot's own dashboard owns the servo UART, the camera and the tracking loop.
 a browser; this relay lets the system dashboard's browser tab be that browser for every robot, so the
 operator does not have to open each robot's page. Robots can be turned off with
 `system.robots.<id>.head_tracking: false` (for example while their servos are disconnected): their
-state is still shown, but every request that could move a servo is refused here.
+state is still shown, and torque can be switched on/off and motion stopped, but tracking is refused here.
 """
 import json
 import urllib.error
@@ -12,9 +12,10 @@ import urllib.request
 
 ACTIONS = {"engage": "/api/engage", "disengage": "/api/disengage", "stop": "/api/stop",
            "start": "/api/tracking/start", "observation": "/api/tracking/observation"}
-ALWAYS_ALLOWED = {"stop"}  # stopping is never refused, even for a disabled robot
+ALWAYS_ALLOWED = {"stop", "engage", "disengage"}  # stop and torque on/off work even with head tracking disabled
+                                                 # (e.g. releasing a head to find its travel limits by hand)
 STATE_FIELDS = ("status", "positions", "position_time", "position_error", "torque", "running",
-                "controlling", "camera", "serverTime")
+                "controlling", "camera", "serverTime", "servoPort")
 
 
 def tracking_limits(cfg):

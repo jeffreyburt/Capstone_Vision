@@ -47,6 +47,19 @@ image, and **Engage torque / Start tracking / Stop tracking / Disengage torque**
   signs pan -1 / tilt +1, tilt 433–812, prediction 0.8 s). Observations were accepted; frame fetch plus detection
   took about 40 ms. Tests: `tests/test_heads.py`.
 
+## Robot 1 head servos on a USB BusLinker; live positions for finding limits (2026-11-22)
+
+Robot 1's pan (ID 1) and tilt (ID 2) LX servos are daisy-chained on a BusLinker V2 plugged into the Pi by USB
+(CH340, `/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0`), powered at 7.4 V. `head_tracker/dashboard.py` now picks
+its servo bus as: `CAPSTONE_SERVO_PORT` if set, else a USB BusLinker if plugged in, else `/dev/serial0` (Robot 2 is
+unchanged), and reports it as `servoPort`. Deployed to Robot 1 (`~/capstone-head-tracker/`, backup in
+`bak-2026-11-22-usb/`; camera code left as it was).
+
+On the system dashboard each robot's head-tracking panel shows live pan/tilt (refreshed ~4x a second) and the
+**range seen** since **Reset range**. To find travel limits: Disengage torque, move the head by hand to each end,
+and read the range. Engage/Disengage torque and Stop now work even when a robot's head tracking is disabled;
+tracking itself stays refused. Robot 1's head tracking stays off until its limits are measured.
+
 ## Faster tracking and head-coordinate prediction (2026-11-21)
 
 | Change | Before | After | File |
