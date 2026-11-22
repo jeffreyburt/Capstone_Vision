@@ -47,6 +47,23 @@ image, and **Engage torque / Start tracking / Stop tracking / Disengage torque**
   signs pan -1 / tilt +1, tilt 433–812, prediction 0.8 s). Observations were accepted; frame fetch plus detection
   took about 40 ms. Tests: `tests/test_heads.py`.
 
+## Aiming the speaker, not the camera (2026-11-22)
+
+Each speaker driver sits ~4 in (0.1016 m) below its camera centre. To put the speaker's axis on the face the head
+looks up by atan(offset / distance), so the face is held that far **below** the image centre instead of on it.
+Distance comes from the face box: the face (assumed `face_width_m` 0.15 m wide) and the offset subtend angles in the
+same ratio at any distance, so the drop in servo units is the face box width in units x offset / face width. No
+extra calibration is needed beyond the measured image scale.
+
+- Config per robot: `system.robots.<id>.speaker_offset_m: 0.1016`, `face_width_m: 0.15` (both robots); sent with
+  Start as `aim_offset_m` / `face_width_m`. Observations now carry the face box width (`size`, fraction of the image
+  width); without it (main-camera aim) no image offset is applied, because that aim is computed from the speaker's
+  own height instead (`aim_from_main_camera(..., speaker_offset_m)`).
+- At 1 m the face is held at 0.71 of the image height (24 units, ~5.8 deg up); at 2 m ~0.60; at 0.5 m ~0.91.
+- The dashboard draws a blue **speaker aim** cross where the face sits when the speaker is on it.
+- Unit test checks the offset against the exact angle at 0.5-3 m (within 3%). Deployed to both robots
+  (backups `bak-2026-11-22-speaker/`).
+
 ## Robot 1 tilt direction, measured image scale, steadier prediction (2026-11-22)
 
 - **Robot 1 can look up.** Its camera is mounted upside down like Robot 2's, and **+tilt units look up** on Robot 1

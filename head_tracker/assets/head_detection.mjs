@@ -42,7 +42,7 @@ async function loop(){
   candidates.sort((a,b)=>lastCenter?Math.hypot(...a.center.map((v,i)=>v-lastCenter[i]))-Math.hypot(...b.center.map((v,i)=>v-lastCenter[i])):b.area-a.area);
   const selected=candidates[0]?.center||null;lastCenter=selected;
   if(window.headTrackingActive){
-   const r=await fetch('/api/tracking/observation',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({center:selected,frameTime,target:'face'}),signal:AbortSignal.timeout(1000)});
+   const r=await fetch('/api/tracking/observation',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({center:selected,size:candidates[0]?candidates[0].box.width/640:null,frameTime,target:'face'}),signal:AbortSignal.timeout(1000)});
    if(!r.ok)throw Error('Tracking paused: frame too old or controller unavailable');
   }
 

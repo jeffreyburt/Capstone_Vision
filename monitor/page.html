@@ -936,7 +936,14 @@ async function pollHead(h) {
   } catch (e) { h.pill.className = "pill bad"; h.pill.textContent = "no connection"; }
 }
 function clearOverlay(h) { const x = h.canvas.getContext("2d"); x.clearRect(0, 0, h.canvas.width, h.canvas.height); }
-function drawOverlay(h, faces, predicted) {
+// Where the speaker points in the image: below the centre by its offset, scaled by how big (close) the face is.
+function speakerAim(face, cfg) {
+  if (!face || !cfg?.aim_offset_m) return null;
+  const [w, hgt] = cfg.units_per_frame || [170, 117];
+  const drop = Math.max(-.45, Math.min(.45, (face.box.width / 640) * w * cfg.aim_offset_m / (cfg.face_width_m || .15) / hgt));
+  return [.5, .5 + drop];
+}
+function drawOverlay(h, faces, predicted, aimPoint) {
   const img = h.card.img, cv = h.canvas, d = devicePixelRatio || 1;
   const w = img.clientWidth, ht = img.clientHeight;
   cv.width = w * d; cv.height = ht * d;
@@ -950,6 +957,11 @@ function drawOverlay(h, faces, predicted) {
     x.strokeStyle = color; x.strokeRect(...R(b.originX, b.originY, b.width, b.height));
     x.fillStyle = color; x.fillText(i === 0 ? "Tracked face" : "Face", ox + b.originX * scale, Math.max(12, oy + b.originY * scale - 4));
   });
+  if (aimPoint) {  // the face sits here when the speaker (below the camera) points at it
+    const ax = ox + aimPoint[0] * 640 * scale, ay = oy + aimPoint[1] * 480 * scale;
+    x.strokeStyle = "#2f8cff"; x.lineWidth = 2; x.beginPath(); x.moveTo(ax - 10, ay); x.lineTo(ax + 10, ay); x.moveTo(ax, ay - 10); x.lineTo(ax, ay + 10); x.stroke();
+    x.fillStyle = "#2f8cff"; x.fillText("speaker aim", ax + 12, ay + 4); x.lineWidth = 3;
+  }
   if (!faces.length && predicted) {
     x.strokeStyle = "#e09a2b"; x.beginPath(); x.arc(ox + predicted[0] * 640 * scale, oy + predicted[1] * 480 * scale, 9, 0, 7); x.stroke();
   }
@@ -989,10 +1001,12 @@ async function headDetectLoop(h) {
         center = a.center; h.source = center ? "main camera" : null; h.aimNote = a.reason || null;
       }
       const o = await fetch(`/api/head/${h.key}/observation`, { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ center, frameTime, target: "face" }), signal: AbortSignal.timeout(1000) });
+        body: JSON.stringify({ center, size: h.source === "head camera" ? faces[0].box.width / 640 : null, frameTime, target: "face" }),
+        signal: AbortSignal.timeout(1000) });
       if (!(await o.json()).ok) throw Error("tracking paused: frame too old or controller unavailable");
     }
-    if (h.boxes.checked && shown) drawOverlay(h, faces, s.tracking?.mode === "predicted" ? s.tracking.center : null);
+    if (h.boxes.checked && shown) drawOverlay(h, faces, s.tracking?.mode === "predicted" ? s.tracking.center : null,
+                                              speakerAim(faces[0], s.tracking?.config));
     h.msg.textContent = h.msg.textContent.startsWith("Face detection") ? "" : h.msg.textContent;
     wait = 0;  // next camera frame right away (the robot camera runs at up to 30 fps)
   } catch (e) {

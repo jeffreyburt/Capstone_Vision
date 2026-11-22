@@ -138,10 +138,12 @@ def test_start_uses_robot_saved_settings_and_sends_no_origin(setup):
     assert engage == "/api/engage" and origin is None
     assert start == "/api/tracking/start"
     assert data == {"target": "face", "limits": [[0, 1000], [433, 812]], "signs": [-1, 1], "speed": 60, "prediction": 0.8,
-                    "units_per_frame": [170.0, 117.0]}
+                    "units_per_frame": [170.0, 117.0],
+                    "aim_offset_m": 0.0, "face_width_m": 0.15}
     assert post(base, "/api/head/robot2/start", {"speed": 300, "prediction": 1.5})[1]["ok"]
     assert robots[2].posts[-1][1] == {"target": "face", "limits": [[0, 1000], [433, 812]], "signs": [-1, 1],
-                                      "speed": 300, "prediction": 1.5, "units_per_frame": [170.0, 117.0]}
+                                      "speed": 300, "prediction": 1.5, "units_per_frame": [170.0, 117.0],
+                    "aim_offset_m": 0.0, "face_width_m": 0.15}
 
 
 def test_robot_errors_and_frames_pass_through(setup):
@@ -213,6 +215,19 @@ def test_start_without_saved_settings_uses_config_limits_and_signs():
     node = type("N", (), {"key": "robot1"})()
     start = relay._start_request(node, {"speed": 300, "prediction": 1.5})
     assert start == {"target": "face", "limits": [[327, 980], [692, 980]], "signs": [-1, -1], "speed": 300, "prediction": 1.5,
-                     "units_per_frame": [168.0, 116.0]}
+                     "units_per_frame": [168.0, 116.0], "aim_offset_m": 0.0, "face_width_m": 0.15}
     with pytest.raises(ValueError):
         HeadRelay({"system": {"robots": {1: {"head_tracking_signs": [2, 1]}}}}, lambda h, p: (h, p))
+
+
+def test_main_camera_aim_points_the_speaker_not_the_camera():
+    from monitor.heads import aim_from_main_camera
+    head = {"neutral_units": [391, 770], "degrees_per_unit": [0.271, 0.226],
+            "pan_pivot_m": [0, 0, 0], "tilt_pivot_m": [0, 0, 0.32]}
+    robot, user = {"x": 0.0, "y": 1.0, "heading": 90.0}, {"x": 0.0, "y": 2.0, "height": 1.0}
+    camera = aim_from_main_camera(head, robot, user, [391, 770], [-1, 1])
+    speaker = aim_from_main_camera(head, robot, user, [391, 770], [-1, 1], speaker_offset_m=0.1016)
+    import math
+    extra_up = math.degrees(math.atan2(0.88 - 0.2184, 1.0)) - math.degrees(math.atan2(0.88 - 0.32, 1.0))
+    assert speaker["units"][1] == pytest.approx(camera["units"][1] - extra_up / 0.226, abs=0.2)  # tilts further up
+    assert speaker["units"][0] == camera["units"][0]

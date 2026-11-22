@@ -72,6 +72,8 @@ class HeadRelay:
         self.limits = tracking_limits(cfg)
         self.signs = tracking_signs(cfg)
         self.units = tracking_units(cfg)
+        self.speaker = {f"robot{int(rid)}": (float((e or {}).get("speaker_offset_m", 0.0)), float((e or {}).get("face_width_m", 0.15)))
+                        for rid, e in ((cfg.get("system") or {}).get("robots") or {}).items()}
         self.endpoint = endpoint  # (host, port) -> reachable (host, port), e.g. through the SSH tunnel
         self.urlopen = urlopen
 
@@ -138,7 +140,9 @@ class HeadRelay:
                 "signs": self.signs.get(node.key, saved["signs"]),
                 "speed": data.get("speed", saved.get("speed", 180)),
                 "prediction": data.get("prediction", saved.get("prediction", 1.2)),
-                "units_per_frame": self.units.get(node.key, saved.get("units_per_frame", list(UNITS_PER_FRAME)))}
+                "units_per_frame": self.units.get(node.key, saved.get("units_per_frame", list(UNITS_PER_FRAME))),
+                "aim_offset_m": self.speaker.get(node.key, (0.0, 0.15))[0],
+                "face_width_m": self.speaker.get(node.key, (0.0, 0.15))[1]}
 
 
 def _message(error):
@@ -157,7 +161,8 @@ UNITS_PER_FRAME = (170.0, 117.0)  # servo units across the robot camera image (m
 FACE_BELOW_TOP_M = 0.12           # face centre below the top of the head
 
 
-def aim_from_main_camera(head_pose, robot, user, positions, signs, limits=None, units_per_frame=UNITS_PER_FRAME):
+def aim_from_main_camera(head_pose, robot, user, positions, signs, limits=None, units_per_frame=UNITS_PER_FRAME,
+                         speaker_offset_m=0.0):
     """Where the user's face should appear in the robot's head camera, from the main camera's view.
 
     head_pose: the robot's `head_pose` config (neutral_units, degrees_per_unit, pan_pivot_m, tilt_pivot_m).
@@ -179,7 +184,8 @@ def aim_from_main_camera(head_pose, robot, user, positions, signs, limits=None, 
         return None
     pan_deg = (math.degrees(math.atan2(dy, dx) - h) + 180) % 360 - 180
     face_z = float(user.get("height") or 1.6) - FACE_BELOW_TOP_M
-    tilt_deg = -math.degrees(math.atan2(face_z - tilt_z, distance))  # looking up is negative tilt
+    # Aim the speaker (speaker_offset_m below the camera) at the face, not the camera.
+    tilt_deg = -math.degrees(math.atan2(face_z - (tilt_z - speaker_offset_m), distance))  # looking up is negative tilt
     units = [neutral[0] + pan_deg / dpu[0], neutral[1] + tilt_deg / dpu[1]]
     if limits:
         units = [min(max(u, lo), hi) for u, (lo, hi) in zip(units, limits)]

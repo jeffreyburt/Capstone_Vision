@@ -22,8 +22,23 @@ def validate(config):
  units=config.get('units_per_frame',list(UNITS_PER_FRAME))
  if not isinstance(units,(list,tuple)) or len(units)!=2 or any(type(v) not in (int,float) or not 50<=v<=600 for v in units):
   raise ValueError('units_per_frame must be [width, height] servo units, 50-600')
+ offset=config.get('aim_offset_m',0.0);face=config.get('face_width_m',0.15)
+ if type(offset) not in (int,float) or not math.isfinite(offset) or not -0.5<=offset<=0.5:raise ValueError('aim_offset_m must be -0.5 to 0.5 m')
+ if type(face) not in (int,float) or not math.isfinite(face) or not 0.08<=face<=0.3:raise ValueError('face_width_m must be 0.08-0.3 m')
  return {'prediction':prediction,'limits':limits,'signs':signs,'speed':speed,'deadzone':0.06,'settlezone':0.04,
-         'units_per_frame':[float(v) for v in units]}
+         'units_per_frame':[float(v) for v in units],'aim_offset_m':float(offset),'face_width_m':float(face)}
+
+
+def aim_offset_fraction(face_size,config):
+ """How far below the image centre the face should sit so a speaker `aim_offset_m` below the camera points at it.
+
+ face_size: the face box width as a fraction of the image width. The face subtends face_width_m and the speaker
+ offset subtends aim_offset_m at the same distance, so the offset angle is the face's angular width times their
+ ratio; no distance or degrees-per-unit needed. Returned as a fraction of the image height (positive = lower)."""
+ if not face_size or not config.get('aim_offset_m'):return 0.0
+ w,h=config.get('units_per_frame',UNITS_PER_FRAME)
+ units=face_size*w*config['aim_offset_m']/config.get('face_width_m',0.15)
+ return max(-.45,min(.45,units/h))  # up to ~0.4 m away; closer faces leave the frame anyway
 
 def correction(positions, velocities, center, config, dt, active=None):
  """Velocity ramp, proportional image error, and hard taught limits."""

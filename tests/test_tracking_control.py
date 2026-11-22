@@ -174,3 +174,24 @@ class PredictionStabilityTests(unittest.TestCase):
         for k in range(10):  # a face really moving at 300 units/s: capped at 150, and only for 0.6 s
             walker.observe([400 + 10 * k, 700], 10 + k / 30)
         self.assertLessEqual(walker.predict(10.3 + 1.4, 1.5)[0] - 490, 150 * .6 + 1)
+
+
+class SpeakerOffsetTests(unittest.TestCase):
+    def test_face_sits_below_centre_by_the_speaker_angle_at_any_distance(self):
+        """Speaker 0.1016 m below the camera: the head must look up by atan(offset / distance), so the face sits
+        that angle below the image centre. Checked against the true angle at 0.5-3 m."""
+        from head_tracker.tracking_control import aim_offset_fraction, validate
+        config = validate({"limits": [[0, 1000], [100, 900]], "signs": [-1, 1], "units_per_frame": [170, 117],
+                           "aim_offset_m": 0.1016, "face_width_m": 0.15})
+        deg_per_unit = 0.24
+        hfov = 170 * deg_per_unit
+        for distance in (0.5, 1.0, 2.0, 3.0):
+            face_deg = 2 * math.degrees(math.atan(0.15 / 2 / distance))
+            size = face_deg / hfov                                   # face box width as a fraction of the image
+            want_units = math.degrees(math.atan(0.1016 / distance)) / deg_per_unit
+            got_units = aim_offset_fraction(size, config) * 117
+            self.assertAlmostEqual(got_units, want_units, delta=max(1.0, want_units * 0.03))
+        self.assertEqual(aim_offset_fraction(None, config), 0.0)     # no face size (main-camera aim): no offset here
+        self.assertEqual(aim_offset_fraction(0.2, validate({"limits": [[0, 1000], [100, 900]], "signs": [1, 1]})), 0.0)
+        with self.assertRaises(ValueError):
+            validate({"limits": [[0, 1000], [100, 900]], "signs": [1, 1], "aim_offset_m": 2})

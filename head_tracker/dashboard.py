@@ -7,10 +7,10 @@ import math
 import argparse
 import socket
 if __package__:
- from .tracking_control import validate as validate_tracking, correction, approach, TargetMemory, image_to_servo, servo_to_image
+ from .tracking_control import validate as validate_tracking, correction, approach, aim_offset_fraction, TargetMemory, image_to_servo, servo_to_image
  from .camera_feed import CameraFeed, parse_size as parse_camera_size
 else:
- from tracking_control import validate as validate_tracking, correction, approach, TargetMemory, image_to_servo, servo_to_image
+ from tracking_control import validate as validate_tracking, correction, approach, aim_offset_fraction, TargetMemory, image_to_servo, servo_to_image
  from camera_feed import CameraFeed, parse_size as parse_camera_size
 camera_feed=None
 
@@ -177,7 +177,10 @@ def track_head(config):
      # Where the head was aimed when that frame was captured, not now: the goal is where the face IS in servo
      # units, which stays right however far the head has turned since.
      then=next((t for s,t in reversed(aim) if s<=observation['frameTime']),aim[0][1])
-     goal=image_to_servo(observation['center'],then,config['signs'],units)
+     # The speaker sits aim_offset_m below the camera: keep the face that much below the image centre so the
+     # speaker, not the camera, points at it (offset from the face's apparent size, i.e. its distance).
+     drop=aim_offset_fraction(observation.get('size'),config)
+     goal=image_to_servo([observation['center'][0],observation['center'][1]-drop],then,config['signs'],units)
      memory.observe(goal,observation['frameTime'])
      control_center=observation['center'];mode='observed'
     else:
@@ -311,13 +314,14 @@ class Handler(BaseHTTPRequestHandler):
       state['running']=True;state['status']='Head tracking · Waiting for face';stop.clear()
      threading.Thread(target=track_head,args=(config,),daemon=True).start()
     else:
-     center=data.get('center');stamp=data.get('frameTime')
+     center=data.get('center');stamp=data.get('frameTime');face_size=data.get('size')
+     if face_size is not None and (type(face_size) not in (int,float) or not math.isfinite(face_size) or not 0<face_size<=1):raise ValueError('Invalid face size')
      if center is not None and (not isinstance(center,list) or len(center)!=2 or any(type(v) not in (int,float) or not math.isfinite(v) or not 0<=v<=1 for v in center)):raise ValueError('Invalid face center')
      if type(stamp) not in (int,float) or not math.isfinite(stamp) or not 0<=time.time()-stamp<.7:raise ValueError('Camera observation is stale')
      with lock:
       if state['tracking']['active']:
        if tracking_observation is None or stamp>tracking_observation['frameTime']:
-        tracking_observation={'center':center,'received':time.monotonic(),'frameTime':stamp}
+        tracking_observation={'center':center,'received':time.monotonic(),'frameTime':stamp,'size':face_size}
    except (ValueError,TypeError,AttributeError) as error:self.send_error(400,str(error));return
   elif self.path=='/api/capture':
    with lock:
