@@ -27,6 +27,7 @@ from .controller import Limits, RobotController
 from .link import RobotLink, VisionListener
 from .planner import FormationPlanner
 from .view_guard import ViewGuard
+from .blackbox import BlackBox
 from .manual import manual_commands
 from .waypoints import WaypointMotion, frame_current, WaypointProgress, compute_waypoints, read_waypoints
 
@@ -242,6 +243,7 @@ def main(argv=None):
     ap.add_argument("--robots", help="comma-separated robot IDs to drive (default: all in control.robots)")
     ap.add_argument("--arm", action="store_true", help="send drive commands (default: dry run)")
     ap.add_argument("--waypoints", action="store_true", help="use dashboard grid targets instead of following the person")
+    ap.add_argument("--no-blackbox", action="store_true", help="don't record this run (config.yaml blackbox; see control/blackbox.py)")
     args = ap.parse_args(argv)
 
     cfg = load_config(args.config)
@@ -281,6 +283,15 @@ def main(argv=None):
         link = RobotLink(endpoints)
     keys = Keys()
     beacon = StatusBeacon("control", status_port(cfg))  # status for the system GUI (python -m monitor)
+    bb_cfg = {**(cfg.get("blackbox") or {})}
+    bb_cfg.setdefault("snapshot_url",
+                      f"http://127.0.0.1:{int((cfg.get('debug') or {}).get('stream_port', 8080))}/video/birdseye")
+    blackbox = None
+    if bb_cfg.get("enabled", True) and not args.no_blackbox:
+        from vision.config import resolve_path
+        blackbox = BlackBox(bb_cfg, argv=["control.main", *(sys.argv[1:] if argv is None else argv)], robots=driven,
+                            config_path=args.config or resolve_path(cfg, "config.yaml"))
+        print(f"Black box recording to {blackbox.dir}")
 
     print(("ARMED: driving robots " if args.arm else "DRY RUN (nothing is sent; add --arm to drive): robots ")
           + ", ".join(f"{rid} @ {robots_cfg[rid]['host']}" for rid in driven))
@@ -295,6 +306,8 @@ def main(argv=None):
                 if k == " ":
                     paused = not paused
                     print("PAUSED: robots stopped" if paused else "RESUMED")
+                    if blackbox:
+                        blackbox.event(time.time(), "paused" if paused else "resumed")
                 elif k == "q":
                     return 0
             msg, received_at = vision.poll()
@@ -302,6 +315,7 @@ def main(argv=None):
             msg_age = None if received_at is None else now - received_at
             manual_mode = False
             follow_mode = False
+            nav = None
             if args.waypoints:
                 nav = read_waypoints(f"http://127.0.0.1:{int((cfg.get('system') or {}).get('gui_port',8090))}/api/navigation")
                 manual = manual_commands(nav, controllers)
@@ -345,6 +359,11 @@ def main(argv=None):
             mode = "PAUSED" if paused else ("ARMED" if args.arm else "DRY RUN")
             report = status_report(mode, msg_age, targets, results, link_ages, link.status)
             report['navigation_mode'] = 'keyboard' if manual_mode else ('follow' if follow_mode or not args.waypoints else 'waypoints')
+            if blackbox:
+                blackbox.record(now, mode=mode, navigation_mode=report['navigation_mode'], msg=msg, msg_age=msg_age,
+                                nav=nav, targets=targets, results=results, link_ages=link_ages,
+                                link_status=link.status, reckoners=reckoners, guard=guard)
+                report['blackbox'] = blackbox.status()
             beacon.update(report)
             if now - last_print >= 1.0:
                 print(_fmt_status(mode, msg, targets, results, link_ages))
@@ -359,6 +378,10 @@ def main(argv=None):
         if args.arm:
             link.stop_all()
             print("Sent stop to all robots.")
+        if blackbox:
+            blackbox.event(time.time(), "stopped")
+            blackbox.close()
+            print(f"Black box saved: {blackbox.dir}")
         beacon.close()
         vision.close()
         link.close()

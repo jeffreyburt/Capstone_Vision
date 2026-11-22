@@ -454,3 +454,22 @@ def test_main_camera_http_refuses_stale_stream():
         httpd.server_close()
         relay.tunnels.close()
         mon.close()
+
+
+def test_blackbox_mark_endpoint_counts_marks_for_the_controller():
+    import json
+    mon = SystemMonitor({"system": {}}, listener=False, start=False)
+    httpd = make_server(mon, CameraRelay({"system": {}}), "127.0.0.1", 0)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        for note in ("robot 1 left the frame", ""):
+            req = urllib.request.Request(f"http://127.0.0.1:{httpd.server_port}/api/blackbox/mark",
+                                         data=json.dumps({"note": note}).encode(), method="POST",
+                                         headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=2) as r:
+                assert json.load(r)["note"] == note
+        assert mon.mark["seq"] == 2 and mon.snapshot()["navigation"]["mark"]["seq"] == 2
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        mon.close()

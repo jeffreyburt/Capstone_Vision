@@ -238,6 +238,18 @@ control:
     reverse_hysteresis_deg: 20
     allow_strafe: false     # (per-robot limits above set true) robot 2's strafe turns into rotation: turn-then-drive instead. true = full mecanum
 
+# ---- Black box (control/blackbox.py, docs/BLACKBOX.md): control.main records every control step for debugging.
+# Read it with `python tools/blackbox.py summary` (or list / events / window). Off for one run: --no-blackbox.
+blackbox:
+  enabled: true
+  dir: logs/blackbox        # relative to the repository; not in Git
+  max_total_mb: 500         # oldest sessions are deleted beyond this (a session is ~2-5 MB per hour)
+  segment_s: 600            # new ticks-NNN.jsonl.gz file every 10 min
+  snapshots: true           # annotated main-camera JPEG at robot lost / view return / Mark (needs vision.main --gui)
+  snapshot_min_interval_s: 2.0
+  max_snapshots: 200        # per session
+  # snapshot_url: http://127.0.0.1:8080/video/birdseye   # default: debug.stream_port
+
 # ---- System GUI (python -m monitor -> http://localhost:8090/): status of every Pi, robot and laptop program ----
 system:
   gui_port: 8090

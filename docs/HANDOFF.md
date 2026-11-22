@@ -4,7 +4,8 @@ Updated 2026-11-22. Start here; dated sections of older runbooks may describe su
 This repository is shared by multiple workers. Git files and live service state, not chat history,
 are the source of truth. See also [four-wheel drive](FOUR_WHEEL_DRIVE.md),
 [keyboard driving](KEYBOARD_DRIVING.md), [motor diagnostics](MOTOR_DIAGNOSTICS.md),
-[network](NETWORK.md), [head tracking](HEAD_TRACKER.md), and [Pi guide](PI_GUIDE.md).
+[network](NETWORK.md), [head tracking](HEAD_TRACKER.md), [Pi guide](PI_GUIDE.md), and
+[control black box](BLACKBOX.md).
 
 ## Machines and entry points
 
@@ -58,6 +59,12 @@ loaded speed matching, and floor mecanum behavior still need a supervised physic
 Prior lifted-wheel measurements are saved in `calib/recordings/robot1_motor_speed_*.json`.
 
 ## Dashboard and ownership
+
+- **Black box (branch `feature/blackbox` on top of `feature/fov-soft-stop`, 2026-11-22; not yet used in a real
+  test):** `control.main` records every control step, an event timeline and camera snapshots to
+  `logs/blackbox/<session>/` (not in Git); the dashboard's **Mark black box** button adds a note and a snapshot.
+  To debug a run, start with `python tools/blackbox.py summary`, then `events` and `window --at ...`. Details and
+  file formats: [control black box](BLACKBOX.md). Off: `blackbox.enabled: false` or `--no-blackbox`.
 
 - **Camera view guard (branch `feature/fov-soft-stop`, 2026-11-22; software and simulation only, not yet run on
   the robots):** robots were leaving the main camera's image. `vision.main` now adds `view.polygon` to every
