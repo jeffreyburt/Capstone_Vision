@@ -47,6 +47,32 @@ image, and **Engage torque / Start tracking / Stop tracking / Disengage torque**
   signs pan -1 / tilt +1, tilt 433–812, prediction 0.8 s). Observations were accepted; frame fetch plus detection
   took about 40 ms. Tests: `tests/test_heads.py`.
 
+## Homing the heads (2026-11-22)
+
+The system dashboard has a **Home head** button in each robot's head panel, plus a **Home both heads** button in
+the navigation bar. Homing does three things:
+- It stops head tracking (or a sweep).
+- It moves both servos in one smooth 1.5 s timed move to the head's resting pose.
+- It reports where the servos ended up.
+
+The resting pose is the calibrated forward, level head: `head_pose.neutral_units` from **Calibrate robots**. That is
+the same point the search scan is centred on. It is clamped into `head_tracking_limits`, so tracking can start
+straight from it; Robot 1's level tilt 687 becomes 692. A released servo is loaded again by the move. A robot with
+no calibrated head pose refuses with "run Calibrate robots first".
+
+With both heads home, each robot's back tag and side tag face the main camera, so vision gets two-tag headings. This
+is a good way to start a Follow test.
+
+- Robot side: `POST /api/home {"positions": [pan, tilt], "duration": 0.3-5}` on the head dashboard
+  (`head_tracker/dashboard.py`). It returns 503 "Home not reached" if a servo ends more than 25 units off.
+- Laptop side: `HeadRelay.home_position` / action `home` (`monitor/heads.py`), through
+  `POST /api/head/robot<N>/home`.
+- Deployed 2026-11-22 to both robots. Robot 1's copy is `~/capstone-head-tracker/` and Robot 2's is
+  `~/capstone-dashboard/`. The previous copies are in `bak-2026-11-22-home/`.
+- Checked live: Robot 1 went from 628/966 to 682/694 (target 688/692). Robot 2 went from 630/601 to 402–406/736
+  (target 397/740). Both robots then showed `position_source: two tags`.
+- Tests: `tests/test_head_home.py` (simulated LX-224 bus) and `tests/test_heads.py`.
+
 ## Finding the user when tracking starts (2026-11-22)
 
 - **Main camera first:** whenever the main camera sees both the user and the robot, the dashboard aims the head at
