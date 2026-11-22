@@ -7,10 +7,10 @@ import math
 import argparse
 import socket
 if __package__:
- from .tracking_control import validate as validate_tracking, correction, TargetMemory, image_to_servo, servo_to_image
+ from .tracking_control import validate as validate_tracking, correction, approach, TargetMemory, image_to_servo, servo_to_image
  from .camera_feed import CameraFeed, parse_size as parse_camera_size
 else:
- from tracking_control import validate as validate_tracking, correction, TargetMemory, image_to_servo, servo_to_image
+ from tracking_control import validate as validate_tracking, correction, approach, TargetMemory, image_to_servo, servo_to_image
  from camera_feed import CameraFeed, parse_size as parse_camera_size
 camera_feed=None
 
@@ -168,20 +168,22 @@ def track_head(config):
    aim.append((time.time(),targets[:]))
    with lock:observation=tracking_observation
    fresh=(observation is not None and now-observation['received']<.6 and camera_feed.info()['live'])
-   mode='holding';control_center=None;age=None
+   mode='holding';control_center=None;goal=None;age=None
    if fresh:
     if observation['center'] is not None:
-     # Where the head was aimed when that frame was captured, not now.
+     # Where the head was aimed when that frame was captured, not now: the goal is where the face IS in servo
+     # units, which stays right however far the head has turned since.
      then=next((t for s,t in reversed(aim) if s<=observation['frameTime']),aim[0][1])
-     memory.observe(image_to_servo(observation['center'],then,config['signs']),observation['frameTime'])
+     goal=image_to_servo(observation['center'],then,config['signs'])
+     memory.observe(goal,observation['frameTime'])
      control_center=observation['center'];mode='observed'
     else:
      predicted=memory.predict(time.time(),config.get('prediction',1.2))
      if predicted is not None:
-      control_center=servo_to_image(predicted,targets,config['signs']);mode='predicted'
-     elif max(map(abs,velocities))>.1:control_center=[.5,.5];mode='braking'
+      goal=predicted;control_center=servo_to_image(predicted,targets,config['signs']);mode='predicted'
+     elif max(map(abs,velocities))>.1:goal=targets[:];control_center=[.5,.5];mode='braking'
     if memory.stamp is not None:age=max(0,time.time()-memory.stamp)
-   live=control_center is not None
+   live=goal is not None
    if not live:
     if not holding:
      send(p,254,12);holding=True;velocities=[0.,0.];last_sent=None;filtered=None;active_axes=[False,False]
@@ -191,17 +193,17 @@ def track_head(config):
      positions=[read(p,sid) for sid in (1,2)]
      if None in positions:raise RuntimeError('Feedback unavailable; tracking stopped')
      targets=list(map(float,positions));holding=False
-    if filtered is None or mode=='braking':filtered=control_center[:]
-    else:
-     alpha=1-math.exp(-min(dt,.1)/.025)
-     filtered=[old+alpha*(new-old) for old,new in zip(filtered,control_center)]
-    targets,velocities=correction(targets,velocities,filtered,config,dt,active_axes)
+    if filtered is None or mode=='braking':filtered=goal[:]
+    else:  # light smoothing of the goal (servo units) against detection jitter
+     alpha=1-math.exp(-min(dt,.1)/.05)
+     filtered=[old+alpha*(new-old) for old,new in zip(filtered,goal)]
+    targets,velocities=approach(targets,velocities,filtered,config,dt,active_axes)
     commanded=[round(v) for v in targets]
     changed=last_sent is None or max(abs(a-b) for a,b in zip(commanded,last_sent))>=2
     if changed and now-last_command>=.025:
      for sid,value in enumerate(commanded,1):send(p,sid,7,[value&255,value>>8,35,0])
      send(p,254,11);last_sent=commanded;last_command=now
-    errors=[v-.5 for v in filtered]
+    errors=[(g-t)/u for g,t,u in zip(filtered,targets,(216.,171.))]  # as fractions of the image
     if all(abs(e)<=config['deadzone'] for e in errors):message='Head centered — holding'
     elif any(targets[i]<=config['limits'][i][0] or targets[i]>=config['limits'][i][1] for i in (0,1)):message='Taught limit reached'
     else:message='Following head'

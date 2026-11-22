@@ -47,6 +47,27 @@ image, and **Engage torque / Start tracking / Stop tracking / Disengage torque**
   signs pan -1 / tilt +1, tilt 433–812, prediction 0.8 s). Observations were accepted; frame fetch plus detection
   took about 40 ms. Tests: `tests/test_heads.py`.
 
+## No overshoot at high speed; both robots on the same tracker (2026-11-22)
+
+- **Cause of the oscillation:** the loop chased the face's *image* offset, which only updates once per detected
+  frame and describes where the head pointed when that frame was taken (30-150 ms earlier). Between frames the
+  head kept accelerating on a stale error, passed the face, and did the same coming back.
+- **Fix:** each detection is turned into a *servo-space goal* (the pan/tilt that centres the face, using where the
+  head pointed at capture time) and `tracking_control.approach()` moves toward it at `APPROACH_GAIN` (10/s) x the
+  remaining error, capped at the tracking speed, with the same dead zone, acceleration limit and hard limits. A
+  stale frame no longer adds motion. Prediction already worked in servo space and feeds the same goal.
+- Simulation (`tests/test_tracking_control.py`): face 150 units off, 30 fps camera, 150-250 ms delay, servo lag,
+  speed 400: no overshoot at gains 5-16, settles in ~0.8 s at 10; the old image-error loop overshoots by >20 units.
+- **Same code on both robots:** `dashboard.py`, `tracking_control.py`, `camera_feed.py`, `index.html`,
+  `assets/head_detection.mjs` are byte-identical to the repo on both. Per-robot differences come from hardware and
+  config only: Robot 1 finds its USB BusLinker (pan ID 1, tilt ID 2), Robot 2 its Pi UART `/dev/serial0`; limits and
+  directions from `system.robots.<id>.head_tracking_*` (Robot 2 also has its own saved settings). Backups in
+  `bak-2026-11-22-unified/` on each robot. Drive side was already identical: same `drive_server.py`; Robot 1's mixed
+  Hiwonder + TB6612 drive comes from `robot1_four_wheels.json` / `motor_speed.json`, Robot 2's plain Hiwonder from
+  `robot2_wheels.json`. `motor_diagnostic.py` added to Robot 2 (its dashboard motor tests still need the sudoers
+  entry in MOTOR_DIAGNOSTICS.md).
+- Both tracking from the dashboard afterwards: Robot 1 27 and Robot 2 28.5 detections/s at 320x240.
+
 ## Robot 1 head tracking (2026-11-22)
 
 - Limits from the dashboard's range seen (pan 307-1062, tilt 684-1093), with margins and the 0-1000 command range:

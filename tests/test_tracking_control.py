@@ -95,3 +95,44 @@ class TrackingTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def _simulate(controller, speed=400, delay=0.15, frame_dt=1 / 30, seconds=3.0, face=541.0):
+    """Head on one axis chasing a still face at `face` units, seen through a delayed 30 fps camera.
+    Returns the commanded pan positions over time."""
+    import collections
+    from head_tracker.tracking_control import UNITS_PER_FRAME, approach, correction, image_to_servo, validate
+    config = validate({"limits": [[0, 1000], [100, 900]], "signs": [1, 1], "speed": speed})
+    target, actual, velocity, active = [391.0, 500.0], [391.0, 500.0], [0.0, 0.0], [False, False]
+    history, frames, t, dt, out, next_frame = collections.deque(), [], 0.0, 0.025, [], 0.0
+    while t < seconds:
+        if t >= next_frame:  # capture: the face's image position from where the head actually points now
+            centre = [0.5 + (face - actual[0]) / UNITS_PER_FRAME[0], 0.5]
+            frames.append((t + delay, t, centre, actual[:]))
+            next_frame += frame_dt
+        while frames and frames[0][0] <= t:
+            _, shot, centre, aimed = frames.pop(0)
+            history.append((centre, aimed))
+        if history:
+            centre, aimed = history[-1]
+            if controller == "approach":
+                goal = image_to_servo(centre, aimed, config["signs"])
+                target, velocity = approach(target, velocity, goal, config, dt, active)
+            else:
+                target, velocity = correction(target, velocity, centre, config, dt, active)
+        actual = [a + (c - a) * (1 - math.exp(-dt / 0.06)) for a, c in zip(actual, target)]  # servo lag
+        out.append(actual[0])
+        t += dt
+    return out
+
+
+class HeadOvershootTests(unittest.TestCase):
+    def test_servo_space_goal_does_not_overshoot_at_full_speed(self):
+        path = _simulate("approach")
+        self.assertLess(max(path) - 541, 6)          # no overshoot beyond the dead zone
+        self.assertLess(abs(path[-1] - 541), 13)     # settles on the face
+        self.assertLess(next(i for i, p in enumerate(path) if p > 530) * 0.025, 1.0)  # and gets there quickly
+
+    def test_old_image_error_chase_overshoots_with_camera_delay(self):
+        path = _simulate("correction")
+        self.assertGreater(max(path) - 541, 20)      # the behaviour this replaces

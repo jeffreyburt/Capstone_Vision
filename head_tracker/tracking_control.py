@@ -57,6 +57,37 @@ def servo_to_image(target,positions,signs,units=UNITS_PER_FRAME):
  return [max(-.5,min(1.5,.5+(t-p)/(s*u))) for t,p,s,u in zip(target,positions,signs,units)]
 
 
+APPROACH_GAIN=10.0  # 1/s: speed = gain x remaining servo-unit error, capped at the tracking speed (sim: no overshoot up to 16)
+
+
+def approach(positions, velocities, goal, config, dt, active=None, units=None):
+ """Move each axis toward a goal in servo units (where the face is), slowing as it gets close.
+
+ The goal comes from the newest detection mapped through where the head pointed when that frame was taken, so it
+ does not go stale while the head turns: unlike chasing an image-space error, the head cannot keep accelerating
+ on an old frame and overshoot. Same dead zone/hysteresis (as fractions of the image), acceleration limit and
+ hard limits as correction()."""
+ units=units or UNITS_PER_FRAME
+ if active is None:active=[False,False]
+ dt=max(.001,min(.1,dt))
+ targets=[];speeds=[]
+ for i,(position,velocity) in enumerate(zip(positions,velocities)):
+  error=goal[i]-position
+  inner=config.get('settlezone',.04)*units[i];outer=config['deadzone']*units[i]
+  if active[i] and abs(error)<inner:active[i]=False
+  elif not active[i] and abs(error)>outer:active[i]=True
+  desired=math.copysign(min(config['speed'],APPROACH_GAIN*max(0,abs(error)-inner)),error) if active[i] else 0
+  acceleration=config['speed']*ACCEL_PER_SPEED
+  v=velocity+max(-acceleration*dt,min(acceleration*dt,desired-velocity))
+  if v*error<0 and active[i]:v=0  # never drive away from the goal
+  if abs(v*dt)>abs(error) and active[i]:v=error/dt  # land on the goal instead of stepping past it
+  low,high=config['limits'][i]
+  target=max(low,min(high,position+v*dt))
+  if target==low and v<0 or target==high and v>0:v=0
+  targets.append(target);speeds.append(v)
+ return targets,speeds
+
+
 class TargetMemory:
  """Bounded constant-velocity prediction from recent real camera observations.
 
