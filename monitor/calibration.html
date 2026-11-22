@@ -69,6 +69,18 @@
   </section>
 
   <section class="panel">
+    <h2><span class="num">3</span> Usable space (walls) <span class="pill" id="walls-pill">not set</span></h2>
+    <p>How wide the space the robots may use is, measured across it at the camera (wall to wall, or between any
+       obstacles). The camera is assumed to be in the middle, so the walls are half that width to each side. Robots
+       keep half their body plus the clearance away from each wall. No robot moves.</p>
+    <div class="grid">
+      <label>Usable width (m)<input id="width" type="number" step="0.01" min="0.5" max="20" placeholder="1.80"></label>
+      <label>Clearance from each wall (m)<input id="clearance" type="number" step="0.01" min="0" max="1" value="0.20"></label>
+    </div>
+    <div class="row"><button class="primary" id="run-walls">Set wall limits</button><span id="walls-result"></span></div>
+  </section>
+
+  <section class="panel">
     <h2>Progress <span class="pill" id="run-pill">idle</span><span style="flex:1"></span><button id="stop" disabled>Stop</button></h2>
     <p class="error" id="error" hidden></p>
     <pre class="log" id="log">Nothing running.</pre>
@@ -85,7 +97,7 @@
 const $ = id => document.getElementById(id);
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
                 set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
-for (const id of ["distance", "offset", "lens", "tag-size", "left-id", "right-id", "rear-offset"]) {
+for (const id of ["distance", "offset", "lens", "tag-size", "left-id", "right-id", "rear-offset", "width", "clearance"]) {
   const v = store.get("autocal-" + id, null); if (v !== null) $(id).value = v;
   $(id).onchange = () => store.set("autocal-" + id, $(id).value);
 }
@@ -112,6 +124,14 @@ $("run-robots").onclick = async () => {
   catch (e) { $("error").textContent = e.message; $("error").hidden = false; }
   poll();
 };
+$("run-walls").onclick = async () => {
+  $("error").hidden = true;
+  try {
+    if (!$("width").value) throw Error("Enter the usable width first.");
+    await post("/api/autocal/walls", { width_m: Number($("width").value), clearance_m: Number($("clearance").value) });
+  } catch (e) { $("error").textContent = e.message; $("error").hidden = false; }
+  poll();
+};
 $("stop").onclick = () => post("/api/autocal/stop", {}).catch(() => {});
 const esc = s => String(s ?? "").replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
 let timer;
@@ -122,7 +142,13 @@ async function poll() {
     $("run-pill").textContent = s.running ? `running: ${s.step}` : (s.error ? "stopped" : "idle");
     $("run-pill").className = "pill " + (s.running ? "run" : s.error ? "bad" : "");
     $("stop").disabled = !s.running;
-    $("run-floor").disabled = $("run-robots").disabled = s.running;
+    $("run-floor").disabled = $("run-robots").disabled = $("run-walls").disabled = s.running;
+    const walls = s.walls || (s.current?.walls ?? null);
+    if (walls) {
+      $("walls-pill").textContent = "set"; $("walls-pill").className = "pill done";
+      $("walls-result").textContent = `walls at ${walls.walls_m.map(v => v.toFixed(2)).join(" / ")} m · robot centres ${walls.x_limits_m.map(v => v.toFixed(2)).join(" .. ")} m` +
+        (walls.fits_centred === false ? ` · the ${walls.triangle_side_m} m triangle is narrowed to fit` : "");
+    }
     if (s.error && !s.running) { $("error").textContent = s.error; $("error").hidden = false; }
     if (s.log?.length) { const atEnd = $("log").scrollTop + $("log").clientHeight >= $("log").scrollHeight - 4;
       $("log").textContent = s.log.join("\n"); if (atEnd) $("log").scrollTop = $("log").scrollHeight; }

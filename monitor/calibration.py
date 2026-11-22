@@ -49,6 +49,8 @@ DEFAULT_MEASUREMENTS = {
     "marker_center_height_m": 0.30,
     "rear_tag_offset_m": {"x": -0.14, "y": 0.0},
     "robot_body_size_m": 0.30,
+    "usable_width_m": 0.0,             # width of the usable floor, centred on the camera (0 = not set)
+    "wall_clearance_m": 0.20,          # gap kept between a robot's side and the wall
 }
 
 STEP_ORDER = ["network", "measure", "lens", "floor", "head1", "head2", "verify", "wheels"]
@@ -184,9 +186,9 @@ class CalibrationManager:
                 if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
                     raise ValueError(f"{key} must be a finite number")
                 value = float(value)
-                limit = 1.0 if key == "floor_min_y_fraction" else 10.0
-                low = 0.0 if key == "floor_min_y_fraction" else 0.001
-                if not low <= value < limit or (key != "floor_min_y_fraction" and value <= 0):
+                limit = 1.0 if key == "floor_min_y_fraction" else 20.0 if key == "usable_width_m" else 10.0
+                low = 0.0 if key in ("floor_min_y_fraction", "wall_clearance_m") else 0.001
+                if not low <= value < limit or (key not in ("floor_min_y_fraction", "wall_clearance_m") and value <= 0):
                     raise ValueError(f"{key} is out of range")
             new[key] = value
         if new["floor_forward_id"] not in new["floor_marker_ids"]:

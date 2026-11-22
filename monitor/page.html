@@ -450,6 +450,7 @@ function drawMap(st) {
   if (user) include(user.x, user.y);
   Object.values(targets).forEach(t => t.target && include(t.target[0], t.target[1]));
   if (cam) include(cam.position[0], cam.position[1]);
+  if (m.walls) m.walls.forEach(x => include(x, y0 + 0.4));
   const pad = 26, s = Math.min((cw - 2 * pad) / (x1 - x0), (ch - 2 * pad) / (y1 - y0));
   const ox = (cw - s * (x1 - x0)) / 2, oy = (ch - s * (y1 - y0)) / 2;
   const P = (x, y) => [ox + (x - x0) * s, oy + (y1 - y) * s];   // world (x right, y away from camera) -> screen
@@ -466,6 +467,15 @@ function drawMap(st) {
     ctx.strokeStyle = y === 0 ? "#4a525c" : "#242a31";
     ctx.beginPath(); ctx.moveTo(...P(x0, y)); ctx.lineTo(...P(x1, y)); ctx.stroke();
     const [px, py] = P(x0, y); ctx.textAlign = "right"; ctx.fillText(`${y} m`, px - 4, py + 4);
+  }
+
+  // usable space: walls (solid) and the robots' centre limits (dashed)
+  for (const [xs, style, dash, label] of [[m.walls, "rgba(224,154,43,0.8)", [], "wall"], [m.x_limits, "rgba(224,154,43,0.45)", [6, 5], "robot limit"]]) {
+    if (!xs) continue;
+    ctx.strokeStyle = style; ctx.lineWidth = 2; ctx.setLineDash(dash);
+    for (const x of xs) { ctx.beginPath(); ctx.moveTo(...P(x, y0)); ctx.lineTo(...P(x, y1)); ctx.stroke(); }
+    ctx.setLineDash([]); ctx.lineWidth = 1; ctx.fillStyle = style; ctx.textAlign = "left";
+    const [lx, ly] = P(xs[1], y1); ctx.fillText(label, lx + 4, ly + 12);
   }
 
   // camera and the floor it sees

@@ -33,6 +33,13 @@ Open <http://localhost:8090/calibration>. The old step-by-step checklist is stil
    are least-squares fitted to every visible tag; rejected if the model error exceeds 3 cm. Writes
    `calib/robot<N>_head_pose.yaml` (status `active_dashboard_calibration_<date>`) and the matching `config.yaml` block.
 
+3. **Usable space (walls)**: enter the usable width (wall to wall, measured across at the camera; the camera is in
+   the middle) and press **Set wall limits**. Walls go at +-width/2; robot centres are limited to the walls minus half
+   a robot (0.15 m) and the clearance (default 0.20 m), written to `control.formation.x_limits_m` with
+   `usable_width_m`. Refused if that leaves under 0.1 m either side of the centre line. The robot controller is
+   restarted with its same arguments to load them, and the floor map draws the walls (solid) and the robot limits
+   (dashed). If the formation triangle is wider than the limits, robots are held at the limit (the page says so).
+
 Every write first copies the replaced file to `calib/history/`; the calibration record and a snapshot are updated.
 Code: `monitor/autocal.py` (pure geometry functions are unit-tested in `tests/test_autocal.py`).
 

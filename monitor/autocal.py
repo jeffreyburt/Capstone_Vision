@@ -163,6 +163,29 @@ def set_marker_setting(text, key, value, comment):
     return text[:found.end()] + line + "\n" + text[found.end():]
 
 
+def wall_limits(width_m, robot_half_m=0.15, clearance_m=0.20):
+    """Robot-centre x limits for a usable space `width_m` wide centred on the camera: walls at +-width/2, robot
+    centres kept half a robot plus the clearance inside them. Returns ([lo, hi], [left wall, right wall])."""
+    half = width_m / 2
+    limit = half - robot_half_m - clearance_m
+    if limit < 0.1:
+        raise ValueError(f"{width_m:.2f} m leaves no room: robot centres would have to stay within {limit:+.2f} m of "
+                         "the centre line; reduce the clearance or check the width")
+    return [round(-limit, 3), round(limit, 3)], [round(-half, 3), round(half, 3)]
+
+
+def set_formation_setting(text, key, value, comment):
+    """Set `control.formation.<key>` in config.yaml text (4-space indent), adding it after `formation:` if missing."""
+    line = f"    {key}: {value}  # {comment}"
+    pattern = rf"^    {key}:.*$"
+    if re.search(pattern, text, flags=re.M):
+        return re.sub(pattern, lambda _: line, text, count=1, flags=re.M)
+    found = re.search(r"^  formation:[^\n]*\n", text, flags=re.M)
+    if found is None:
+        raise ValueError("config has no control.formation section")
+    return text[:found.end()] + line + "\n" + text[found.end():]
+
+
 # ----------------------------------------------------------------------------------------------- live runner
 class AutoCalibration:
     def __init__(self, monitor, heads, calibration):
@@ -305,6 +328,47 @@ class AutoCalibration:
             self.monitor.restart_vision()
         except Exception as error:
             self._log(f"restart vision yourself: {error}")
+        return report
+
+    # ---- usable space (walls)
+    def start_walls(self, data):
+        width, clearance = data.get("width_m"), data.get("clearance_m", 0.20)
+        for name, v in (("width_m", width), ("clearance_m", clearance)):
+            if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
+                raise ValueError(f"{name} must be a number in meters")
+        if not 0.5 <= width <= 20 or not 0 <= clearance <= 1:
+            raise ValueError("usable width 0.5-20 m, clearance 0-1 m")
+        self._run("walls", self._walls, float(width), float(clearance))
+
+    def _walls(self, width, clearance):
+        cfg = self._cfg()
+        half = max([float(r.get("center_offset_m", 0.15)) for r in cfg.get("robots", [])] or [0.15])
+        limits, walls = wall_limits(width, half, clearance)
+        formation = (cfg.get("control") or {}).get("formation") or {}
+        side = float(formation.get("distance_m", 1.0))
+        report = {"width_m": width, "walls_m": walls, "x_limits_m": limits, "clearance_m": clearance,
+                  "triangle_side_m": side, "fits_centred": side / 2 <= limits[1]}
+        self._log(f"walls at x = {walls[0]:+.2f} / {walls[1]:+.2f} m; robot centres kept within "
+                  f"{limits[0]:+.2f} .. {limits[1]:+.2f} m ({half:.2f} m half robot + {clearance:.2f} m clearance)")
+        if not report["fits_centred"]:
+            self._log(f"note: the {side:.2f} m triangle puts robots {side / 2:.2f} m to each side, beyond the limit; "
+                      "they will be held at the limit (narrower triangle)")
+        cfg_path = Path(cfg["_dir"]) / "config.yaml"
+        self.cal._backup(cfg_path)
+        text = cfg_path.read_text()
+        text = set_formation_setting(text, "usable_width_m", width, "usable space centred on the camera (dashboard calibration)")
+        text = set_formation_setting(text, "x_limits_m", limits,
+                                     f"robot centres: walls at +-{width / 2:.2f} m minus {half:.2f} m half robot and {clearance:.2f} m clearance")
+        cfg_path.write_text(text)
+        live = self.monitor.cfg.setdefault("control", {}).setdefault("formation", {})
+        live.update(usable_width_m=width, x_limits_m=limits)
+        self.cal.set_measurements({"usable_width_m": width, "wall_clearance_m": clearance})
+        self.cal.log("walls-applied", f"usable width {width:.2f} m, robot x limits {limits}")
+        self._log("restarting the robot controller so following uses the new limits")
+        try:
+            self._log(self.monitor.restart_control().get("message", "controller restarted"))
+        except Exception as error:
+            self._log(f"restart control.main yourself: {error}")
         return report
 
     # ---- step 2: robots

@@ -131,3 +131,40 @@ def test_dashboard_endpoints_validate_inputs():
         server.shutdown()
         server.server_close()
         thread.join()
+
+
+def test_wall_limits_from_usable_width():
+    from monitor.autocal import set_formation_setting, wall_limits
+    limits, walls = wall_limits(1.8)
+    assert walls == [-0.9, 0.9] and limits == [-0.55, 0.55]  # 0.15 half robot + 0.20 clearance
+    assert wall_limits(1.8, clearance_m=0.1)[0] == [-0.65, 0.65]
+    with pytest.raises(ValueError):
+        wall_limits(0.8)  # 0.4 - 0.35 leaves only 5 cm
+    text = "control:\n  formation:\n    distance_m: 1.0\n    x_limits_m: [-0.52, 0.55]  # old\n  limits:\n    a: 1\n"
+    out = set_formation_setting(text, "x_limits_m", [-0.55, 0.55], "new")
+    out = set_formation_setting(out, "usable_width_m", 1.8, "width")
+    assert "    x_limits_m: [-0.55, 0.55]  # new" in out and "# old" not in out
+    assert out.index("usable_width_m") < out.index("distance_m") and "  limits:\n    a: 1" in out
+
+
+def test_walls_endpoint_validates_and_map_reports_walls():
+    from monitor.server import CameraRelay, SystemMonitor, make_server
+    cfg = {"control": {"robots": {1: {"host": "127.0.0.1"}}, "formation": {"usable_width_m": 2.0, "x_limits_m": [-0.65, 0.65]}}}
+    monitor = SystemMonitor(cfg, listener=False, start=False)
+    assert monitor.snapshot()["map"]["walls"] == [-1.0, 1.0] and monitor.snapshot()["map"]["x_limits"] == [-0.65, 0.65]
+    server = make_server(monitor, CameraRelay(cfg), "127.0.0.1", 0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_port}"
+    try:
+        state = json.load(urllib.request.urlopen(base + "/api/autocal"))
+        assert state["current"]["walls"]["walls_m"] == [-1.0, 1.0]
+        request = urllib.request.Request(base + "/api/autocal/walls", data=json.dumps({"width_m": 99}).encode(),
+                                         headers={"Content-Type": "application/json"})
+        with pytest.raises(urllib.error.HTTPError) as error:
+            urllib.request.urlopen(request)
+        assert "usable width" in json.load(error.value)["error"]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()

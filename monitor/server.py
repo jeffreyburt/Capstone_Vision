@@ -295,7 +295,10 @@ class SystemMonitor:
                                                      "navigation_mode": control.get("navigation_mode")},
             "map": {"x": dbg.get("map_x", [-3, 3]), "y": dbg.get("map_y", [-0.5, 7]),
                     "robot_size_m": 2 * max([r.get("center_offset_m", 0.15) for r in robots_cfg] or [0.15]),
-                    "keep_out_m": limits.get("keep_out_m"), "area": self.cfg.get("area")},
+                    "keep_out_m": limits.get("keep_out_m"), "area": self.cfg.get("area"),
+                    "walls": (lambda w: [-w / 2, w / 2] if w else None)(
+                        ((self.cfg.get("control") or {}).get("formation") or {}).get("usable_width_m")),
+                    "x_limits": ((self.cfg.get("control") or {}).get("formation") or {}).get("x_limits_m")},
         }
 
     # ---- recovery actions (no motion: only restart the camera sender and the laptop vision program) ----
@@ -336,6 +339,27 @@ class SystemMonitor:
         proc = spawn([sys.executable, "-u", "-m", "vision.main", "--gui"], cwd=str(REPO),
                      stdout=open(log, "ab"), stderr=subprocess.STDOUT, start_new_session=True)
         return {"ok": True, "message": f"Vision restarted (pid {proc.pid}); log {log}. Allow ~20 s for the first frame."}
+
+    def restart_control(self, spawn=subprocess.Popen, kill=os.kill):
+        """Restart the running control.main with the same arguments so it re-reads config.yaml. It sends stop to
+        every robot as it exits; the new one starts with no motion until the dashboard asks for it."""
+        _, (cmsg, cage) = self.heartbeats()
+        pid = (cmsg or {}).get("pid")
+        if not isinstance(pid, int) or pid <= 1 or cage is None or cage > 5:
+            raise RuntimeError("control.main is not running; start it to use the new settings")
+        args = subprocess.run(["ps", "-p", str(pid), "-o", "args="], capture_output=True, text=True).stdout.split()
+        if "control.main" not in args:  # never signal an unrelated process that reused the PID
+            raise RuntimeError("control.main is not running; start it to use the new settings")
+        tail = args[args.index("control.main") + 1:]
+        kill(pid, signal.SIGTERM)
+        for _ in range(50):
+            if subprocess.run(["ps", "-p", str(pid)], capture_output=True).returncode != 0:
+                break
+            time.sleep(0.2)
+        log = Path(tempfile.gettempdir()) / "capstone-control.log"
+        proc = spawn([sys.executable, "-u", "-m", "control.main", *tail], cwd=str(REPO),
+                     stdout=open(log, "ab"), stderr=subprocess.STDOUT, start_new_session=True)
+        return {"ok": True, "message": f"control.main restarted with {' '.join(tail)} (pid {proc.pid}); log {log}"}
 
     def close(self):
         self._stop.set()
@@ -458,8 +482,13 @@ def make_server(monitor, relay, host, port, calibration=None, heads=None):
             elif path == "/calibration/advanced":
                 self._send(200, "text/html; charset=utf-8", CALIBRATION_ADVANCED_PAGE.read_bytes())
             elif path == "/api/autocal":
+                formation = (monitor.cfg.get("control") or {}).get("formation") or {}
+                w = formation.get("usable_width_m")
+                current = {**calibration.collect(), "walls": None if not w else {
+                    "walls_m": [-w / 2, w / 2], "x_limits_m": formation.get("x_limits_m"),
+                    "triangle_side_m": formation.get("distance_m")}}
                 self._send(200, "application/json", json.dumps(
-                    {**autocal.snapshot(), "current": calibration.collect()}, default=str).encode())
+                    {**autocal.snapshot(), "current": current}, default=str).encode())
             elif path == "/api/calibration":
                 self._send(200, "application/json", json.dumps(calibration.state(), default=str).encode())
             elif path == "/api/calibration/lens":
@@ -610,6 +639,8 @@ def make_server(monitor, relay, host, port, calibration=None, heads=None):
                 step = self.path.rsplit('/', 1)[-1]
                 if step == 'floor':
                     autocal.start_floor(data)
+                elif step == 'walls':
+                    autocal.start_walls(data)
                 elif step == 'robots':
                     if monitor.waypoints.follow or monitor.waypoints.armed or monitor.manual.snapshot()['enabled']:
                         raise ValueError('Turn off Follow, click driving and keyboard control first')
