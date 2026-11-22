@@ -58,7 +58,8 @@ def test_udp_message_round_trip():
     msg = make_message(12.3456, 7, [{"id": 1, "x": 1.23456, "y": 2.0, "heading": 45.06, "age": 0.01}])
     pub.send(msg)
     got = json.loads(rx.recv(65536))
-    assert got["robots"][0] == {"id": 1, "x": 1.235, "y": 2.0, "heading": 45.1, "vx": 0.0, "vy": 0.0, "age": 0.01}
+    assert got["robots"][0] == {"id": 1, "x": 1.235, "y": 2.0, "heading": 45.1, "vx": 0.0, "vy": 0.0, "age": 0.01,
+                                 "heading_age": None}
     assert got["user"] is None
     pub.close()
     rx.close()

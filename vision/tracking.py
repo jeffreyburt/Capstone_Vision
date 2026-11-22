@@ -24,10 +24,13 @@ class Track:
         self.vel = np.zeros(2)
         self.heading = None
         self.t = None  # time of the last accepted measurement
+        self.heading_t = None  # time of the last measurement that carried a heading
         self.rejects = 0
 
     def _reset(self, t, xy, heading):
-        self.pos, self.vel, self.heading, self.t, self.rejects = xy, np.zeros(2), heading, t, 0
+        self.pos, self.vel, self.t, self.rejects = xy, np.zeros(2), t, 0
+        if heading is not None or self.heading_t is None or t - self.heading_t > self.lost_after_s:
+            self.heading, self.heading_t = heading, (t if heading is not None else None)
 
     def update(self, t, xy, heading=None):
         """Feed a measurement. Returns False if it was rejected as an outlier."""
@@ -51,6 +54,7 @@ class Track:
         self.pos = pred + self.alpha * residual
         self.vel = self.vel + (self.beta / dt) * residual
         if heading is not None:
+            self.heading_t = t
             if self.heading is None:
                 self.heading = heading
             else:
@@ -60,6 +64,10 @@ class Track:
 
     def age(self, t):
         return math.inf if self.t is None else t - self.t
+
+    def heading_age(self, t):
+        """Seconds since a measurement last carried a heading (a tag-centre fix moves the position only)."""
+        return math.inf if self.heading_t is None else t - self.heading_t
 
 
 class UserTracker:
@@ -113,5 +121,6 @@ class RobotTracker:
             if age <= self.forget_after_s:
                 out.append({"id": rid, "x": float(tr.pos[0]), "y": float(tr.pos[1]),
                             "heading": tr.heading, "vx": float(tr.vel[0]), "vy": float(tr.vel[1]),
-                            "age": age})
+                            "age": age, "heading_age": (round(tr.heading_age(t), 3)
+                                                        if tr.heading is not None else None)})
         return out

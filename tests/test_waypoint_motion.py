@@ -89,7 +89,8 @@ def test_steering_hysteresis_does_not_toggle_forward_reverse_or_alignment_on_noi
 def test_joint_samples_interpolate_only_between_close_measured_readings():
     samples=[(100.,np.array([390,770])),(100.28,np.array([418,742]))]
     assert DashboardJointFeedback.interpolate(samples,100.14)==pytest.approx([404,756])
-    assert DashboardJointFeedback.interpolate(samples,100.5) is None
+    assert DashboardJointFeedback.interpolate(samples,100.38)==pytest.approx([428,732])  # carried forward 0.1 s
+    assert DashboardJointFeedback.interpolate(samples,100.6) is None
     distant=[(100.,np.array([390,770])),(101.,np.array([418,742]))]
     assert DashboardJointFeedback.interpolate(distant,100.5) is None
 

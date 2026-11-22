@@ -25,13 +25,16 @@ from vision.config import load_config
 
 from .controller import Limits, RobotController
 from .link import RobotLink, VisionListener
-from .planner import FormationPlanner
-from .view_guard import ViewGuard
+from .planner import FormationPlanner, Target
+from .view_guard import CameraView, ViewGuard
 from .manual import manual_commands
 from .waypoints import WaypointMotion, frame_current, WaypointProgress, compute_waypoints, read_waypoints
 
 STOP = (0.0, 0.0, 0.0)
-TIMING_DEFAULTS = {"vision_timeout_s": 1.0, "max_pose_age_s": 0.7, "user_lost_s": 2.0}
+TIMING_DEFAULTS = {"vision_timeout_s": 1.0, "max_pose_age_s": 0.7, "user_lost_s": 2.0, "max_heading_age_s": 0.5}
+# Formation targets stay at least this far inside the camera's floor view, so the view guard never has to hold a
+# robot at the edge short of a target it can't reach (and its tags stay in frame).
+VIEW_TARGET_MARGIN_M = 0.35
 FEEDFORWARD_DEFAULTS = {"enabled": False, "gain": 1.0, "min_user_speed_m_s": 0.05, "max_m_s": 0.15, "lead_s": 0.4}
 
 
@@ -81,6 +84,15 @@ def vision_usable(msg, msg_age_s, timing=None):
     if msg.get("frame_clock") == "local" and not frame_current(msg, msg_age_s):
         return False
     return msg.get("position_quality") != "approximate" and msg.get("driving_allowed") is not False
+
+
+def inside_view(view, target):
+    """The target moved in along the camera view's edge until it is VIEW_TARGET_MARGIN_M inside."""
+    d, _ = view.boundary(target.x, target.y)
+    if d >= VIEW_TARGET_MARGIN_M:
+        return target
+    x, y = view.inward_point(target.x, target.y, VIEW_TARGET_MARGIN_M)
+    return Target(x, y, target.heading_deg)
 
 
 def fresh_poses(msg, msg_age_s, robot_ids, timing=None, compensated_ids=()):
@@ -150,6 +162,12 @@ def compute_commands(msg, msg_age_s, planner, controllers, timing=None, compensa
     user = (u["x"], u["y"]) if u is not None and u["age"] <= timing["user_lost_s"] else None
     ff, plan_from = user_feedforward(u if user is not None else None, feedforward)
     targets = planner.update(plan_from or user, force=ff is not None)
+    if targets:
+        view = CameraView.from_message(msg)
+        if view is not None:
+            targets = {rid: inside_view(view, t) for rid, t in targets.items()}
+        targets = planner.assign(targets, {rid: r for rid, r in robots.items() if rid in controllers
+                                           and r.get("age", 999) <= timing["max_pose_age_s"]})
 
     out = {}
     for rid, ctrl in controllers.items():
@@ -184,6 +202,12 @@ def compute_commands(msg, msg_age_s, planner, controllers, timing=None, compensa
         obstacles += [(o["x"], o["y"], lim.robot_clearance_m) for oid, o in robots.items()
                       if oid != rid and o["age"] <= timing["max_pose_age_s"]]
         cmd = ctrl.command(pose, targets[rid], obstacles, ff)
+        held = problem is None and (pose.get("heading_age") or 0) > timing["max_heading_age_s"]
+        if held:
+            # The heading is held from an older fit, not measured: it can't see the chassis turn, so turning on it
+            # would spin forever toward a heading it never reports. Translate only (a held heading stays right).
+            cmd = (cmd[0], cmd[1], 0.0)
+            problem = "heading held, not turning"
         if scale != 1.0:
             cmd = tuple(v * scale for v in cmd)
         if reck is not None:

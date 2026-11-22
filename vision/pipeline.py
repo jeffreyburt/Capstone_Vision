@@ -9,6 +9,8 @@ from .joint_pose import JointFeedback, DashboardJointFeedback
 from .markers import MarkerDetector
 from .output import make_message
 from .robots import estimate_marker_positions, estimate_robots, robot_specs_from_config
+
+STALE_HEADING_S = 0.3  # after this long without a fitted heading, a single tag's own orientation is used instead
 from .tracking import RobotTracker, UserTracker
 
 
@@ -122,8 +124,9 @@ class VisionPipeline:
             joints = self.joints.positions_at(t) if self.joints is not None else None
             priors = {rid: math.radians(track.heading) for rid,track in self.tracker.tracks.items()
                       if track.heading is not None and track.age(t)<=.65}
+            stale = {rid for rid, track in self.tracker.tracks.items() if track.heading_age(t) > STALE_HEADING_S}
             estimates = (estimate_marker_positions(robot_markers, self.specs, self.geometry) if self.geometry.approximation
-                         else estimate_robots(robot_markers, self.specs, self.geometry, joints,priors))
+                         else estimate_robots(robot_markers, self.specs, self.geometry, joints, priors, stale))
             observations = [o for o in estimates
                             if self._in_area(o.x, o.y)]
         self.tracker.update(t, observations)
@@ -182,7 +185,10 @@ class VisionPipeline:
                 robot['position_source'] = source[robot['id']]
             if robot['id'] in approximate:
                 if robot.get('pose_status') == 'Calibrated marker not reliably visible' or robot.get('pose_compensated'):
-                    robot['pose_status'] = 'Tag-centre position (heading held from earlier fits)'
+                    robot['pose_status'] = ('Tag-centre position, no heading (head turned too far from its tags; it '
+                                            'will not drive until the head faces nearer forward)'
+                                            if robot.get('heading') is None else
+                                            'Tag-centre position (heading held from earlier fits; no turning)')
             if robot['id'] in self.pending_head_ids:
                 robot.update(heading=None, pose_compensated=False, reference='uncalibrated_head_markers')
         if (self.cfg.get('camera') or {}).get('local_frame_timestamps'):

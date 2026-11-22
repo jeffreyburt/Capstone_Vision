@@ -23,7 +23,8 @@ def make_message(t, frame, robots, user=None):
         "t": round(t, 3),
         "frame": frame,
         "robots": [{"id": b["id"], "x": r(b["x"], 3), "y": r(b["y"], 3), "heading": r(b.get("heading"), 1),
-                    "vx": r(b.get("vx", 0.0), 3), "vy": r(b.get("vy", 0.0), 3), "age": r(b["age"], 3)}
+                    "vx": r(b.get("vx", 0.0), 3), "vy": r(b.get("vy", 0.0), 3), "age": r(b["age"], 3),
+                    "heading_age": r(b.get("heading_age"), 3)}
                    for b in robots],
         "user": None if user is None else {
             "x": r(user["x"], 3), "y": r(user["y"], 3), "height": r(user.get("height"), 2),

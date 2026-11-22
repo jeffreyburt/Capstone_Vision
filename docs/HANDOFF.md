@@ -207,6 +207,37 @@ marker. `calib/robot1_head_pose.yaml` and `calib/robot2_head_pose.yaml` plus con
 are authoritative. Use [head tracker documentation](HEAD_TRACKER.md) and current files for
 actual ranges/transforms. This drive integration changes none of that geometry.
 
+## Follow-mode tracking faults (2026-11-22) and their fixes
+
+Symptoms in a Follow test: Robot 1 "turned randomly" (spun in place) and Robot 2 tracked badly.
+Causes, found in the controller log, with fixes:
+
+- **Held heading → endless spin (both robots).** When a robot's only visible tag passes no full fit
+  (centre-only side tags, or the head panned far), vision located it from the tag centre and kept
+  the *last* heading. That heading never changes while the chassis turns, so the controller kept
+  commanding full yaw (e.g. Robot 1 stuck at "95°" with wz −0.45 for many seconds). Fixes:
+  - The tracker records when a heading was last *measured*; the message carries `heading_age`.
+  - Once the held heading is older than 0.3 s, a single tag's own orientation is measured
+    instead (`stale_headings` in `estimate_robots`; still refused past ±35° of pan).
+  - `compute_commands` never turns on a heading older than `max_heading_age_s` (0.5 s): it
+    translates only (reason "heading held, not turning"), so the held heading stays correct.
+- **Head feedback dropped on some frames.** Servo readings reach the laptop 0.1–0.18 s old, and
+  vision accepted only samples within 0.12 s of the frame. The newest sample is now carried
+  forward along its velocity for up to 0.25 s (`DashboardJointFeedback.interpolate`).
+- **Both robots sent to one spot.** With the user near or past a wall, both targets clamped to
+  the same point. The planner now plans from a user x kept far enough from the walls for the
+  smallest triangle (`FormationPlanner.plan_x`).
+- **One-frame user glitches** (y 2.4 → 7.5) moved every target. A jump over 1.5 m must persist
+  for 5 steps before the targets follow.
+- **Targets outside the camera view.** These made the view guard hold a robot at the edge (Robot 2
+  at x 1.5). Targets are now pulled 0.35 m inside the view polygon.
+- **Robots on the wrong sides** drove across each other. With both seen, they now trade targets
+  when that saves more than 0.5 m of driving (sticky, `FormationPlanner.assign`).
+
+Still true: Robot 2's only fit-capable tag (6) is on the back of its head. With the head
+panned more than about 35–55°, only centre-only tag 5 is visible, so Robot 2 has no heading
+and will not drive until its head faces nearer forward. The dashboard status says so.
+
 ## Multi-agent work checklist
 
 1. Read `AGENTS.md`, this handoff, and the subsystem document; inspect `git status`, recent

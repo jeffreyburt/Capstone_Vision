@@ -366,6 +366,12 @@ class DashboardJointFeedback:
                 fraction=(stamp-before)/(after-before)
                 return a+(b-a)*fraction
         if samples:
+            # Servo readings reach the laptop 0.1-0.2 s old, so the newest one is often older than the frame: carry
+            # it forward along its recent velocity (at most 0.25 s) instead of dropping the robot's pose.
+            (before,a),(after,b)=samples[-2:] if len(samples)>1 else (samples[-1],samples[-1])
+            if 0 < stamp-after <= .25:
+                rate=(b-a)/(after-before) if 0 < after-before <= .3 else 0*b
+                return b+rate*(stamp-after)
             when,units=min(samples,key=lambda sample:abs(sample[0]-stamp))
             if abs(when-stamp) <= .12:
                 return units.copy()

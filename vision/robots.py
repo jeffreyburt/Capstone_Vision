@@ -134,7 +134,7 @@ def _two_tag_heading(tags, geometry, size_m=0.10, blur_px=0.0):
     return None if best is None else best[1]
 
 
-def estimate_robots(markers, specs, geometry, joint_positions=None, prior_headings=None):
+def estimate_robots(markers, specs, geometry, joint_positions=None, prior_headings=None, stale_headings=()):
     """Detected markers -> one RobotObservation per robot that has at least one usable marker.
 
     Head-mounted tags, in order of preference:
@@ -197,7 +197,10 @@ def estimate_robots(markers, specs, geometry, joint_positions=None, prior_headin
             if own is not None and head.heading_window is not None and abs(
                     (math.degrees(own) - head.heading_window[0] + 180) % 360 - 180) > head.heading_window[1]:
                 own = None
-            if rid in prior_headings:
+            if own is not None and (rid not in prior_headings or rid in stale_headings):
+                # No fit/two-tag heading lately: the held heading goes stale as the chassis turns, so measure it.
+                heading, source = own, "one tag"
+            elif rid in prior_headings:
                 heading = prior_headings[rid]
             elif own is not None:
                 heading, source = own, "one tag"  # no history yet: the tag's own orientation gives the heading

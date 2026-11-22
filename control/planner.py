@@ -51,6 +51,8 @@ class FormationPlanner:
                 raise ValueError("x_limits / y_limits must be [min, max] with min < max")
         self.anchor = None  # user position the current targets were computed for
         self.targets = {}
+        self.swapped = False
+        self.jumps = 0  # consecutive steps with the user far from the planned position (see update)  # two robots trade sides rather than cross each other (see assign)
 
     def _clamp(self, x, y):
         if self.area:
@@ -80,9 +82,20 @@ class FormationPlanner:
                     side = min(side, (lim[0] - u) / d)
         return max(side, self.min_side_m)
 
+    def plan_x(self, ux, uy):
+        """The user's x for planning: kept far enough from the walls that the smallest triangle still fits between
+        them. Otherwise a user standing near (or reported past) a wall clamps both robots onto the same spot."""
+        if not self.x_limits:
+            return ux
+        offsets = {"left": self.spread_deg / 2, "right": -self.spread_deg / 2, "center": 0.0}
+        dx = [self.min_side_m * math.cos(math.radians(self.facing_deg + offsets[s])) for s in set(self.sides.values())]
+        lo, hi = self.x_limits[0] - min(dx + [0.0]), self.x_limits[1] - max(dx + [0.0])
+        return ux if lo > hi else min(max(ux, lo), hi)
+
     def targets_for(self, ux, uy):
         """Targets for a user standing at (ux, uy), ignoring hysteresis."""
         offsets = {"left": self.spread_deg / 2, "right": -self.spread_deg / 2, "center": 0.0}
+        ux = self.plan_x(ux, uy)
         side = self.side_for(ux, uy)
         out = {}
         for rid, s in self.sides.items():
@@ -103,7 +116,39 @@ class FormationPlanner:
         if user is None:
             return {}
         ux, uy = user
+        if self.anchor is not None and math.hypot(ux - self.anchor[0], uy - self.anchor[1]) > self.JUMP_M:
+            # A user "jumping" metres in one step is usually a bad detection (e.g. y 2.4 -> 7.5 for one frame):
+            # keep the current targets unless the new position holds for JUMP_CONFIRM steps.
+            self.jumps += 1
+            if self.jumps < self.JUMP_CONFIRM:
+                return self.targets
+            force = True
+        self.jumps = 0
         if force or self.anchor is None or math.hypot(ux - self.anchor[0], uy - self.anchor[1]) > self.replan_m:
             self.anchor = (ux, uy)
             self.targets = self.targets_for(ux, uy)
         return self.targets
+
+    JUMP_M = 1.5
+    JUMP_CONFIRM = 5
+    SWAP_GAIN_M = 0.5  # hysteresis: the other pairing must save this much total driving to switch
+
+    def assign(self, targets, poses):
+        """With two robots, give each the target nearer to it when that saves real driving: a robot that ends up on
+        the other side (after a lost track, or the user stepping past) then trades places with its partner instead
+        of both driving across the user and each other. poses: {robot_id: {"x", "y"}} of robots seen recently.
+        Sticky: once swapped it stays swapped until the original pairing is clearly better again."""
+        if len(targets) != 2 or len(self.sides) != 2:
+            return targets
+        a, b = sorted(targets)
+        if a in poses and b in poses:
+            def dist(rid, t):
+                return math.hypot(poses[rid]["x"] - t.x, poses[rid]["y"] - t.y)
+            straight = dist(a, targets[a]) + dist(b, targets[b])
+            crossed = dist(a, targets[b]) + dist(b, targets[a])
+            if not self.swapped and crossed < straight - self.SWAP_GAIN_M:
+                self.swapped = True
+            elif self.swapped and straight < crossed - self.SWAP_GAIN_M:
+                self.swapped = False
+        self.jumps = 0  # consecutive steps with the user far from the planned position (see update)
+        return {a: targets[b], b: targets[a]} if self.swapped else targets
