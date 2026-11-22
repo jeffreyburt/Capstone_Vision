@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 import time
 import math
 
-from .geometry import load_geometry
+from .geometry import load_geometry, visible_floor_polygon
 from .joint_pose import JointFeedback, DashboardJointFeedback
 from .markers import MarkerDetector
 from .output import make_message
@@ -23,6 +23,22 @@ class FrameResult:
     message: dict = None                               # output message (smoothed tracks)
 
 
+def camera_view(cfg, geometry, specs):
+    """Floor area where the robots' tags are inside the main camera's image (control/view_guard.py keeps the
+    robots in it). Derived from the existing lens + floor calibration; settings in control.view_guard.
+    None without a measured floor calibration (approximate positions never drive) or when disabled."""
+    s = (cfg.get("control") or {}).get("view_guard") or {}
+    if geometry is None or geometry.approximation is not None or s.get("enabled", True) is False:
+        return None
+    heights = s.get("heights_m") or sorted({round(spec.marker_center_height_m + d * spec.marker_size_m / 2, 3)
+                                            for spec in specs for d in (-1, 1)} or {0.25, 0.35})
+    margin = float(s.get("edge_margin_frac", 0.02)) * geometry.camera.size[0]
+    polygon = visible_floor_polygon(geometry, heights, margin, float(s.get("max_range_m", 8.0)))
+    if polygon is None:
+        return None
+    return {"polygon": polygon, "heights_m": [float(h) for h in heights], "margin_px": round(margin, 1)}
+
+
 class VisionPipeline:
     def __init__(self, cfg, geometry=None, person_detector=None):
         """geometry: pass one in for tests; otherwise it is loaded from the calibration files on the first frame.
@@ -38,6 +54,7 @@ class VisionPipeline:
         self.user_tracker = UserTracker(cfg.get("user_tracking", cfg.get("tracking")))
         self.geometry = geometry
         self._geometry_loaded = geometry is not None
+        self._view_for, self.view = None, None  # camera view polygon for the current geometry (see camera_view)
         self.frame_index = 0
 
         p = cfg.get("people", {})
@@ -125,6 +142,10 @@ class VisionPipeline:
                 user_obs = self.user_tracker.update(t_det, cands)
 
         message = make_message(t, self.frame_index, self.tracker.state(t), self.user_tracker.state(t))
+        if self._view_for is not self.geometry:
+            self._view_for, self.view = self.geometry, camera_view(self.cfg, self.geometry, self.specs)
+        if self.view is not None:
+            message["view"] = self.view
         if self.geometry is not None and self.geometry.approximation:
             message.update(position_quality="approximate", driving_allowed=False,
                            approximation=self.geometry.approximation)

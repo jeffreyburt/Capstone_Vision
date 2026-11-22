@@ -11,6 +11,8 @@ Keys (Windows console): Space = pause / resume (paused robots are sent stop), q 
 On exit every robot is sent stop; each robot's watchdog also stops it within 0.5 s if commands stop.
 
 A robot is stopped whenever the camera hasn't seen it recently, the user is lost, or vision goes quiet.
+In every mode, robots are soft-stopped at the edge of the main camera's view, and in the self-driving modes a
+robot that leaves it anyway drives back in from its last estimated position (control/view_guard.py).
 """
 
 import argparse
@@ -24,6 +26,7 @@ from vision.config import load_config
 from .controller import Limits, RobotController
 from .link import RobotLink, VisionListener
 from .planner import FormationPlanner
+from .view_guard import ViewGuard
 from .manual import manual_commands
 from .waypoints import WaypointMotion, frame_current, WaypointProgress, compute_waypoints, read_waypoints
 
@@ -42,21 +45,25 @@ class DeadReckoner:
         self.pose = None   # dict x, y, heading (deg)
         self.t = None      # time of the last fresh camera pose
         self.last = None   # (time, body command) of the last integration step
+        self.travelled = 0.0  # distance integrated since the last fresh camera pose (view-guard watchdog)
 
     def observe(self, pose, now):
         self.pose = {"x": pose["x"], "y": pose["y"], "heading": pose["heading"]}
         self.t = now
         self.last = (now, STOP)
+        self.travelled = 0.0
 
-    def estimate(self, now):
-        """Pose integrated up to now, or None when there is nothing recent enough to carry forward."""
-        if self.pose is None or now - self.t > self.max_s:
+    def estimate(self, now, max_s=None):
+        """Pose integrated up to now, or None when there is nothing recent enough to carry forward.
+        max_s overrides the age limit (the view guard's return uses its own, longer watchdog)."""
+        if self.pose is None or now - self.t > (self.max_s if max_s is None else max_s):
             return None
         t0, (vx, vy, wz) = self.last
         dt = max(0.0, now - t0)
         h = math.radians(self.pose["heading"])
         self.pose["x"] += (vx * math.cos(h) - vy * math.sin(h)) * dt
         self.pose["y"] += (vx * math.sin(h) + vy * math.cos(h)) * dt
+        self.travelled += math.hypot(vx, vy) * dt
         self.pose["heading"] = (self.pose["heading"] + math.degrees(wz * dt) + 180) % 360 - 180
         self.last = (now, self.last[1])
         return dict(self.pose)
@@ -64,6 +71,34 @@ class DeadReckoner:
     def sent(self, cmd, now):
         if self.pose is not None:
             self.last = (now, cmd)
+
+
+def vision_usable(msg, msg_age_s, timing=None):
+    """True when the newest vision message is current and calibrated enough to drive on."""
+    timing = {**TIMING_DEFAULTS, **(timing or {})}
+    if msg is None or msg_age_s is None or msg_age_s > timing["vision_timeout_s"]:
+        return False
+    if msg.get("frame_clock") == "local" and not frame_current(msg, msg_age_s):
+        return False
+    return msg.get("position_quality") != "approximate" and msg.get("driving_allowed") is not False
+
+
+def fresh_poses(msg, msg_age_s, robot_ids, timing=None, compensated_ids=()):
+    """{rid: pose} for robots the camera located reliably in this (usable) message: finite position, a heading,
+    recent, and compensated for head motion where the robot has a moving head."""
+    timing = {**TIMING_DEFAULTS, **(timing or {})}
+    out = {}
+    for r in (msg or {}).get("robots", []):
+        rid = r.get("id")
+        if rid not in robot_ids or r.get("heading") is None or r.get("age", 999) > timing["max_pose_age_s"]:
+            continue
+        if not all(isinstance(r.get(k), (int, float)) and math.isfinite(r[k]) for k in ("x", "y", "heading")):
+            continue
+        if rid in compensated_ids and (r.get("pose_compensated") is not True or (
+                msg.get("frame_clock") == "local" and not frame_current(msg, msg_age_s, r.get("age", 0)))):
+            continue
+        out[rid] = r
+    return out
 
 
 def user_feedforward(user, settings):
@@ -231,7 +266,10 @@ def main(argv=None):
     progress = {rid: WaypointProgress() for rid in driven}
     motions = {rid: WaypointMotion(**(c.get("waypoint_motion") or {})) for rid in driven}
     timing = {k: c[k] for k in TIMING_DEFAULTS if k in c}
-    reckoners = {rid: DeadReckoner(float(c.get("dead_reckon_s", 1.5))) for rid in driven} if c.get("dead_reckon_s", 1.5) else {}
+    # Always kept: follow mode bridges short tag gaps with them (dead_reckon_s; 0 = off) and the view guard
+    # returns a robot that left the camera view from their estimate.
+    reckoners = {rid: DeadReckoner(float(c.get("dead_reckon_s", 1.5))) for rid in driven}
+    guard = ViewGuard(c.get("view_guard"))
     period = 1.0 / float(c.get("rate_hz", 10))
 
     vision = VisionListener(int(c.get("vision_port", cfg.get("output", {}).get("port", 5005))))
@@ -274,14 +312,27 @@ def main(argv=None):
                 elif (nav or {}).get('follow') is True:
                     # Dashboard "Follow user": keep the listening triangle around the user.
                     targets, results = compute_commands(msg, msg_age, planner, controllers, timing, compensated_ids,
-                                                        reckoners, feedforward=c.get("feedforward"))
+                                                        reckoners, now, feedforward=c.get("feedforward"))
                     follow_mode = True
                     for motion in motions.values():motion.halt()
                 else:
                     targets, results = compute_waypoints(msg, msg_age, nav, controllers, timing, progress=progress, motions=motions)
             else:
                 targets, results = compute_commands(msg, msg_age, planner, controllers, timing, compensated_ids, reckoners,
-                                                    feedforward=c.get("feedforward"))
+                                                    now, feedforward=c.get("feedforward"))
+            # Camera view guard: soft stop at the view edge (every mode); self-driving modes also bring back a
+            # robot that left the view, from its dead-reckoned estimate, until the watchdog gives up.
+            usable = vision_usable(msg, msg_age, timing)
+            u = (msg or {}).get("user")
+            results = guard.apply(
+                msg, results, controllers, reckoners,
+                fresh=fresh_poses(msg, msg_age, controllers, timing, compensated_ids) if usable else {},
+                vision_ok=usable, now=now,
+                allow_return=not paused and not manual_mode and (
+                    not args.waypoints or follow_mode or (nav or {}).get("armed") is True),
+                user=(u["x"], u["y"]) if u and u.get("age", 999) <= timing.get("user_lost_s", 2.0) else None)
+            for rid, (cmd, _) in results.items():  # what was really sent (nothing in a dry run or while paused)
+                reckoners[rid].sent(STOP if paused or not args.arm else cmd, now)
             if args.arm:
                 for rid, (cmd, _) in results.items():
                     if paused or cmd == STOP:

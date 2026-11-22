@@ -150,6 +150,67 @@ class Geometry:
         return px.reshape(-1, 2)
 
 
+def lens_fold_radius(dist, r_max=4.0):
+    """Normalized radius (tan of the angle off the optical axis) beyond which the radial distortion model
+    stops growing and folds back, i.e. where it is no longer valid. Calibrations rarely include points at the
+    very edge of a wide lens, so the fitted polynomial can peak inside the image; points beyond it would
+    otherwise project into the frame by mistake. inf when the model never folds (e.g. no distortion)."""
+    d = np.zeros(8)
+    d[:min(8, len(dist))] = np.asarray(dist, float).ravel()[:8]
+    k1, k2, _, _, k3, k4, k5, k6 = d
+    r = np.linspace(0, r_max, 4001)
+    r2 = r * r
+    rd = r * (1 + k1 * r2 + k2 * r2 ** 2 + k3 * r2 ** 3) / (1 + k4 * r2 + k5 * r2 ** 2 + k6 * r2 ** 3)
+    falling = np.flatnonzero(np.diff(rd) <= 0)
+    return float(r[falling[0]]) if len(falling) else math.inf
+
+
+def visible_floor_polygon(geometry, heights=(0.30,), margin_px=0.0, max_range_m=8.0, step_deg=0.5,
+                          n_ranges=240, simplify_m=0.01):
+    """Floor area (x, y) where points at every one of `heights` appear inside the image, at least `margin_px`
+    from its edges. Returns a closed polygon [[x, y], ...] (counter-clockwise), or None if nothing is visible.
+
+    Built by projecting floor points into the image rather than casting the image border onto a plane: the
+    main camera sits only a few cm above the robots' tags, where border rays meet the tag-height plane at
+    grazing angles (or never). Sampled in polar form around the camera, so it is exact up to `step_deg` and
+    about 2.5% in range, and always on the inside (only sampled visible points are used). Clipped at
+    `max_range_m` from the camera."""
+    w, h = geometry.camera.size
+    cam = geometry.camera_position
+    fwd = np.array([0, 0, 1.0]) @ geometry.pose.R
+    base = math.atan2(fwd[1], fwd[0])
+    r_valid = 0.98 * lens_fold_radius(geometry.camera.dist)
+
+    angles = base + np.radians(np.arange(-89.5, 89.5 + 1e-9, step_deg))
+    ranges = np.geomspace(0.03, max_range_m, n_ranges)
+    A, Rg = np.meshgrid(angles, ranges, indexing="ij")
+    xy = np.column_stack([cam[0] + (Rg * np.cos(A)).ravel(), cam[1] + (Rg * np.sin(A)).ravel()])
+    visible = np.ones(len(xy), bool)
+    for z in heights:
+        pts = np.column_stack([xy, np.full(len(xy), float(z))])
+        pc = pts @ geometry.pose.R.T + geometry.pose.tvec.ravel()  # camera frame
+        with np.errstate(divide="ignore", invalid="ignore"):
+            norm = pc[:, :2] / pc[:, 2:3]
+        px = geometry.world_to_pixels(pts)
+        visible &= ((pc[:, 2] > 0.01) & (np.hypot(norm[:, 0], norm[:, 1]) < r_valid)
+                    & (px[:, 0] >= margin_px) & (px[:, 0] <= w - 1 - margin_px)
+                    & (px[:, 1] >= margin_px) & (px[:, 1] <= h - 1 - margin_px))
+    visible = visible.reshape(A.shape)
+    near, far = [], []
+    for i, row in enumerate(visible):
+        idx = np.flatnonzero(row)
+        if len(idx):
+            near.append((angles[i], ranges[idx[0]]))
+            far.append((angles[i], ranges[idx[-1]]))
+    if len(near) < 2:
+        return None
+    pts = [(a, r) for a, r in near] + [(a, r) for a, r in reversed(far)]
+    poly = np.array([[cam[0] + r * math.cos(a), cam[1] + r * math.sin(a)] for a, r in pts], np.float32)
+    if simplify_m:
+        poly = cv2.approxPolyDP(poly.reshape(-1, 1, 2), simplify_m, True).reshape(-1, 2)
+    return poly.astype(float).round(3).tolist()
+
+
 def solve_floor_pose(camera: CameraModel, image_pts, world_pts):
     """Camera pose from >= 4 known floor points and where they appear in the image.
 

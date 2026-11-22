@@ -181,6 +181,7 @@
         <span><i style="background:transparent;border:1.5px dashed var(--muted)"></i>control target</span>
         <span><i style="background:var(--user);border-radius:50%"></i>user (ring = keep-out)</span>
         <span><i style="background:var(--cam)"></i>camera and its floor view</span>
+        <span><i style="background:transparent;border:1.5px dotted rgba(90,200,255,0.9)"></i>tag view (robots kept inside)</span>
         <span><i style="background:#666"></i>not seen for 1 s</span>
       </div>
     </section>
@@ -497,6 +498,15 @@ function drawMap(st) {
       ctx.closePath();
       ctx.fillStyle = "rgba(255,216,74,0.05)"; ctx.fill();
       ctx.setLineDash([5, 4]); ctx.strokeStyle = "rgba(255,216,74,0.6)"; ctx.stroke(); ctx.setLineDash([]);
+    }
+    // where the robots' tags are in the image: control soft-stops robots inside this (control/view_guard.py)
+    const view = msg?.view?.polygon;
+    if (view && view.length > 2) {
+      ctx.beginPath();
+      view.forEach(([x, y], i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, ...P(x, y)));
+      ctx.closePath();
+      ctx.setLineDash([2, 4]); ctx.lineWidth = 2; ctx.strokeStyle = "rgba(90,200,255,0.7)"; ctx.stroke();
+      ctx.setLineDash([]); ctx.lineWidth = 1;
     }
     const [cx, cy] = P(cam.position[0], cam.position[1]);
     ctx.fillStyle = "#ffd84a";
