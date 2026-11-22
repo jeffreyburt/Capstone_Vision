@@ -125,6 +125,11 @@
       "at": "2026-11-22T12:40:34-05:00",
       "event": "walls-applied",
       "detail": "usable width 3.00 m, robot x limits [-1.15, 1.15]"
+    },
+    {
+      "at": "2026-11-22T13:26:07-05:00",
+      "event": "robots-applied",
+      "detail": "dashboard calibration: head tags and Robot 2 head motion"
     }
   ],
   "verification": null,
