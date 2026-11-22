@@ -110,11 +110,13 @@ class RobotController:
             self.heading_settled = True
         return 0.0 if self.heading_settled else self._turn_toward(eh)
 
-    def _command_no_strafe(self, pose, target, obstacles):
+    def _command_no_strafe(self, pose, target, obstacles, feedforward=(0.0, 0.0)):
         L = self.limits
         ex, ey = target.x - pose["x"], target.y - pose["y"]
         dist = math.hypot(ex, ey)
         restart = max(2 * L.position_tolerance_m, L.no_strafe_restart_m)
+        if math.hypot(*feedforward) > 0:
+            self.position_settled = False  # the target is moving: keep driving with it
         if self.position_settled and dist > restart:
             self.position_settled = False
         elif not self.position_settled and dist <= L.position_tolerance_m:
@@ -151,20 +153,29 @@ class RobotController:
         elif angle < L.drive_align_deg:
             speed = min(L.max_speed_m_s,L.position_gain*dist)*math.cos(err)
         v = -speed if reverse else speed
+        aligned = self.travel_aligned if L.drive_alignment_release_deg > L.drive_align_deg else angle < L.drive_align_deg
+        if aligned:  # feed-forward: only the part along the chassis, which a straight drive can follow
+            v += feedforward[0] * math.cos(h) + feedforward[1] * math.sin(h)
+            v = max(-L.max_speed_m_s, min(L.max_speed_m_s, v))
         # Keep-out: remove motion toward the user/robots, then keep only what a straight drive can do.
         wvx, wvy = remove_approach(v * math.cos(h), v * math.sin(h), pose["x"], pose["y"], obstacles)
         vx = wvx * math.cos(h) + wvy * math.sin(h)
         return vx, 0.0, self._turn_toward(err,L.drive_heading_deadband_deg)
 
-    def command(self, pose, target, obstacles=()):
+    def command(self, pose, target, obstacles=(), feedforward=None):
         """pose: dict with x, y, heading (deg), as in the vision message. target: planner.Target.
-        obstacles: [(x, y, radius)] to keep out of. Returns body (vx forward, vy left, wz CCW)."""
+        obstacles: [(x, y, radius)] to keep out of. feedforward: the target's own world velocity (m/s), added
+        to the proportional correction so a moving target is followed instead of chased (see control.main).
+        Returns body (vx forward, vy left, wz CCW)."""
         L = self.limits
+        ff = tuple(feedforward) if feedforward else (0.0, 0.0)
         if not L.allow_strafe:
-            return self._command_no_strafe(pose, target, obstacles)
+            return self._command_no_strafe(pose, target, obstacles, ff)
         ex, ey = target.x - pose["x"], target.y - pose["y"]
         dist = math.hypot(ex, ey)
-        if self.position_settled and dist > 2 * L.position_tolerance_m:
+        if math.hypot(*ff) > 0:
+            self.position_settled = False  # the target is moving: keep driving with it
+        elif self.position_settled and dist > 2 * L.position_tolerance_m:
             self.position_settled = False
         elif not self.position_settled and dist <= L.position_tolerance_m:
             self.position_settled = True
@@ -172,7 +183,11 @@ class RobotController:
             wvx = wvy = 0.0
         else:
             speed = min(L.max_speed_m_s, L.position_gain * dist)
-            wvx, wvy = ex / dist * speed, ey / dist * speed
+            wvx, wvy = (ex / dist * speed, ey / dist * speed) if dist > 1e-9 else (0.0, 0.0)
+            wvx, wvy = wvx + ff[0], wvy + ff[1]
+            total = math.hypot(wvx, wvy)
+            if total > L.max_speed_m_s:
+                wvx, wvy = wvx * L.max_speed_m_s / total, wvy * L.max_speed_m_s / total
         wvx, wvy = remove_approach(wvx, wvy, pose["x"], pose["y"], obstacles)
         wz = self._face_target_heading(pose, target)
         vx, vy = world_to_body(wvx, wvy, pose["heading"])

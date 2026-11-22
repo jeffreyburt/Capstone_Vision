@@ -223,6 +223,12 @@ control:
     x_limits_m: [-0.52, 0.55]
     y_limits_m: [0.6, 6.0]    # never closer than 0.6 m to the camera (its cables and footprint)
     max_turn_deg: 20          # chassis turns at most 20 deg toward the user: rear tags stay square-on (fits failed at ~30 deg)
+  feedforward:              # follow mode: move with the user instead of chasing them (control/main.py user_feedforward)
+    enabled: true           # false = proportional position control only (previous behavior)
+    gain: 1.0               # fraction of the user's measured velocity added to each robot's command
+    min_user_speed_m_s: 0.05  # slower than this the user counts as standing (no feed-forward, normal replan_m)
+    max_m_s: 0.15           # cap on the feed-forward part; each robot's max_speed_m_s still caps the total
+    lead_s: 0.4             # plan from where the user will be after the camera + processing delay
   limits:
     max_speed_m_s: 0.15
     max_yaw_rad_s: 0.4

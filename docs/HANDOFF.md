@@ -113,6 +113,20 @@ Prior lifted-wheel measurements are saved in `calib/recordings/robot1_motor_spee
   process: both links returned to "link ok" within about 5 s. The camera stream to vision also recovers
   by itself once the main Pi's camera sender is back (allow about a minute after a reboot).
 
+- **Branch `feature/face-res-and-feedforward` (2026-11-21; merged into main 2026-11-22). Feed-forward now also runs in
+  the dashboard's Follow mode, together with dead reckoning; not yet driven on hardware:**
+  - *Follow-mode feed-forward* (`control.feedforward` in `config.yaml`, `user_feedforward` in `control/main.py`):
+    while the user walks faster than 5 cm/s, each robot's command gets the user's measured velocity added
+    (capped at 0.15 m/s; the robot's `max_speed_m_s` still caps the total), targets re-plan every tick from where
+    the user will be 0.4 s ahead, and standing still keeps the `replan_m` hysteresis. In no-strafe mode only the
+    part along the chassis is added, once aligned. Waypoint mode is unchanged. Simulated with 0.5 s camera delay
+    at 4 fps (`tests/test_feedforward.py`): mean error behind a user walking 0.05–0.10 m/s fell from 24–31 cm to
+    2.5–6.4 cm. Turn off with `enabled: false`. Untested with real user-velocity noise; if robots twitch while
+    the user stands, raise `min_user_speed_m_s`.
+  - *Smaller head-tracking camera frames*: see [head tracker](HEAD_TRACKER.md) "Smaller robot camera frames".
+  - On Windows, `tests/test_calibration.py`, `test_heads.py`, `test_monitor.py`, `test_motor_diagnostic.py`,
+    `test_waypoints.py` (import `fcntl`), `test_manual.py`, `test_motor_speed.py` and `test_ssh_gateway.py` fail on
+    `main` as well; run the full suite on the Mac.
 - WASD manual mode selects one robot; simultaneous keys give normalized diagonals. Release,
   Space, tab blur, lost connection, or Stop end movement. The 0.4 s server lease and robot
   0.5 s watchdog stop stale input. `control/manual.py` owns token/sequence/expiry rules.

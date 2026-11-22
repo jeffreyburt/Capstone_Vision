@@ -113,6 +113,33 @@ head), clamps it to the tracking limits, and converts it to an image-space obser
 tracking loop. Face detection in the head camera still wins when it sees a face. The head-tracking line on the
 dashboard shows which source is aiming. Untested with a person yet at the time of writing.
 
+## Smaller robot camera frames (branch `feature/face-res-and-feedforward`, merged into main 2026-11-22)
+
+**On Robot 1 (2026-11-22):** 320×240 keeps the same field of view as 640×480 (frames matched at scale 1.00,
+correlation 0.99), so `UNITS_PER_FRAME` still holds; the system dashboard detected on 29.3 frames/s (was ~15 at
+640×480 on Robot 1's Pi 3). The dashboard's head panel shows each robot's camera size and fps. Robot 2 still runs
+the previous files (it was offline) and needs `dashboard.py`, `camera_feed.py`, `tracking_control.py`, `index.html`
+and `assets/head_detection.mjs` copied when it is back.
+
+
+- `head_tracker/dashboard.py --camera-size WxH` (default **320x240**, was fixed 640x480) and `--camera-fps N`
+  (default 30, now allowed up to 60). `--camera-size 640x480` restores the previous behaviour.
+- Why: BlazeFace (short range) shrinks every frame to 128×128, so 320×240 should not cost detection quality,
+  while JPEG encoding on the Pi, WiFi transfer and browser decoding drop to about a quarter.
+- Expected effect: **lower latency per detection, not many more detections per second by itself.** The
+  dashboard loop was already measured at ~28 detections/s against the camera's 30 fps, so the camera rate is
+  the ceiling. The smaller frames are what make `--camera-fps 60` worth trying.
+- Both detector pages (`head_tracker/assets/head_detection.mjs` on the robot's :8080 page and `monitor/page.html`
+  in the system dashboard) now detect at the frame's real size and scale boxes to the 640×480 overlay.
+- **Check on the robot before keeping it:**
+  1. Picamera2 picks the sensor mode from the requested size. If 320×240 selects a different crop than 640×480,
+     the field of view changes and `UNITS_PER_FRAME` (prediction scale) is off: compare a frame at each size.
+  2. Faces at the far end of the room still detected at 320×240.
+  3. Detections/s on the system dashboard at 30 fps, then at `--camera-fps 60`.
+- Deploy: copy `head_tracker/camera_feed.py`, `dashboard.py` and `assets/head_detection.mjs` to the robot's
+  dashboard folder (Robot 2: `~/capstone-dashboard/`, back up first), add the flags to the service's `ExecStart`
+  if not using the defaults, restart the dashboard service with torque held. Roll back by restoring the backup.
+
 The sections below describe general workflows and legacy neutral-only setup; use the current installed
 profile above for this robot pair.
 
