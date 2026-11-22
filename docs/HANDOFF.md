@@ -244,6 +244,51 @@ Still true: Robot 2's only fit-capable tag (6) is on the back of its head. With 
 panned more than about 35–55°, only centre-only tag 5 is visible, so Robot 2 has no heading
 and will not drive until its head faces nearer forward. The dashboard status says so.
 
+## User position jumping and jitter (2026-11-22)
+
+**What the black box showed.** The session `20261122_133643` ran for 10 min with the robots idle. Standing still,
+the user position was steady (about 1 cm), so the jumps were not plain noise.
+- **Background people:** for 60–120 s, 96% of user positions were at y 8–9 m; for 120–300 s, about 45% were.
+  The events show `user_seen` at (1.2, 9.0) again and again, and once at (−4.5, 4.3).
+- **Switching between nearby people:** frame-to-frame steps reached 0.3–0.7 m (95th percentile).
+- **Hidden feet:** positions also collapsed to y ≈ 1.0–1.3, where the robots stand.
+
+**Causes:**
+- `area` (x ±5, y −1…10) let anyone in the lab be a candidate.
+- With no current track, the most confident detection won, which was often a fully visible person far behind.
+- A nearest-person switch needed only 3 rejected frames.
+- A near user's head is usually cut off by this low (0.33 m) camera. The "head in view" test (box top > 3 px)
+  then treated the image edge as the head, which read about 0.3 m off. It also taught a wrong user height.
+
+**Fixes:**
+- **Hallway area:** `people.user_area` (x ±2, y 0.3–7 m) is the only place a user can be.
+- **Identity gate** (`UserTracker.select`):
+  - While the user is tracked, only a detection within `max_jump_m` of the prediction counts as the user.
+  - After the user is lost, someone near the last position is preferred. The radius grows at
+    `walk_speed_m_s` (0.5 m/s), until `forget_after_s`.
+  - With no user at all, the person nearest the camera, seen in `confirm_frames` (2) detections in a row,
+    becomes the user.
+- **Hidden feet** (`robot_image_boxes`, `locate_person`): if a person's foot point falls inside a robot's image
+  outline (chassis plus mast/head, convex hulls), they are placed by the head at the user's learned height. If
+  their head is cut off too, the feet are kept.
+- **Head in view** now means the box top is at least 3% of the frame height below the edge. Height is learned
+  only from such frames (`UserTracker.head_height`).
+- Every located person now goes into the vision message (`people`: x, y, confidence, feet, user), and the
+  black box records it. Next time, `window` can show who else was there.
+
+**Checked:**
+- A 2-minute live capture (1,882 frames, 1–4 people per frame, 12% of detections beyond 7 m) replayed through
+  the old and new logic:
+  - Identity jumps over 0.5 m: 2 (up to 3.95 m) before, 1 after. That one is a person walking right in front
+    of the lens (about 0.4 m) and cutting the user's box; the position recovered within about 0.5 s.
+  - Step 95th percentile: 0.058 m before, 0.037 m after.
+  - The user was reported in 100% of frames.
+- Live for 20 s with 2–3 people in view: x sd 3.5 cm, y sd 4.9 cm, largest step 7.6 cm, no switches.
+- Tests are in `tests/test_people.py`.
+
+**Not covered:** two people both near the hallway centre. The nearest one to the camera becomes the user, and
+it stays the user while it is tracked.
+
 ## Multi-agent work checklist
 
 1. Read `AGENTS.md`, this handoff, and the subsystem document; inspect `git status`, recent

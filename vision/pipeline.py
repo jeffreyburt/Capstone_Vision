@@ -53,7 +53,10 @@ class VisionPipeline:
         self.detector = MarkerDetector(marker_cfg.get("dictionary", "DICT_4X4_50"), marker_ids,
                                        adaptive_thresh_constant=marker_cfg.get("adaptive_thresh_constant", 3))
         self.tracker = RobotTracker([s.id for s in self.specs], cfg.get("tracking"))
-        self.user_tracker = UserTracker(cfg.get("user_tracking", cfg.get("tracking")))
+        # Only people inside the hallway can be the user (config people.user_area; default: the whole area).
+        self.user_tracker = UserTracker(cfg.get("user_tracking", cfg.get("tracking")),
+                                        (cfg.get("people") or {}).get("user_area") or cfg.get("area"))
+        self.last_candidates = []  # every located person of the newest detection run (for the black box)
         self.geometry = geometry
         self._geometry_loaded = geometry is not None
         self._view_for, self.view = None, None  # camera view polygon for the current geometry (see camera_view)
@@ -140,11 +143,20 @@ class VisionPipeline:
                 detections = self.last_people
                 if self.geometry.approximation:
                     detections = [d for d in detections if d.box[3] < frame.shape[0] - 3]
-                cands = [locate_person(d, self.geometry, frame.shape[0], self.head_height_m) for d in detections]
+                from .people import robot_image_boxes
+                # Feet behind a robot: place that person by the head at the user's learned height instead.
+                occluders = robot_image_boxes(self.geometry, [r for r in self.tracker.state(t) if r["age"] <= 0.5])
+                head_m = self.user_tracker.head_height(self.head_height_m)
+                cands = [locate_person(d, self.geometry, frame.shape[0], head_m, occluders=occluders)
+                         for d in detections]
                 cands = [c for c in cands if c is not None and self._in_area(c.x, c.y)]
                 user_obs = self.user_tracker.update(t_det, cands)
+                self.last_candidates = [{"x": round(c.x, 3), "y": round(c.y, 3), "c": round(c.confidence, 2),
+                                         "feet": c.from_feet, "user": c is user_obs} for c in cands]
 
         message = make_message(t, self.frame_index, self.tracker.state(t), self.user_tracker.state(t))
+        if self.last_candidates:
+            message["people"] = self.last_candidates
         if self._view_for is not self.geometry:
             self._view_for, self.view = self.geometry, camera_view(self.cfg, self.geometry, self.specs)
         if self.view is not None:

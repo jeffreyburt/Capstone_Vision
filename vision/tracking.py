@@ -71,26 +71,61 @@ class Track:
 
 
 class UserTracker:
-    """Tracks the one user. Position is smoothed like the robots; height and confidence with a simple average."""
+    """Tracks the one user. Position is smoothed like the robots; height and confidence with a simple average.
 
-    def __init__(self, tracking_cfg=None):
+    Who the user is (see select): only people inside `area` (the hallway) count. While the user is tracked, other
+    people are ignored: only a detection within the jump gate of the predicted position is the user. After the
+    user is lost, someone near the last position is preferred, the gate growing at walk_speed_m_s, until
+    forget_after_s. With no user, the person nearest the camera becomes the user once seen in confirm_frames
+    consecutive detections (not the most confident one: that was often a fully visible person far behind)."""
+
+    def __init__(self, tracking_cfg=None, area=None):
         c = dict(tracking_cfg or {})
         self.forget_after_s = c.pop("forget_after_s", 5.0)
+        self.walk_speed_m_s = c.pop("walk_speed_m_s", 0.5)
+        self.confirm_frames = int(c.pop("confirm_frames", 2))
         self.track = Track(**c)
+        self.area = area
         self.height, self.confidence = None, None
+        self.candidate = None  # (x, y, consecutive count, t) of a possible new user
+
+    def select(self, observations, t):
+        from .people import in_area
+
+        obs = [o for o in observations if in_area(o, self.area)]
+        tr = self.track
+        if tr.pos is not None and tr.age(t) <= self.forget_after_s:
+            age = tr.age(t)
+            pred = tr.pos + tr.vel * min(age, tr.lost_after_s)
+            gate = tr.max_jump_m + self.walk_speed_m_s * max(0.0, age - tr.lost_after_s)
+            dist = {id(o): math.hypot(o.x - pred[0], o.y - pred[1]) for o in obs}
+            near = [o for o in obs if dist[id(o)] <= gate]
+            return min(near, key=lambda o: dist[id(o)]) if near else None
+        if not obs:
+            self.candidate = None
+            return None
+        best = min(obs, key=lambda o: math.hypot(o.x, o.y))
+        c = self.candidate
+        count = c[2] + 1 if c and t - c[3] <= 1.0 and math.hypot(best.x - c[0], best.y - c[1]) <= 0.6 else 1
+        self.candidate = (best.x, best.y, count, t)
+        return best if count >= self.confirm_frames else None
 
     def update(self, t, observations):
-        from .people import select_user
-
-        o = select_user(observations, self.track, t, self.track.lost_after_s)
+        o = self.select(observations, t)
         if o is None:
             return None
-        fresh = self.track.age(t) > self.track.lost_after_s
+        if self.track.age(t) > self.track.lost_after_s:
+            self.track.pos = None  # (re)acquired: start fresh from this person, no velocity from before
         if self.track.update(t, (o.x, o.y)):
-            a = 1.0 if fresh or self.height is None else 0.3
-            self.height = o.height if self.height is None else (1 - a) * self.height + a * o.height
+            self.candidate = None
+            if o.height is not None and 1.0 <= o.height <= 2.2:
+                self.height = o.height if self.height is None else 0.8 * self.height + 0.2 * o.height
             self.confidence = o.confidence
         return o
+
+    def head_height(self, default):
+        """Learned user height for placing a person by the head when their feet are hidden or out of view."""
+        return self.height if self.height is not None else default
 
     def state(self, t):
         """User dict for the output message, or None if not seen recently."""

@@ -33,7 +33,7 @@ class PersonObservation:
     y: float
     height: float      # estimated top-of-head height (m)
     confidence: float
-    from_feet: bool    # False = feet were out of view, position came from the head
+    from_feet: bool    # False = feet out of view or hidden behind a robot: position came from the head
 
 
 class PersonDetector:
@@ -100,26 +100,62 @@ class AsyncDetector:
             self._cond.notify_all()
 
 
-def locate_person(det, geometry, frame_height, head_height_m=1.70, edge_px=3):
-    """PersonDetection -> PersonObservation on the floor, or None if it can't be placed."""
-    feet_visible = det.box[3] < frame_height - edge_px
-    if feet_visible:
-        xy = geometry.pixel_to_floor(*det.foot_px, 0.0)
-        if xy is None:
-            return None
-        height = geometry.height_above(*det.head_px, *xy)
-    else:
-        xy = geometry.pixel_to_floor(*det.head_px, head_height_m)
-        if xy is None:
-            return None
-        height = head_height_m
-    return PersonObservation(xy[0], xy[1], height, det.confidence, feet_visible)
+# Robot volumes that can hide a person's feet, in metres around the robot centre: (half width, z bottom, z top).
+# Chassis with wheels, then the narrower mast and head (the head reaches above this ~0.33 m camera).
+ROBOT_PARTS = ((0.20, 0.0, 0.18), (0.12, 0.18, 0.55))
 
 
-def select_user(observations, track, t, lost_after_s):
-    """Pick the user: the person closest to the current user track, else the most confident one."""
-    if not observations:
+def robot_image_boxes(geometry, robots, parts=ROBOT_PARTS):
+    """Image outlines (convex hulls, Nx2 pixel arrays) of each robot's chassis and mast/head. A person's foot point
+    inside one is probably hidden behind that robot: the box bottom is then the robot's edge, not the floor."""
+    import cv2
+
+    hulls = []
+    for r in robots or ():
+        for half, z0, z1 in parts:
+            pts = [[r["x"] + dx, r["y"] + dy, z] for dx in (-half, half) for dy in (-half, half) for z in (z0, z1)]
+            try:
+                px = np.asarray(geometry.world_to_pixels(pts), dtype=np.float32)
+            except Exception:  # noqa: BLE001 - a robot the camera model can't project is simply not an occluder
+                continue
+            if px.shape == (8, 2) and np.isfinite(px).all():
+                hulls.append(cv2.convexHull(px).reshape(-1, 2))
+    return hulls
+
+
+def _inside(hull, u, v, margin_px):
+    import cv2
+
+    return cv2.pointPolygonTest(np.asarray(hull, dtype=np.float32).reshape(-1, 1, 2), (float(u), float(v)), True) >= -margin_px
+
+
+def locate_person(det, geometry, frame_height, head_height_m=1.70, edge_px=3, occluders=(), margin_px=8):
+    """PersonDetection -> PersonObservation on the floor, or None if it can't be placed.
+
+    Feet in view (and not behind a robot in `occluders`, see robot_image_boxes) -> the box bottom on the floor.
+    Otherwise the box top is placed at head_height_m (the user's learned height when known); with neither end
+    usable, the feet are still used rather than losing the person. Height is measured
+    only when both ends are in view: this camera sits ~0.33 m up, so a near person's head is often cut off."""
+    x1, y1, x2, y2 = det.box
+    # A head cut off by the top edge often still leaves the box top a few pixels down: only trust a top clearly
+    # inside the frame (3% of its height), or the "head" is really the image edge and reads ~0.3 m off.
+    head_visible = y1 > max(edge_px, 0.03 * frame_height)
+    feet_visible = y2 < frame_height - edge_px
+    u, v = det.foot_px
+    hidden = feet_visible and any(_inside(h, u, v, margin_px) for h in occluders)
+    if feet_visible and (not hidden or not head_visible):  # hidden but no head either: the feet are all we have
+        xy = geometry.pixel_to_floor(u, v, 0.0)
+        if xy is None:
+            return None
+        height = geometry.height_above(*det.head_px, *xy) if head_visible else None
+        return PersonObservation(xy[0], xy[1], height, det.confidence, True)
+    if not head_visible:
         return None
-    if track.pos is not None and track.age(t) <= lost_after_s:
-        return min(observations, key=lambda o: np.hypot(o.x - track.pos[0], o.y - track.pos[1]))
-    return max(observations, key=lambda o: o.confidence)
+    xy = geometry.pixel_to_floor(*det.head_px, head_height_m)
+    if xy is None:
+        return None
+    return PersonObservation(xy[0], xy[1], None, det.confidence, False)
+
+
+def in_area(o, area):
+    return area is None or (area["x"][0] <= o.x <= area["x"][1] and area["y"][0] <= o.y <= area["y"][1])

@@ -126,6 +126,7 @@ class BlackBox:
                 "vision": None if msg is None else {k: msg.get(k) for k in (
                     "t", "frame", "frame_clock", "position_quality", "driving_allowed")},
                 "user": (msg or {}).get("user"),
+                "people": (msg or {}).get("people"),  # every located person; "user": true = the one tracked
                 "robots": {str(rid): {k: r.get(k) for k in ("x", "y", "heading", "heading_age", "age", "vx", "vy", "position_source",
                                                            "pose_compensated", "pose_status", "head_units")}
                            for rid, r in robots.items()},

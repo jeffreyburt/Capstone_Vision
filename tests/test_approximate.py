@@ -76,7 +76,8 @@ def test_pipeline_reports_person_only_when_feet_can_be_projected(feet_visible):
 
     pipeline = VisionPipeline({"people": {"async": False}}, geometry=geometry, person_detector=Detector())
     try:
-        result = pipeline.process(np.zeros((900, 1600, 3), np.uint8), 100)
+        pipeline.process(np.zeros((900, 1600, 3), np.uint8), 100)  # a new user is confirmed on the 2nd detection
+        result = pipeline.process(np.zeros((900, 1600, 3), np.uint8), 100.1)
         assert result.message["position_quality"] == "approximate"
         assert result.message["driving_allowed"] is False
         if feet_visible:

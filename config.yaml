@@ -127,14 +127,19 @@ people:
   conf: 0.4                 # minimum detection confidence
   device: null              # null = auto (uses an NVIDIA GPU if PyTorch has CUDA), or "cpu", or 0
   async: true               # detect in a background thread so robot tracking never waits for YOLO
-  head_height_m: 1.70       # assumed head height, used only when the feet are out of view
+  head_height_m: 1.70       # head height until the user's own is learned; used when the feet are hidden/out of view
+  # Only people in here can become the user: the hallway (usable width 3 m + margin), not people far behind.
+  # 2026-11-22 black box: the "user" sat on background people at y 8-9 m (and once x -4.5) for minutes.
+  user_area: {x: [-2.0, 2.0], y: [0.3, 7.0]}
 
 user_tracking:
   alpha: 0.6               # user smoothing (was 0.4): less lag
   beta: 0.05
   lost_after_s: 1.5
   max_jump_m: 1.0
-  forget_after_s: 5.0
+  forget_after_s: 5.0       # a lost user is re-acquired near their last position until then
+  walk_speed_m_s: 0.5       # ...the search radius growing this fast after lost_after_s (1.0 + 0.5 m/s)
+  confirm_frames: 2         # a new user (nearest person to the camera) must be seen in this many detections in a row
 
 tracking:
   alpha: 0.6                # position smoothing: 1.0 = raw measurements, lower = smoother/laggier (was 0.5)

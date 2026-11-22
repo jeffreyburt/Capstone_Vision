@@ -47,6 +47,8 @@ robot line shows the pose seen by vision (or `unseen`), `hdg-age` (seconds since
 and the position source; a large value with a turning command was the 2026-11-22 spinning bug), target, command, dead-reckoning estimate and age/distance
 when it is not seen, view-guard state, a link problem if any, and the reason. For anything else, the raw records
 are JSON lines: `gzip.open(path, "rt")` in Python.
+Each tick also has `people`: every person vision located (x, y, confidence `c`, `feet` = placed by the feet,
+`user` = the one tracked as the user), for debugging who the user was.
 
 Suggested order for a failed run: `summary` → `events` around the problem → `window --at event:N` → the snapshot
 with the matching clock time.
