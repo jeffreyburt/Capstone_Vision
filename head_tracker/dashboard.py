@@ -388,6 +388,46 @@ class Handler(BaseHTTPRequestHandler):
    finally:
     if acquired:bus_lock.release()
     with lock:state['controlling']=False
+  elif self.path=='/api/home':
+   # Move both servos to a resting pose (e.g. the calibrated forward/level head) in one timed move. Stops head
+   # tracking or a sweep first; a servo that was released is loaded again by the move.
+   try:
+    size=int(self.headers.get('Content-Length',0))
+    if not 0<size<=2048:raise ValueError('Missing or oversized request')
+    data=json.loads(self.rfile.read(size))
+    target=data.get('positions');duration=data.get('duration',1.5)
+    if not isinstance(target,list) or len(target)!=2 or any(type(v) is not int or not 0<=v<=1000 for v in target):
+     raise ValueError('Home needs two integer positions from 0 to 1000')
+    if type(duration) not in (int,float) or not .3<=duration<=5:raise ValueError('Home time must be 0.3-5 seconds')
+   except (ValueError,TypeError,AttributeError) as error:
+    self.send_error(400,str(error));return
+   with lock:
+    if state['controlling']:self.send_error(409,'Another servo command is in progress');return
+    state['controlling']=True
+   stop.set()
+   acquired=False
+   try:
+    acquired=bus_lock.acquire(timeout=4)
+    if not acquired:raise RuntimeError('Waiting for motion to stop; try again')
+    with serial.Serial(SERIAL_PORT,115200,timeout=.01,exclusive=True) as p:
+     ms=round(duration*1000)
+     for sid,value in enumerate(target,1):send(p,sid,7,[value&255,value>>8,ms&255,ms>>8])
+     send(p,254,11)
+     with lock:state['status']=f'Homing to pan {target[0]} / tilt {target[1]}'
+     end=time.monotonic()+duration+.4;positions=[None,None]
+     while time.monotonic()<end:
+      positions=[read(p,sid) for sid in (1,2)];publish_positions(positions);time.sleep(.1)
+     torque=[read(p,sid,32) for sid in (1,2)]
+     with lock:state['torque']=torque
+     if any(v is None or abs(v-t)>25 for v,t in zip(positions,target)):
+      raise RuntimeError(f'Home not reached: at {positions}, wanted {target}')
+     with lock:state['status']=f'Homed · pan {positions[0]} · tilt {positions[1]}'
+   except Exception as error:
+    with lock:state['status']=str(error)
+    self.send_error(503,str(error));return
+   finally:
+    if acquired:bus_lock.release()
+    with lock:state['controlling']=False
   elif self.path=='/api/start':
    try:
     size=int(self.headers.get('Content-Length',0))

@@ -231,3 +231,27 @@ def test_main_camera_aim_points_the_speaker_not_the_camera():
     extra_up = math.degrees(math.atan2(0.88 - 0.2184, 1.0)) - math.degrees(math.atan2(0.88 - 0.32, 1.0))
     assert speaker["units"][1] == pytest.approx(camera["units"][1] - extra_up / 0.226, abs=0.2)  # tilts further up
     assert speaker["units"][0] == camera["units"][0]
+
+
+def test_home_moves_each_head_to_its_calibrated_forward_pose_inside_the_limits():
+    robot = FakeRobotDashboard()
+    cfg = {"control": {"robots": {1: {"host": "127.0.0.1"}, 3: {"host": "127.0.0.1"}}},
+           "robots": [{"id": 1, "head_pose": {"neutral_units": [688, 687], "degrees_per_unit": [0.255, -0.241]}}],
+           "system": {"robots": {1: {"dashboard_port": robot.server.server_port,
+                                     "head_tracking_limits": [[327, 980], [692, 980]]},
+                                 3: {"dashboard_port": robot.server.server_port}}}}
+    monitor = SystemMonitor(cfg, listener=False, start=False)
+    server = make_server(monitor, CameraRelay(cfg), "127.0.0.1", 0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_port}"
+    try:
+        assert post(base, "/api/head/robot1/home")[1]["ok"]
+        assert robot.posts[-1][:2] == ("/api/home", {"positions": [688, 692], "duration": 1.5})  # tilt kept in limits
+        code, body = post(base, "/api/head/robot3/home")  # no calibrated forward pose: refused, nothing sent
+        assert code == 400 and "Calibrate robots" in body["message"] and len(robot.posts) == 1
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+        robot.close()

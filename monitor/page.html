@@ -171,6 +171,7 @@
         <label><input type="checkbox" id="navigation-arm"> Enable click driving</label>
         <label title="Both robots keep an equilateral triangle with you, inside the hallway limits"><input type="checkbox" id="navigation-follow"> Follow user</label>
         <button id="clear-waypoints">Cancel all targets</button>
+        <button id="home-heads" title="Stop head tracking and move both heads to their calibrated forward, level resting pose">Home both heads</button>
         <button id="blackbox-mark" title="Mark this moment in the control black box (adds an event and a camera snapshot)">Mark black box</button>
         <span id="blackbox-status" class="sub" style="color:var(--muted)"></span>
       </div>
@@ -430,6 +431,8 @@ async function startAllHeadTracking() {
     await headAction(h, "start");
   }
 }
+$("home-heads").onclick = () => Promise.all(Object.values(heads).filter(h => h.state?.enabled && h.state?.reachable)
+                                                       .map(h => headAction(h, "home")));
 $("clear-waypoints").onclick = async () => {
   try { await navigationRequest("/api/navigation/clear", {}); }
   catch (error) { $("navigation-status").textContent = error.message; }
@@ -897,7 +900,8 @@ function headUI(key) {
   el.innerHTML = `<h3>Head tracking <span class="pill">checking</span></h3>
     <div class="vals"></div>
     <div class="row"><button data-a="engage">Engage torque</button><button data-a="start">Start tracking</button>
-      <button data-a="stop">Stop tracking</button><button data-a="disengage">Disengage torque</button>
+      <button data-a="stop">Stop tracking</button><button data-a="home" title="Stop tracking and move the head to its calibrated forward, level resting pose">Home head</button>
+      <button data-a="disengage">Disengage torque</button>
       <label class="vals"><input type="checkbox" class="boxes" checked> Show face boxes</label></div>
     <div class="row vals range"><span class="seen"></span><button class="reset-seen" type="button">Reset range</button></div>
     <div class="row vals"><label>Speed <input class="speed" type="number" min="5" max="400" step="5" style="width:65px"> units/s</label>
@@ -923,6 +927,7 @@ async function headAction(h, action) {
     return;
   h.msg.textContent = "";
   let body = undefined;
+  if (action === "home") h.msg.textContent = "Homing…";
   if (action === "start") {
     if (!h.speed.reportValidity() || !h.predict.reportValidity()) return;
     body = JSON.stringify({ speed: Number(h.speed.value), prediction: Number(h.predict.value) });
@@ -930,7 +935,7 @@ async function headAction(h, action) {
   try {
     const r = await fetch(`/api/head/${h.key}/${action}`, { method: "POST", body, headers: body ? { "Content-Type": "application/json" } : {} });
     const result = await r.json();
-    if (!result.ok) h.msg.textContent = result.message;
+    h.msg.textContent = result.ok ? (action === "home" ? "Head at its resting pose" : "") : result.message;
   } catch (e) { h.msg.textContent = "Dashboard connection lost"; }
   pollHead(h);
 }
@@ -960,6 +965,7 @@ async function pollHead(h) {
     h.el.querySelector('[data-a="start"]').disabled = !ready || active || !engaged || !s.camera?.live;
     h.el.querySelector('[data-a="stop"]').disabled = !s.reachable;
     h.el.querySelector('[data-a="disengage"]').disabled = !torqueReady;
+    h.el.querySelector('[data-a="home"]').disabled = !ready;
     // Lowest/highest positions seen since "Reset range": move the head by hand (torque off) to find its limits.
     const pos = s.positions || [];
     const fresh = Number.isFinite(s.serverTime) && Number.isFinite(s.position_time) && s.serverTime - s.position_time < 2;

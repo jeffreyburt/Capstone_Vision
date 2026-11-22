@@ -11,7 +11,8 @@ import urllib.error
 import urllib.request
 
 ACTIONS = {"engage": "/api/engage", "disengage": "/api/disengage", "stop": "/api/stop",
-           "start": "/api/tracking/start", "observation": "/api/tracking/observation"}
+           "start": "/api/tracking/start", "observation": "/api/tracking/observation", "home": "/api/home"}
+HOME_SECONDS = 1.5  # one smooth timed move to the resting pose
 ALWAYS_ALLOWED = {"stop", "engage", "disengage"}  # stop and torque on/off work even with head tracking disabled
                                                  # (e.g. releasing a head to find its travel limits by hand)
 STATE_FIELDS = ("status", "positions", "position_time", "position_error", "torque", "running",
@@ -120,16 +121,29 @@ class HeadRelay:
             return 409, reason
         if action == "start":
             data = self._start_request(node, data or {})
+        elif action == "home":
+            data = {"positions": self.home_position(node), "duration": HOME_SECONDS}
         body = json.dumps(data).encode() if data is not None else b""
         request = urllib.request.Request(self._url(node, ACTIONS[action]), data=body, method="POST",
                                          headers={"Content-Type": "application/json"})
         try:
-            with self.urlopen(request, timeout=6 if action in ("engage", "disengage") else 2) as response:
+            timeout = 6 if action in ("engage", "disengage") else 9 if action == "home" else 2
+            with self.urlopen(request, timeout=timeout) as response:
                 return response.status, "OK"
         except urllib.error.HTTPError as error:
             return error.code, _message(error)
         except OSError as error:
             return 502, f"Head tracker unreachable: {error}"
+
+    def home_position(self, node):
+        """Resting pose: the calibrated forward/level head (head_pose.neutral_units, the same point the search scan
+        is centred on), kept inside the tracking limits so tracking can start straight from it."""
+        if node.key not in self.forward:
+            raise ValueError("No calibrated forward head pose for this robot; run Calibrate robots first")
+        pose = [round(v) for v in self.forward[node.key]]
+        for i, (lo, hi) in enumerate(self.limits.get(node.key, [[0, 1000], [0, 1000]])):
+            pose[i] = min(max(pose[i], lo), hi)
+        return pose
 
     def _start_request(self, node, data):
         """Start with the settings saved on the robot (taught limits, directions, speed) unless given."""
