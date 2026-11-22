@@ -171,6 +171,8 @@
         <label><input type="checkbox" id="navigation-arm"> Enable click driving</label>
         <label title="Both robots keep an equilateral triangle with you, inside the hallway limits"><input type="checkbox" id="navigation-follow"> Follow user</label>
         <button id="clear-waypoints">Cancel all targets</button>
+        <button id="blackbox-mark" title="Mark this moment in the control black box (adds an event and a camera snapshot)">Mark black box</button>
+        <span id="blackbox-status" class="sub" style="color:var(--muted)"></span>
       </div>
       <p id="navigation-status" role="status" style="padding:0 12px;color:var(--warn)">Click the grid to preview a destination. Driving is disabled.</p>
       <div id="navigation-feedback" aria-live="polite"></div>
@@ -402,6 +404,13 @@ canvas.onclick = async event => {
     await navigationRequest("/api/navigation/target", { robot_id: Number($("waypoint-robot").value), x, y });
   } catch (error) { $("navigation-status").textContent = error.message; }
 };
+let markedAt = 0;
+$("blackbox-mark").onclick = async () => {
+  const note = prompt("What happened? (optional note for the black box)", "");
+  if (note === null) return;
+  try { await navigationRequest('/api/blackbox/mark', { note }); markedAt = Date.now(); $("blackbox-status").textContent = "marked"; }
+  catch (error) { $("blackbox-status").textContent = error.message; }
+};
 $("navigation-arm").onchange = async () => {
   try { await navigationRequest('/api/navigation/arm', { enabled: $("navigation-arm").checked }); }
   catch (error) { $("navigation-arm").checked = false; $("navigation-status").textContent = error.message; }
@@ -454,6 +463,9 @@ function drawMap(st) {
       goal?.preview_only ? "Saved preview only; select a new destination after navigation is ready." :
       st.control?.navigation_mode !== "waypoints" ? "Waypoint controller is not running." :
       st.control?.mode === "ARMED" ? "Armed waypoint controller active." : "Dry run only; controller is not armed.");
+  const bb = st.control?.blackbox;
+  if (Date.now() - markedAt > 3000) $("blackbox-status").textContent =
+    bb ? `black box: ${bb.events} events, ${bb.snapshots} snapshots · ${bb.dir.split(/[\\/]/).slice(-1)[0]}` : "black box: off (control.main not recording)";
   const cam = scene && scene.camera;
   // extent: config debug.map_x / map_y, grown to include everything we draw
   let [x0, x1] = m.x, [y0, y1] = m.y;

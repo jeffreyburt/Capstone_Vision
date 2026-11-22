@@ -145,6 +145,7 @@ class SystemMonitor:
         self.cfg = cfg
         self.waypoints = WaypointStore(_int_keys((cfg.get('control') or {}).get('robots')), cfg.get('area'))
         self.manual = ManualControl(self.waypoints.robot_ids)
+        self.mark = {"seq": 0, "note": "", "t": None}  # black-box Mark: control.main records each new seq as an event
         sysc = cfg.get("system") or {}
         self.nodes = build_nodes(cfg)
         self.probe_interval = float(sysc.get("probe_interval_s", 2.0))
@@ -284,7 +285,7 @@ class SystemMonitor:
             "main_camera": main_camera_view(vmsg, vage, now),
             "navigation": {"targets": self.waypoints.snapshot(), "readiness": readiness,
                            "armed": self.waypoints.armed, "follow": self.waypoints.follow, "session": self.waypoints.session,
-                           "manual": self.manual.snapshot(),
+                           "manual": self.manual.snapshot(), "mark": dict(self.mark),
                            "feedback": waypoint_feedback((vision or {}).get('message'), vage, self.waypoints.snapshot(),
                                                          [n.robot_id for n in self.nodes if n.kind == 'robot'])},
             "nodes": out_nodes,
@@ -292,7 +293,8 @@ class SystemMonitor:
             "vision": None if vision is None else {"message": vision.get("message"), "scene": vision.get("scene"),
                                                    "gui_port": vision.get("gui_port")},
             "control": None if control is None else {"mode": control.get("mode"), "robots": control.get("robots"),
-                                                     "navigation_mode": control.get("navigation_mode")},
+                                                     "navigation_mode": control.get("navigation_mode"),
+                                                     "blackbox": control.get("blackbox")},
             "map": {"x": dbg.get("map_x", [-3, 3]), "y": dbg.get("map_y", [-0.5, 7]),
                     "robot_size_m": 2 * max([r.get("center_offset_m", 0.15) for r in robots_cfg] or [0.15]),
                     "keep_out_m": limits.get("keep_out_m"), "area": self.cfg.get("area"),
@@ -655,6 +657,22 @@ def make_server(monitor, relay, host, port, calibration=None, heads=None):
                 self._send(400, 'application/json', json.dumps({'error': str(error)}).encode())
 
         def do_POST(self):
+            if self.path == '/api/blackbox/mark':
+                origin = self.headers.get('Origin')
+                if origin and origin != 'http://' + self.headers.get('Host', ''):
+                    self.send_error(403)
+                    return
+                try:
+                    size = int(self.headers.get('Content-Length', '0'))
+                    data = json.loads(self.rfile.read(size)) if 0 < size <= 2048 else {}
+                    note = data.get('note', '') if isinstance(data, dict) else ''
+                    if not isinstance(note, str):
+                        raise ValueError('note must be text')
+                    monitor.mark = {"seq": monitor.mark["seq"] + 1, "note": note[:300], "t": time.time()}
+                    self._send(200, 'application/json', json.dumps(monitor.mark).encode())
+                except (ValueError, TypeError) as error:
+                    self._send(400, 'application/json', json.dumps({'error': str(error)}).encode())
+                return
             if self.path.startswith('/api/autocal/'):
                 self._autocal_post()
                 return

@@ -17,3 +17,5 @@ Robot 1 hardware is documented in `docs/FOUR_WHEEL_DRIVE.md`; older dated runboo
 - Run meaningful tests for motion/control changes. Verify zero commands and status before any
   physical test. Physical floor/wheel status in the active user session takes precedence.
 - Commit and push authorized changes; keep credentials/private keys out of repository files.
+- When a physical test went wrong, read its control black box first (`python tools/blackbox.py summary`,
+  then `events` / `window`; see `docs/BLACKBOX.md`) instead of reasoning from chat descriptions alone.

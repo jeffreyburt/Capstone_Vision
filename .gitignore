@@ -20,3 +20,6 @@ markers.zip
 
 # handoff bundles (rebuilt from the repo; see handoff/ROBOT_SETUP_HANDOFF.md)
 handoff/*.zip
+
+# control black-box recordings (control/blackbox.py)
+logs/
