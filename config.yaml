@@ -67,66 +67,42 @@ robots:
     head_pose:  # written by the dashboard calibration
       max_rms_px: 5.0
       heading_window_deg: [90, 60]
-      neutral_units: [772, 686]
-      degrees_per_unit: [0.24, -0.24]
-      pan_pivot_m: [-0.013, -0.078, 0.0]
-      tilt_pivot_m: [-0.047, 0.0, 0.32]
-      valid_units:
-      - [307, 1000]
-      - [680, 1000]
+      neutral_units: [690, 699]
+      degrees_per_unit: [0.24575, -0.23921]
+      pan_pivot_m: [-0.0109, 0.011, 0.0]
+      tilt_pivot_m: [-0.0089, 0.0, 0.3216]
       markers:
         '2':
           mount: tilt
-          center_m: [-0.14, 0, 0.2952609205636474]
-          rotation_vector_rad: [0.02168821587013519, 0.004358532131393825, -4.726632047745827e-05]
+          center_m: [-0.1, -0.0, 0.2826]
+          rotation_vector_rad: [0.0197, 0.031, 0.0034]
         '3':
           mount: pan
+          center_m: [0.0101, -0.0948, 0.2244]
+          rotation_vector_rad: [0.005, -0.008, 0.0133]
           center_only: true
-          center_m: [-0.02, -0.108, 0.24]
-          rotation_vector_rad: [0, 0, 0]
+      valid_units:
+      - [327, 980]
+      - [692, 980]
     moving_head_markers: true  # chassis heading unavailable until head_pose calibration
     faces: {0: 0, 1: 90, 2: 180, 3: 270}
     center_offset_m: 0.15
   - id: 2
-    head_pose:
-      neutral_units:
-      - 391
-      - 770
-      degrees_per_unit:
-      - 0.27106635355867265
-      - 0.22619580681950738
-      pan_pivot_m:
-      - -0.013451569635130712
-      - -0.07841484031480485
-      - 0.0
-      tilt_pivot_m:
-      - -0.04719760585549351
-      - 0.0
-      - 0.3201280763228578
-      valid_units:      # widened 2026-11-21 for free head tracking (was pan 331-451, tilt 710-775); tag 6 keeps its own range
-      - - 141
-        - 641
-      - - 450
-        - 812
-      max_rms_px: 8.0   # px at 2304x1296 (was 15 at 4608x2592): head wobble, turned with the head panned
-      heading_window_deg: [90, 60]  # hallway: always faces roughly +y; rejects mirror-image fits (e.g. -39 vs 114 deg)
+    head_pose:  # written by the dashboard calibration
+      max_rms_px: 8.0
+      heading_window_deg: [90, 60]
+      neutral_units: [388, 743]
+      degrees_per_unit: [0.25072, 0.24177]
+      pan_pivot_m: [-0.0148, 0.0112, 0.0]
+      tilt_pivot_m: [-0.0164, 0.0, 0.3117]
       markers:
         '6':
           mount: tilt
-          valid_units: [[311, 471], [690, 785]]   # tilt model measured only here; ~30 cm error at tilt 586
-          center_m:
-          - -0.14
-          - 0.0
-          - 0.2937034410485732
-          rotation_vector_rad:
-          - 0.04043269929944133
-          - -0.03819042930693983
-          - 0
-        '5':                      # left-side tag: tag-centre position only; centre re-measured 2026-11-21 over pans 430-620
-          mount: pan
-          center_only: true
-          center_m: [-0.0568, 0.1658, 0.2266]
-          rotation_vector_rad: [0.04048336968790622, -0.10513518773976117, -0.03411309100077434]
+          center_m: [-0.1, -0.0, 0.2832]
+          rotation_vector_rad: [0.0304, -0.0263, 0.0244]
+      valid_units:
+      - [141, 641]
+      - [450, 812]
     moving_head_markers: true
     faces: {4: 0, 5: 90, 6: 180, 7: 270}
     center_offset_m: 0.15
@@ -215,7 +191,11 @@ control:
         allow_strafe: true
   formation:                # listening triangle: user at one corner, the speakers at the other two
     usable_width_m: 2.5  # usable space centred on the camera (dashboard calibration)
-    distance_m: 1.0         # speaker-to-user distance = triangle side (hallway is ~1.8 m wide; was 2.0)
+    line_y_m: 1.5           # robots' line: distance in front of the camera. The user is the triangle's third corner, so it
+                            # opens as they walk away and closes as they come nearer; if it would cross x_limits_m the robots
+                            # step forward off the line (still equilateral) and return when it fits. Remove for a fixed size.
+    min_side_m: 0.8         # never closer than this to the user (or each other)
+    distance_m: 1.0         # fixed triangle side, used only without line_y_m
     spread_deg: 60          # angle between the speakers as seen by the user (60 = equilateral)
     facing_deg: -90         # fixed direction the user is assumed to face, deg CCW from +x (-90 = toward the camera, down the hallway)
     replan_m: 0.1           # targets move once the user has moved this far (was 0.3)
@@ -257,7 +237,7 @@ system:
   robots:                   # address + drive port from control.robots, camera from streams.robotN
     1: {ssh_user: robot-pi1, dashboard_port: 8080,
         # 2026-11-22: servos on a USB BusLinker. Limits from the dashboard's range-seen (pan 307-1062, tilt 684-1093)
-        # with margins and the 0-1000 command range; tilt only goes down from level on this mount.
+        # with margins and the 0-1000 command range; tilt goes up from level (~686) on this mount.
         head_tracking_limits: [[327, 980], [692, 980]],   # +tilt looks UP on Robot 1 (level ~686, up to ~980)
         head_tracking_signs: [-1, -1],                    # measured 2026-11-22 (the earlier +1 tilt made it run away upward)
         head_tracking_units_per_frame: [168, 116],        # servo units across its 320x240 image, measured

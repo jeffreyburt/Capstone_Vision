@@ -406,9 +406,20 @@ $("navigation-arm").onchange = async () => {
   catch (error) { $("navigation-arm").checked = false; $("navigation-status").textContent = error.message; }
 };
 $("navigation-follow").onchange = async () => {
-  try { await navigationRequest('/api/navigation/follow', { enabled: $("navigation-follow").checked }); }
+  try {
+    await navigationRequest('/api/navigation/follow', { enabled: $("navigation-follow").checked });
+    if ($("navigation-follow").checked) startAllHeadTracking();  // heads look up for the user, then track
+  }
   catch (error) { $("navigation-follow").checked = false; $("navigation-status").textContent = error.message; }
 };
+async function startAllHeadTracking() {
+  for (const h of Object.values(heads)) {
+    const s = h.state;
+    if (!s?.enabled || !s.reachable || s.position_error || s.tracking?.active) continue;
+    if (!(s.torque || []).every(v => v === 1)) { await headAction(h, "engage"); await new Promise(r => setTimeout(r, 1200)); }
+    await headAction(h, "start");
+  }
+}
 $("clear-waypoints").onclick = async () => {
   try { await navigationRequest("/api/navigation/clear", {}); }
   catch (error) { $("navigation-status").textContent = error.message; }

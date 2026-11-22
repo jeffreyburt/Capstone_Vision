@@ -26,7 +26,7 @@ class Target:
 
 class FormationPlanner:
     def __init__(self, sides, distance_m=1.5, spread_deg=60.0, facing_deg=-90.0, replan_m=0.3, area=None,
-                 area_margin_m=0.3, x_limits=None, y_limits=None, max_turn_deg=None):
+                 area_margin_m=0.3, x_limits=None, y_limits=None, max_turn_deg=None, line_y_m=None, min_side_m=0.8):
         """sides: {robot_id: "left" | "right" | "center"}, from the user's point of view.
         area: {"x": [min, max], "y": [min, max]} floor rectangle the targets must stay inside (or None)."""
         for rid, side in sides.items():
@@ -41,6 +41,11 @@ class FormationPlanner:
         # Robots face the user, but turn at most this far from facing straight back along facing_deg (None = no limit).
         # Keeps the camera-side markers nearly square-on; a tracking head covers the rest of the angle.
         self.max_turn_deg = max_turn_deg
+        # Line mode: robots stay on a line line_y_m in front of the camera and the user is the third corner of an
+        # equilateral triangle, so the triangle opens as the user walks away and closes as they come nearer. When the
+        # robots would cross x_limits (or y_limits), the triangle stops growing and they step off the line toward the
+        # user instead, still equilateral; they return to the line as soon as it fits. Never smaller than min_side_m.
+        self.line_y_m, self.min_side_m = line_y_m, min_side_m
         for lim in (x_limits, y_limits):
             if lim is not None and not (len(lim) == 2 and lim[0] < lim[1]):
                 raise ValueError("x_limits / y_limits must be [min, max] with min < max")
@@ -58,13 +63,31 @@ class FormationPlanner:
             y = min(max(y, self.y_limits[0]), self.y_limits[1])
         return x, y
 
+    def side_for(self, ux, uy):
+        """Triangle side (user-to-robot distance) for a user at (ux, uy)."""
+        if self.line_y_m is None:
+            return self.distance_m
+        offsets = {"left": self.spread_deg / 2, "right": -self.spread_deg / 2, "center": 0.0}
+        angles = [math.radians(self.facing_deg + offsets[s]) for s in set(self.sides.values())]
+        # Distance from the user to the robots' line along the robots' direction from the user.
+        depth = max(-math.sin(a) for a in angles)
+        side = (uy - self.line_y_m) / depth if depth > 1e-6 else self.distance_m
+        for a in angles:  # largest side that keeps every robot inside the limits (then they move off the line)
+            for lim, d, u in ((self.x_limits, math.cos(a), ux), (self.y_limits, math.sin(a), uy)):
+                if lim and d > 1e-6:
+                    side = min(side, (lim[1] - u) / d)
+                elif lim and d < -1e-6:
+                    side = min(side, (lim[0] - u) / d)
+        return max(side, self.min_side_m)
+
     def targets_for(self, ux, uy):
         """Targets for a user standing at (ux, uy), ignoring hysteresis."""
         offsets = {"left": self.spread_deg / 2, "right": -self.spread_deg / 2, "center": 0.0}
+        side = self.side_for(ux, uy)
         out = {}
-        for rid, side in self.sides.items():
-            a = math.radians(self.facing_deg + offsets[side])  # left = counter-clockwise of the facing direction
-            x, y = self._clamp(ux + self.distance_m * math.cos(a), uy + self.distance_m * math.sin(a))
+        for rid, s in self.sides.items():
+            a = math.radians(self.facing_deg + offsets[s])  # left = counter-clockwise of the facing direction
+            x, y = self._clamp(ux + side * math.cos(a), uy + side * math.sin(a))
             heading = math.degrees(math.atan2(uy - y, ux - x))
             if self.max_turn_deg is not None:
                 base = self.facing_deg + 180

@@ -22,11 +22,23 @@ def validate(config):
  units=config.get('units_per_frame',list(UNITS_PER_FRAME))
  if not isinstance(units,(list,tuple)) or len(units)!=2 or any(type(v) not in (int,float) or not 50<=v<=600 for v in units):
   raise ValueError('units_per_frame must be [width, height] servo units, 50-600')
+ search=config.get('search_up_units',100)
+ if type(search) not in (int,float) or not math.isfinite(search) or not 0<=search<=400:raise ValueError('search_up_units must be 0-400')
  offset=config.get('aim_offset_m',0.0);face=config.get('face_width_m',0.15)
  if type(offset) not in (int,float) or not math.isfinite(offset) or not -0.5<=offset<=0.5:raise ValueError('aim_offset_m must be -0.5 to 0.5 m')
  if type(face) not in (int,float) or not math.isfinite(face) or not 0.08<=face<=0.3:raise ValueError('face_width_m must be 0.08-0.3 m')
  return {'prediction':prediction,'limits':limits,'signs':signs,'speed':speed,'deadzone':0.06,'settlezone':0.04,
-         'units_per_frame':[float(v) for v in units],'aim_offset_m':float(offset),'face_width_m':float(face)}
+         'units_per_frame':[float(v) for v in units],'aim_offset_m':float(offset),'face_width_m':float(face),
+         'search_up_units':float(search)}
+
+
+def search_goal(positions,config):
+ """Where to look before any face has been seen: the same pan, tilted up by search_up_units (a standing person's
+ face is above a speaker at floor level). 'Up' is the opposite of the tilt tracking direction: a face above the
+ image centre (negative error) moves the tilt by -sign."""
+ up=-config['signs'][1]
+ (pl,ph),(tl,th)=config['limits']
+ return [max(pl,min(ph,positions[0])),max(tl,min(th,positions[1]+up*config.get('search_up_units',100)))]
 
 
 def aim_offset_fraction(face_size,config):

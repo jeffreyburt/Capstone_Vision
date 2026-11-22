@@ -1,53 +1,49 @@
-status: active_moving_head_estimate_2026-11-22
+status: active_dashboard_calibration_2026-11-22
 head_pose:
   max_rms_px: 5.0
   heading_window_deg:
   - 90
   - 60
   neutral_units:
-  - 772
-  - 686
+  - 690
+  - 699
   degrees_per_unit:
-  - 0.24
-  - -0.24
+  - 0.24575
+  - -0.23921
   pan_pivot_m:
-  - -0.013
-  - -0.078
+  - -0.0109
+  - 0.011
   - 0.0
   tilt_pivot_m:
-  - -0.047
+  - -0.0089
   - 0.0
-  - 0.32
-  valid_units:
-  - - 307
-    - 1000
-  - - 680
-    - 1000
+  - 0.3216
   markers:
     '2':
       mount: tilt
       center_m:
-      - -0.14
-      - 0
-      - 0.2952609205636474
+      - -0.1
+      - -0.0
+      - 0.2826
       rotation_vector_rad:
-      - 0.02168821587013519
-      - 0.004358532131393825
-      - -4.726632047745827e-05
+      - 0.0197
+      - 0.031
+      - 0.0034
     '3':
       mount: pan
-      center_only: true
       center_m:
-      - -0.02
-      - -0.108
-      - 0.24
+      - 0.0101
+      - -0.0948
+      - 0.2244
       rotation_vector_rad:
-      - 0
-      - 0
-      - 0
-reference_date: '2026-11-20'
+      - 0.005
+      - -0.008
+      - 0.0133
+      center_only: true
+  valid_units:
+  - - 327
+    - 980
+  - - 692
+    - 980
+reference_date: '2026-11-22'
 user_rear_offset_m: -0.14
-note_2026_11_22: 'Pan (ID 1) and tilt (ID 2) servos on a USB BusLinker. Forward =
-  units 772/686 (where the secured head sat for the fixed calibration). Pivots and
-  scales are estimates until the Calibration page robot step runs. Tilt degrees_per_unit
-  is negative: +units look up on Robot 1 (measured).'

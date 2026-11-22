@@ -7,10 +7,10 @@ import math
 import argparse
 import socket
 if __package__:
- from .tracking_control import validate as validate_tracking, correction, approach, aim_offset_fraction, TargetMemory, image_to_servo, servo_to_image
+ from .tracking_control import validate as validate_tracking, correction, approach, aim_offset_fraction, search_goal, TargetMemory, image_to_servo, servo_to_image
  from .camera_feed import CameraFeed, parse_size as parse_camera_size
 else:
- from tracking_control import validate as validate_tracking, correction, approach, aim_offset_fraction, TargetMemory, image_to_servo, servo_to_image
+ from tracking_control import validate as validate_tracking, correction, approach, aim_offset_fraction, search_goal, TargetMemory, image_to_servo, servo_to_image
  from camera_feed import CameraFeed, parse_size as parse_camera_size
 camera_feed=None
 
@@ -166,6 +166,7 @@ def track_head(config):
   # most, then the head holds the predicted spot for the rest of the prediction time.
   memory=TargetMemory(max_speed=150,bounds=(0,1000),window_s=.3,travel_s=.6);aim=collections.deque(maxlen=80)
   units=config.get('units_per_frame')  # servo units across the camera image, measured per robot
+  searching=search_goal(positions,config)  # until a face (or the main camera's aim) is seen: look up for the user
   while not stop.is_set():
    now=time.monotonic();dt=now-previous;previous=now
    aim.append((time.time(),targets[:]))
@@ -187,6 +188,8 @@ def track_head(config):
      predicted=memory.predict(time.time(),config.get('prediction',1.2))
      if predicted is not None:
       goal=predicted;control_center=servo_to_image(predicted,targets,config['signs'],units);mode='predicted'
+     elif memory.center is None and searching is not None:
+      goal=searching[:];control_center=servo_to_image(goal,targets,config['signs'],units);mode='searching'
      elif max(map(abs,velocities))>.1:goal=targets[:];control_center=[.5,.5];mode='braking'
     if memory.stamp is not None:age=max(0,time.time()-memory.stamp)
    live=goal is not None
@@ -213,6 +216,7 @@ def track_head(config):
     if all(abs(e)<=config['deadzone'] for e in errors):message='Head centered — holding'
     elif any(targets[i]<=config['limits'][i][0] or targets[i]>=config['limits'][i][1] for i in (0,1)):message='Taught limit reached'
     else:message='Following head'
+    if mode=='searching':message='Looking up for the user'
     if mode=='predicted':message=f'Predicting offscreen head · {max(0,config.get("prediction",1.2)-age):.1f}s remaining'
     elif mode=='braking':message='Prediction expired — slowing to hold'
    if now-last_feedback>=(.07 if feedback_socket is not None else .18):

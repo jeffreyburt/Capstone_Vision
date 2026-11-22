@@ -59,6 +59,20 @@ Prior lifted-wheel measurements are saved in `calib/recordings/robot1_motor_spee
 
 ## Dashboard and ownership
 
+- **Line formation (2026-11-22):** the robots stay on a line `control.formation.line_y_m` (1.5 m) in front of the
+  camera and the user is the third corner of an equilateral triangle (side = 2h/sqrt(3), h = user's distance beyond
+  the line), so it opens as the user walks away and closes as they come nearer. If the robots would cross
+  `x_limits_m`, the side is capped and they step forward toward the user (still equilateral), returning to the line
+  when it fits; the side never drops below `min_side_m` (0.8 m). The line distance can be set on the Calibration
+  page's step 3. Without `line_y_m` the old fixed-size triangle (`distance_m`) is used.
+- **Heads look up first (2026-11-22):** until a face has been seen, head tracking tilts up by `search_up_units` (100,
+  about 24 deg) from where it started ("up" is the opposite of each robot's tilt direction); the main camera's aim
+  takes over whenever it sees the user and the robot. Turning on **Follow user** also starts head tracking on both
+  robots (engaging torque first).
+- **Calibration run from the dashboard 2026-11-22 11:43 / 11:47:** floor height fitted 0.326 m vs the 0.37 m entered
+  (passed the 5 cm check; the advanced checklist flags > 3 cm), then robots and Robot 2's head sweep. Previous files
+  are in `calib/history/20261122_1143*` and `..._1147*`.
+
 - **Main camera timestamps after a main-Pi reboot (2026-11-22):** the receiver kept the smallest laptop-minus-Pi clock
   offset ever seen, so after the main Pi rebooted with a different clock every frame looked ~18 h old and vision
   stalled. `camstream/receiver.py` now re-learns the offset when the sender restarts or 5 frames in a row disagree by

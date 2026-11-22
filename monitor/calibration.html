@@ -76,6 +76,7 @@
        keep half their body plus the clearance away from each wall. No robot moves.</p>
     <div class="grid">
       <label>Usable width (m)<input id="width" class="len" type="text" inputmode="decimal" autocomplete="off" placeholder="1.80"></label>
+      <label>Robots' line: distance in front of the camera (m)<input id="line" class="len" type="text" inputmode="decimal" autocomplete="off" placeholder="1.5"></label>
       <label>Clearance from each wall (m)<input id="clearance" class="len" type="text" inputmode="decimal" autocomplete="off" value="0.20"></label>
     </div>
     <div class="row"><button class="primary" id="run-walls">Set wall limits</button><span id="walls-result"></span></div>
@@ -98,7 +99,7 @@
 const $ = id => document.getElementById(id);
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
                 set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
-for (const id of ["distance", "offset", "lens", "tag-size", "left-id", "right-id", "rear-offset", "width", "clearance"]) {
+for (const id of ["distance", "offset", "lens", "tag-size", "left-id", "right-id", "rear-offset", "width", "line", "clearance"]) {
   const v = store.get("autocal-" + id, null); if (v !== null) $(id).value = v;
   $(id).onchange = () => store.set("autocal-" + id, $(id).value);
 }
@@ -111,7 +112,8 @@ function parseLength(text) {
   return Number(m[1]) * UNITS[m[2]];
 }
 const LABEL = { distance: "tag distance in front", offset: "tag distance left/right", lens: "lens height",
-                "tag-size": "tag size", "rear-offset": "rear-tag offset", width: "usable width", clearance: "clearance" };
+                "tag-size": "tag size", "rear-offset": "rear-tag offset", width: "usable width", clearance: "clearance",
+                line: "robots' line distance" };
 function length(id) {
   const v = parseLength($(id).value);
   if (!$(id).value.trim()) throw Error(`Enter the ${LABEL[id]}.`);
@@ -150,7 +152,8 @@ $("run-robots").onclick = async () => {
 $("run-walls").onclick = async () => {
   $("error").hidden = true;
   try {
-    await post("/api/autocal/walls", { width_m: length("width"), clearance_m: length("clearance") });
+    await post("/api/autocal/walls", { width_m: length("width"), clearance_m: length("clearance"),
+                                       ...($("line").value.trim() ? { line_y_m: length("line") } : {}) });
   } catch (e) { $("error").textContent = e.message; $("error").hidden = false; }
   poll();
 };
@@ -169,6 +172,7 @@ async function poll() {
     if (walls) {
       $("walls-pill").textContent = "set"; $("walls-pill").className = "pill done";
       $("walls-result").textContent = `walls at ${walls.walls_m.map(v => v.toFixed(2)).join(" / ")} m · robot centres ${walls.x_limits_m.map(v => v.toFixed(2)).join(" .. ")} m` +
+        (walls.line_y_m ? ` · robots' line ${Number(walls.line_y_m).toFixed(2)} m out` : "") +
         (walls.fits_centred === false ? ` · the ${walls.triangle_side_m} m triangle is narrowed to fit` : "");
     }
     if (s.error && !s.running) { $("error").textContent = s.error; $("error").hidden = false; }

@@ -485,7 +485,7 @@ def make_server(monitor, relay, host, port, calibration=None, heads=None):
                 formation = (monitor.cfg.get("control") or {}).get("formation") or {}
                 w = formation.get("usable_width_m")
                 current = {**calibration.collect(), "walls": None if not w else {
-                    "walls_m": [-w / 2, w / 2], "x_limits_m": formation.get("x_limits_m"),
+                    "walls_m": [-w / 2, w / 2], "x_limits_m": formation.get("x_limits_m"), "line_y_m": formation.get("line_y_m"),
                     "triangle_side_m": formation.get("distance_m")}}
                 self._send(200, "application/json", json.dumps(
                     {**autocal.snapshot(), "current": current}, default=str).encode())

@@ -195,3 +195,15 @@ class SpeakerOffsetTests(unittest.TestCase):
         self.assertEqual(aim_offset_fraction(0.2, validate({"limits": [[0, 1000], [100, 900]], "signs": [1, 1]})), 0.0)
         with self.assertRaises(ValueError):
             validate({"limits": [[0, 1000], [100, 900]], "signs": [1, 1], "aim_offset_m": 2})
+
+
+class SearchTests(unittest.TestCase):
+    def test_search_looks_up_for_each_robots_tilt_direction(self):
+        from head_tracker.tracking_control import search_goal
+        robot1 = validate({"limits": [[327, 980], [692, 980]], "signs": [-1, -1]})  # +tilt looks up
+        robot2 = validate({"limits": [[141, 641], [450, 812]], "signs": [-1, 1]})   # +tilt looks down
+        self.assertEqual(search_goal([600, 700], robot1), [600, 800])
+        self.assertEqual(search_goal([395, 706], robot2), [395, 606])
+        self.assertEqual(search_goal([600, 950], robot1)[1], 980)  # clamped to the limit
+        with self.assertRaises(ValueError):
+            validate({"limits": [[0, 1000], [100, 900]], "signs": [1, 1], "search_up_units": 900})

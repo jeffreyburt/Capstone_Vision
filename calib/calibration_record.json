@@ -85,6 +85,21 @@
       "at": "2026-11-22T11:41:34-05:00",
       "event": "floor-applied",
       "detail": "dashboard calibration; height 0.321 m"
+    },
+    {
+      "at": "2026-11-22T11:43:58-05:00",
+      "event": "measurements",
+      "detail": "floor_forward_mid, floor_marker_ids, floor_marker_size_m, floor_tag_spacing_owner_m, lens_height_m"
+    },
+    {
+      "at": "2026-11-22T11:43:58-05:00",
+      "event": "floor-applied",
+      "detail": "dashboard calibration; height 0.326 m"
+    },
+    {
+      "at": "2026-11-22T11:47:36-05:00",
+      "event": "robots-applied",
+      "detail": "dashboard calibration: head tags and Robot 2 head motion"
     }
   ],
   "verification": null,

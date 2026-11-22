@@ -243,3 +243,24 @@ def test_dead_reckoning_bridges_a_short_tag_gap_then_stops():
     assert reck[1].pose["y"] > 1.0  # carried forward along +y by the sent command
     _, out = compute_commands(_msg([], user), 0.0, p, ctl, reckoners=reck, now=102.0)  # too long: stop
     assert out[1] == (STOP, "robot not seen")
+
+
+def test_line_formation_opens_with_distance_and_steps_forward_at_the_walls():
+    sq3 = math.sqrt(3)
+    p = FormationPlanner({1: "right", 2: "left"}, facing_deg=-90, line_y_m=1.5, min_side_m=0.8,
+                         x_limits=[-0.9, 0.9], y_limits=[0.6, 6.0])
+    near, far = p.targets_for(0.0, 2.5), p.targets_for(0.0, 3.0)
+    for t in (near, far):  # robots on the line, equilateral with the user
+        assert t[1].y == pytest.approx(1.5) and t[2].y == pytest.approx(1.5)
+    assert near[2].x - near[1].x == pytest.approx(2 * 1.0 / sq3)       # side = 2h / sqrt(3)
+    assert far[2].x - far[1].x == pytest.approx(2 * 1.5 / sq3)          # wider when the user is further
+    assert near[2].x > 0 > near[1].x                                    # Robot 1 (side right) on -x
+    wide = p.targets_for(0.0, 4.0)  # side would be 2.89 m (robots at +-1.44): capped at the walls, robots step forward
+    assert wide[2].x == pytest.approx(0.9) and wide[1].x == pytest.approx(-0.9)
+    side = 1.8
+    assert wide[2].y == pytest.approx(4.0 - side * sq3 / 2) and wide[2].y > 1.5
+    assert math.hypot(wide[2].x - 0, wide[2].y - 4.0) == pytest.approx(side)  # still equilateral
+    off = p.targets_for(0.6, 3.0)  # user off-centre: the near-wall robot sets the size, both step forward
+    assert off[2].x == pytest.approx(0.9) and off[1].y == pytest.approx(off[2].y) and off[2].y > 1.5
+    close = p.targets_for(0.0, 1.7)  # user almost on the line: never smaller than min_side
+    assert close[2].x - close[1].x == pytest.approx(0.8)

@@ -333,14 +333,17 @@ class AutoCalibration:
     # ---- usable space (walls)
     def start_walls(self, data):
         width, clearance = data.get("width_m"), data.get("clearance_m", 0.20)
+        line = data.get("line_y_m")
+        if line is not None and (isinstance(line, bool) or not isinstance(line, (int, float)) or not 0.5 <= line <= 10):
+            raise ValueError("robots' line distance must be 0.5-10 m")
         for name, v in (("width_m", width), ("clearance_m", clearance)):
             if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
                 raise ValueError(f"{name} must be a number in meters")
         if not 0.5 <= width <= 20 or not 0 <= clearance <= 1:
             raise ValueError("usable width 0.5-20 m, clearance 0-1 m")
-        self._run("walls", self._walls, float(width), float(clearance))
+        self._run("walls", self._walls, float(width), float(clearance), None if line is None else float(line))
 
-    def _walls(self, width, clearance):
+    def _walls(self, width, clearance, line=None):
         cfg = self._cfg()
         half = max([float(r.get("center_offset_m", 0.15)) for r in cfg.get("robots", [])] or [0.15])
         limits, walls = wall_limits(width, half, clearance)
@@ -359,9 +362,13 @@ class AutoCalibration:
         text = set_formation_setting(text, "usable_width_m", width, "usable space centred on the camera (dashboard calibration)")
         text = set_formation_setting(text, "x_limits_m", limits,
                                      f"robot centres: walls at +-{width / 2:.2f} m minus {half:.2f} m half robot and {clearance:.2f} m clearance")
+        if line is not None:
+            text = set_formation_setting(text, "line_y_m", line, "robots' line: distance in front of the camera (dashboard calibration)")
+            report["line_y_m"] = line
+            self._log(f"robots' line {line:.2f} m in front of the camera; the triangle opens and closes from there")
         cfg_path.write_text(text)
         live = self.monitor.cfg.setdefault("control", {}).setdefault("formation", {})
-        live.update(usable_width_m=width, x_limits_m=limits)
+        live.update(usable_width_m=width, x_limits_m=limits, **({} if line is None else {"line_y_m": line}))
         self.cal.set_measurements({"usable_width_m": width, "wall_clearance_m": clearance})
         self.cal.log("walls-applied", f"usable width {width:.2f} m, robot x limits {limits}")
         self._log("restarting the robot controller so following uses the new limits")
