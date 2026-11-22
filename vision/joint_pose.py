@@ -354,7 +354,9 @@ class DashboardJointFeedback:
                             if not history or sample[0]>history[-1][0]:
                                 history.append(sample)
                 except (OSError,ValueError,TypeError):
-                    pass
+                    # Forget the URL: its SSH tunnel may have died (e.g. the main Pi rebooted); the next poll asks
+                    # for a fresh one instead of failing on the dead port forever.
+                    self.urls.pop(rid,None)
             self.stop.wait(.04)
 
     @staticmethod
