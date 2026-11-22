@@ -52,11 +52,12 @@ calibration:
     tilt_source: estimated from side markers assuming configured 0.30 m marker-center height; roll assumed zero
 
 markers:
+  corner_blur_px: 0.0  # px detected squares look larger (dashboard floor calibration)
   dictionary: DICT_4X4_50   # any cv2.aruco dictionary name, e.g. DICT_APRILTAG_36h11
   adaptive_thresh_constant: 3  # rear tags near dark connectors need a lower threshold bias than OpenCV's 7
   size_m: 0.10              # edge length of the BLACK square, measured on the print
   center_height_m: 0.30     # height of the marker's center above the floor
-  size_distance_scale: 1.09 # tag-size (PnP) distances read 8-10% short at 2304x1296 vs the floor-anchored fit (2026-11-21)
+  size_distance_scale: 1.0  # superseded by corner_blur_px
 
 robots:
   # faces: marker id -> direction that face points, in degrees CCW from the robot's front
@@ -213,6 +214,7 @@ control:
         yaw_tolerance_deg: 12.0  # ...and ~±10° heading spread; 2.0 made the chassis chase that noise
         allow_strafe: true
   formation:                # listening triangle: user at one corner, the speakers at the other two
+    usable_width_m: 2.5  # usable space centred on the camera (dashboard calibration)
     distance_m: 1.0         # speaker-to-user distance = triangle side (hallway is ~1.8 m wide; was 2.0)
     spread_deg: 60          # angle between the speakers as seen by the user (60 = equilateral)
     facing_deg: -90         # fixed direction the user is assumed to face, deg CCW from +x (-90 = toward the camera, down the hallway)
@@ -220,7 +222,7 @@ control:
     # Hallway (2026-11-21 floor calibration): walls at x = -0.87 (left) and +0.90 (right) m, parallel to +y.
     # Robot centers stay 0.35 m inside each wall (0.15 m half body + 0.20 m clearance). The triangle keeps its
     # exact shape while the user is within ~0.05 m of the hallway center line; further off, targets are clamped here.
-    x_limits_m: [-0.52, 0.55]
+    x_limits_m: [-0.9, 0.9]  # robot centres: walls at +-1.25 m minus 0.15 m half robot and 0.20 m clearance
     y_limits_m: [0.6, 6.0]    # never closer than 0.6 m to the camera (its cables and footprint)
     max_turn_deg: 20          # chassis turns at most 20 deg toward the user: rear tags stay square-on (fits failed at ~30 deg)
   feedforward:              # follow mode: move with the user instead of chasing them (control/main.py user_feedforward)

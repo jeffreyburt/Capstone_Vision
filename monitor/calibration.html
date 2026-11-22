@@ -28,6 +28,7 @@
   details { margin-top:6px; } summary { cursor:pointer; color:var(--muted); font-size:12.5px; }
   pre.log { margin:8px 0 0; padding:8px; background:#0b0d10; border:1px solid var(--line); border-radius:6px; max-height:260px; overflow:auto; font:12px ui-monospace,monospace; white-space:pre-wrap; }
   .error { color:var(--bad); font-weight:600; margin:6px 0 0; }
+  .read { font-size:11.5px; color:var(--muted); min-height:1em; } .read.bad { color:var(--bad); }
   img.live { width:100%; max-height:380px; object-fit:contain; background:#000; border-radius:6px; margin-top:8px; }
   table { border-collapse:collapse; width:100%; font-size:12.5px; } th,td { text-align:left; padding:4px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
   th { color:var(--muted); font-weight:500; width:34%; } td { font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
@@ -41,16 +42,16 @@
     <p>Take the robots off the floor. Lay the two floor tags flat, the same distance in front of the camera, one to each side.
        Measure along the floor from directly below the lens.</p>
     <div class="grid">
-      <label>Tags: distance in front of the camera (m)<input id="distance" type="number" step="0.01" min="0.5" max="8" placeholder="2.00"></label>
-      <label>Tags: distance left / right of centre (m)<input id="offset" type="number" step="0.01" min="0.1" max="3" placeholder="0.70"></label>
-      <label>Camera lens height above the floor (m)<input id="lens" type="number" step="0.005" min="0.1" max="2" placeholder="0.37"></label>
+      <label>Tags: distance in front of the camera (m)<input id="distance" class="len" type="text" inputmode="decimal" autocomplete="off" placeholder="2.00"></label>
+      <label>Tags: distance left / right of centre (m)<input id="offset" class="len" type="text" inputmode="decimal" autocomplete="off" placeholder="0.70"></label>
+      <label>Camera lens height above the floor (m)<input id="lens" class="len" type="text" inputmode="decimal" autocomplete="off" placeholder="0.37"></label>
     </div>
     <details><summary>Advanced: tag size and IDs, robot rear-tag offset</summary>
       <div class="grid">
-        <label>Floor tag black-square size (m)<input id="tag-size" type="number" step="0.005" value="0.15"></label>
+        <label>Floor tag black-square size (m)<input id="tag-size" class="len" type="text" inputmode="decimal" autocomplete="off" value="0.15"></label>
         <label>Tag on the camera's left (ID)<input id="left-id" type="number" step="1" value="1"></label>
         <label>Tag on the camera's right (ID)<input id="right-id" type="number" step="1" value="0"></label>
-        <label>Robot rear tag behind chassis centre (m)<input id="rear-offset" type="number" step="0.005" value="0.14"></label>
+        <label>Robot rear tag behind chassis centre (m)<input id="rear-offset" class="len" type="text" inputmode="decimal" autocomplete="off" value="0.14"></label>
       </div>
     </details>
     <div class="row"><button class="primary" id="run-floor">Calibrate floor</button><span id="floor-result"></span></div>
@@ -74,8 +75,8 @@
        obstacles). The camera is assumed to be in the middle, so the walls are half that width to each side. Robots
        keep half their body plus the clearance away from each wall. No robot moves.</p>
     <div class="grid">
-      <label>Usable width (m)<input id="width" type="number" step="0.01" min="0.5" max="20" placeholder="1.80"></label>
-      <label>Clearance from each wall (m)<input id="clearance" type="number" step="0.01" min="0" max="1" value="0.20"></label>
+      <label>Usable width (m)<input id="width" class="len" type="text" inputmode="decimal" autocomplete="off" placeholder="1.80"></label>
+      <label>Clearance from each wall (m)<input id="clearance" class="len" type="text" inputmode="decimal" autocomplete="off" value="0.20"></label>
     </div>
     <div class="row"><button class="primary" id="run-walls">Set wall limits</button><span id="walls-result"></span></div>
   </section>
@@ -101,6 +102,29 @@ for (const id of ["distance", "offset", "lens", "tag-size", "left-id", "right-id
   const v = store.get("autocal-" + id, null); if (v !== null) $(id).value = v;
   $(id).onchange = () => store.set("autocal-" + id, $(id).value);
 }
+// Lengths can be typed with units: 2, 2m, 2 m, 200cm, 1500 mm, 79in, 79", 6.5ft, 6'. Returned in meters.
+const UNITS = { "": 1, m: 1, meter: 1, meters: 1, metre: 1, metres: 1, cm: 0.01, mm: 0.001, in: 0.0254, inch: 0.0254,
+                inches: 0.0254, '"': 0.0254, ft: 0.3048, foot: 0.3048, feet: 0.3048, "'": 0.3048 };
+function parseLength(text) {
+  const m = String(text ?? "").trim().toLowerCase().replace(",", ".").match(/^(-?\d*\.?\d+)\s*([a-z"']*)$/);
+  if (!m || !(m[2] in UNITS)) return NaN;
+  return Number(m[1]) * UNITS[m[2]];
+}
+const LABEL = { distance: "tag distance in front", offset: "tag distance left/right", lens: "lens height",
+                "tag-size": "tag size", "rear-offset": "rear-tag offset", width: "usable width", clearance: "clearance" };
+function length(id) {
+  const v = parseLength($(id).value);
+  if (!$(id).value.trim()) throw Error(`Enter the ${LABEL[id]}.`);
+  if (!Number.isFinite(v)) throw Error(`Can't read the ${LABEL[id]} "${$(id).value}": use a number, optionally with m, cm, mm, in or ft.`);
+  return v;
+}
+for (const el of document.querySelectorAll("input.len")) {  // show what each box was read as
+  const note = document.createElement("span"); note.className = "read"; el.after(note);
+  const show = () => { const v = parseLength(el.value);
+    note.className = "read" + (el.value.trim() && !Number.isFinite(v) ? " bad" : "");
+    note.textContent = !el.value.trim() ? "" : Number.isFinite(v) ? `= ${v.toFixed(3)} m` : "not a length"; };
+  el.addEventListener("input", show); show();
+}
 async function post(path, body) {
   const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const data = await r.json();
@@ -111,24 +135,22 @@ $("run-floor").onclick = async () => {
   $("error").hidden = true;
   const num = id => Number($(id).value);
   try {
-    if (!$("distance").value || !$("offset").value || !$("lens").value) throw Error("Enter the three measurements first.");
-    await post("/api/autocal/floor", { distance_m: num("distance"), offset_m: num("offset"), lens_height_m: num("lens"),
-      tag_size_m: num("tag-size"), left_id: num("left-id"), right_id: num("right-id"), rear_offset_m: num("rear-offset") });
+    await post("/api/autocal/floor", { distance_m: length("distance"), offset_m: length("offset"), lens_height_m: length("lens"),
+      tag_size_m: length("tag-size"), left_id: num("left-id"), right_id: num("right-id"), rear_offset_m: length("rear-offset") });
   } catch (e) { $("error").textContent = e.message; $("error").hidden = false; }
   poll();
 };
 $("run-robots").onclick = async () => {
   $("error").hidden = true;
   if (!confirm("Robots facing forward, away from the camera, and nothing in the way of Robot 2's head?")) return;
-  try { await post("/api/autocal/robots", { confirmed: true, rear_offset_m: Number($("rear-offset").value) }); }
+  try { await post("/api/autocal/robots", { confirmed: true, rear_offset_m: length("rear-offset") }); }
   catch (e) { $("error").textContent = e.message; $("error").hidden = false; }
   poll();
 };
 $("run-walls").onclick = async () => {
   $("error").hidden = true;
   try {
-    if (!$("width").value) throw Error("Enter the usable width first.");
-    await post("/api/autocal/walls", { width_m: Number($("width").value), clearance_m: Number($("clearance").value) });
+    await post("/api/autocal/walls", { width_m: length("width"), clearance_m: length("clearance") });
   } catch (e) { $("error").textContent = e.message; $("error").hidden = false; }
   poll();
 };

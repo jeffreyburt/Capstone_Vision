@@ -1,0 +1,277 @@
+# Central vision system configuration.
+# Units: meters, degrees, seconds. Relative paths are relative to this file.
+
+# ---- Camera streams (docs/NETWORK.md). Each Pi runs `python -m camstream.sender <name>`;
+# the laptop subscribes to host:port. `camera:` entries override the base camera settings below.
+streams:
+  birdseye:
+    host: 192.168.1.20      # main camera over Ethernet; no robot-subnet route required
+    port: 5600
+    quality: 85             # full-resolution markers with less JPEG encode delay
+    max_fps: 30             # send at most this many frames/s (the camera itself runs at camera.fps)
+    # 2026-11-21: 2x2-binned full field of view for speed (was 4608x2592 at 10 fps, ~4 fps in vision).
+    # The master Pi's own copy of this file is what the sender reads; keep both in step.
+    camera: {width: 2304, height: 1296, fps: 30, sensor_mode: [2304, 1296], rotation: 180}
+  robot1:
+    host: 192.168.50.105     # replacement robot-pi1; DHCP address, reserve on the AP for stability
+    port: 5601
+    quality: 80
+    max_fps: 10
+    camera: {width: 768, height: 432, fps: 10, focus_dioptres: null}   # 16:9 = full field of view; autofocus
+  robot2:
+    host: 192.168.50.12
+    port: 5602
+    quality: 80
+    max_fps: 10
+    camera: {width: 768, height: 432, fps: 10, focus_dioptres: null}
+
+# ---- Birds-eye vision (runs on the laptop) ----
+camera:
+  local_frame_timestamps: true  # align camera and HTTP joint feedback without changing Pi clocks
+  source: stream://birdseye # laptop: the master Pi's stream. Also: picam | webcam | test | video file | URL
+  # The settings below are used wherever a Pi camera is opened (the senders) and for webcams.
+  webcam_index: 0
+  width: 1920
+  height: 1080
+  fps: 30
+  sensor_mode: [2304, 1296] # Camera Module 3 full-FOV binned mode (smaller modes crop the view)
+  focus_dioptres: 0.25      # fixed lens position = 1 / distance_m (0.25 = 4 m). null = continuous autofocus
+  hfov_deg: 102             # used for rough intrinsics until calibrate_camera.py has been run
+                            # (Camera Module 3: standard 66, Wide 102 horizontal / 120 diagonal)
+  rotation: 0               # 180 if the camera is mounted upside down (flipped on the Pi, before streaming)
+  controls: {}              # extra Picamera2 controls, e.g. {ExposureTime: 8000, AnalogueGain: 4.0}
+
+calibration:
+  intrinsics: calib/camera_intrinsics.yaml   # written by tools/calibrate_camera.py
+  floor_pose: calib/floor_pose_36cm.yaml     # measured floor tags; moving-head chassis calibration still pending
+  floor_marker_ids: [0, 1]  # exclude borrowed floor IDs from robot poses, including duplicate head ID 0
+  approximate:             # display-only fallback until the measured floor_pose above exists
+    enabled: true
+    height_m: 0.395         # lens height supplied by owner
+    tilt_deg: 10.0          # provisional: side-marker size/height suggest 9–10 degrees down
+    tilt_source: estimated from side markers assuming configured 0.30 m marker-center height; roll assumed zero
+
+markers:
+  dictionary: DICT_4X4_50   # any cv2.aruco dictionary name, e.g. DICT_APRILTAG_36h11
+  adaptive_thresh_constant: 3  # rear tags near dark connectors need a lower threshold bias than OpenCV's 7
+  size_m: 0.10              # edge length of the BLACK square, measured on the print
+  center_height_m: 0.30     # height of the marker's center above the floor
+  size_distance_scale: 1.09 # tag-size (PnP) distances read 8-10% short at 2304x1296 vs the floor-anchored fit (2026-11-21)
+
+robots:
+  # faces: marker id -> direction that face points, in degrees CCW from the robot's front
+  #        (0 = front, 90 = left side, 180 = back, 270 = right side)
+  # center_offset_m: distance from the marker surface to the robot's center (half of a 30 cm robot)
+  - id: 1
+    head_pose:  # written by the dashboard calibration
+      max_rms_px: 5.0
+      heading_window_deg: [90, 60]
+      neutral_units: [772, 686]
+      degrees_per_unit: [0.24, -0.24]
+      pan_pivot_m: [-0.013, -0.078, 0.0]
+      tilt_pivot_m: [-0.047, 0.0, 0.32]
+      valid_units:
+      - [307, 1000]
+      - [680, 1000]
+      markers:
+        '2':
+          mount: tilt
+          center_m: [-0.14, 0, 0.2952609205636474]
+          rotation_vector_rad: [0.02168821587013519, 0.004358532131393825, -4.726632047745827e-05]
+        '3':
+          mount: pan
+          center_only: true
+          center_m: [-0.02, -0.108, 0.24]
+          rotation_vector_rad: [0, 0, 0]
+    moving_head_markers: true  # chassis heading unavailable until head_pose calibration
+    faces: {0: 0, 1: 90, 2: 180, 3: 270}
+    center_offset_m: 0.15
+  - id: 2
+    head_pose:
+      neutral_units:
+      - 391
+      - 770
+      degrees_per_unit:
+      - 0.27106635355867265
+      - 0.22619580681950738
+      pan_pivot_m:
+      - -0.013451569635130712
+      - -0.07841484031480485
+      - 0.0
+      tilt_pivot_m:
+      - -0.04719760585549351
+      - 0.0
+      - 0.3201280763228578
+      valid_units:      # widened 2026-11-21 for free head tracking (was pan 331-451, tilt 710-775); tag 6 keeps its own range
+      - - 141
+        - 641
+      - - 450
+        - 812
+      max_rms_px: 8.0   # px at 2304x1296 (was 15 at 4608x2592): head wobble, turned with the head panned
+      heading_window_deg: [90, 60]  # hallway: always faces roughly +y; rejects mirror-image fits (e.g. -39 vs 114 deg)
+      markers:
+        '6':
+          mount: tilt
+          valid_units: [[311, 471], [690, 785]]   # tilt model measured only here; ~30 cm error at tilt 586
+          center_m:
+          - -0.14
+          - 0.0
+          - 0.2937034410485732
+          rotation_vector_rad:
+          - 0.04043269929944133
+          - -0.03819042930693983
+          - 0
+        '5':                      # left-side tag: tag-centre position only; centre re-measured 2026-11-21 over pans 430-620
+          mount: pan
+          center_only: true
+          center_m: [-0.0568, 0.1658, 0.2266]
+          rotation_vector_rad: [0.04048336968790622, -0.10513518773976117, -0.03411309100077434]
+    moving_head_markers: true
+    faces: {4: 0, 5: 90, 6: 180, 7: 270}
+    center_offset_m: 0.15
+  # Optional per-robot overrides: marker_size_m, marker_center_height_m.
+  # Add a measured head_pose block to enable moving-marker compensation.
+  # See docs/HEAD_TRACKER.md for the per-marker mount and joint calibration.
+
+# UDP joint feedback from robot dashboards when any robot enables head_pose.
+compensated_frame_timeout_s: 0.65  # measured 0.30–0.45 s stream delay; commands still expire on vision loss
+joint_feedback_transport: dashboard_http  # read measured joint samples through existing SSH gateway
+joint_feedback_port: 5006
+
+people:
+  enabled: true             # needs `ultralytics` (laptop: pip install -r requirements-laptop.txt)
+  model: yolo11n.pt         # downloaded automatically on first use; yolo11s.pt = more accurate, slower
+  imgsz: 640                # YOLO input size
+  conf: 0.4                 # minimum detection confidence
+  device: null              # null = auto (uses an NVIDIA GPU if PyTorch has CUDA), or "cpu", or 0
+  async: true               # detect in a background thread so robot tracking never waits for YOLO
+  head_height_m: 1.70       # assumed head height, used only when the feet are out of view
+
+user_tracking:
+  alpha: 0.6               # user smoothing (was 0.4): less lag
+  beta: 0.05
+  lost_after_s: 1.5
+  max_jump_m: 1.0
+  forget_after_s: 5.0
+
+tracking:
+  alpha: 0.6                # position smoothing: 1.0 = raw measurements, lower = smoother/laggier (was 0.5)
+  beta: 0.05                # velocity smoothing
+  heading_alpha: 0.4        # heading smoothing (0..1)
+  lost_after_s: 1.0         # a track not seen for this long is re-initialized on the next sighting
+  max_jump_m: 0.75          # reject single measurements that jump further than this
+  forget_after_s: 5.0       # stop reporting objects not seen for this long
+
+# Ignore detections that land outside this floor rectangle (null to disable)
+area:
+  x: [-5.0, 5.0]
+  y: [-1.0, 10.0]
+
+output:
+  host: 127.0.0.1           # controller laptop IP (or 255.255.255.255 with broadcast: true)
+  port: 5005
+  broadcast: false
+  rate_hz: 10
+
+# ---- Robot control MVP (python -m control.main; robot side: robot/drive_server.py) ----
+# The laptop closes the loop: vision pose -> listening-triangle target -> velocity command over UDP.
+control:
+  drive_via: vision@192.168.1.20  # authenticated UDP relay; robot allow-list uses main Pi 192.168.50.1
+  waypoint_motion:
+    linear_accel: 0.12
+    linear_decel: 0.18
+    angular_accel: 0.6
+    filter_s: 0.2
+  vision_port: 5005         # where vision.main publishes (output.port above)
+  rate_hz: 20               # command rate (was 10); each robot's drive server stops after 0.5 s without one
+  vision_timeout_s: 1.0     # stop every robot if no vision message arrives for this long
+  max_pose_age_s: 0.7       # stop a robot the camera hasn't seen for this long
+  user_lost_s: 2.0          # stop every robot when the user hasn't been seen for this long
+  dead_reckon_s: 1.5        # follow mode: keep moving (half speed) on sent commands this long after a robot's tags vanish; 0 = off
+  robots:                   # drive server address per robot. side = which side of the user, seen by the user
+    1:
+      host: 192.168.50.105
+      port: 5700
+      side: right   # 2026-11-21: Robot 1 sits on the camera's left (-x) = the user's right when facing the camera
+      limits:  # mixed four-wheel profile; all wheels capped at calibrated 5 counts/10ms
+        max_speed_m_s: 0.30  # waypoint/follow driving (0.15 earlier on 2026-11-21; 0.038 before the FR calibration)
+        keyboard_max_speed_m_s: 0.53  # WASD only: 70 counts/10ms, measured motor ceiling (lifted sweep 2026-11-21)
+        max_yaw_rad_s: 0.50
+        position_gain: 1.2   # full speed from 0.25 m away (was 0.6)
+        position_tolerance_m: 0.10
+        allow_strafe: true
+    2:
+      host: 192.168.50.12
+      port: 5700
+      side: left    # camera's right (+x) = the user's left when facing the camera
+      limits:  # faster four-wheel profile; proportional slowdown near the destination
+        max_speed_m_s: 0.30  # waypoint/follow driving; matches Robot 1 so the triangle keeps its shape
+        keyboard_max_speed_m_s: 0.53  # WASD only: 70 counts/10ms, measured motor ceiling (lifted sweep 2026-11-21)
+        max_yaw_rad_s: 0.60
+        position_gain: 1.2   # full speed from 0.25 m away (was 0.6)
+        position_tolerance_m: 0.12  # head tracking moves the rear tag: ~9 cm pose spread measured 2026-11-21
+        yaw_tolerance_deg: 12.0  # ...and ~±10° heading spread; 2.0 made the chassis chase that noise
+        allow_strafe: true
+  formation:                # listening triangle: user at one corner, the speakers at the other two
+    distance_m: 1.0         # speaker-to-user distance = triangle side (hallway is ~1.8 m wide; was 2.0)
+    spread_deg: 60          # angle between the speakers as seen by the user (60 = equilateral)
+    facing_deg: -90         # fixed direction the user is assumed to face, deg CCW from +x (-90 = toward the camera, down the hallway)
+    replan_m: 0.1           # targets move once the user has moved this far (was 0.3)
+    # Hallway (2026-11-21 floor calibration): walls at x = -0.87 (left) and +0.90 (right) m, parallel to +y.
+    # Robot centers stay 0.35 m inside each wall (0.15 m half body + 0.20 m clearance). The triangle keeps its
+    # exact shape while the user is within ~0.05 m of the hallway center line; further off, targets are clamped here.
+    x_limits_m: [-0.52, 0.55]
+    y_limits_m: [0.6, 6.0]    # never closer than 0.6 m to the camera (its cables and footprint)
+    max_turn_deg: 20          # chassis turns at most 20 deg toward the user: rear tags stay square-on (fits failed at ~30 deg)
+  feedforward:              # follow mode: move with the user instead of chasing them (control/main.py user_feedforward)
+    enabled: true           # false = proportional position control only (previous behavior)
+    gain: 1.0               # fraction of the user's measured velocity added to each robot's command
+    min_user_speed_m_s: 0.05  # slower than this the user counts as standing (no feed-forward, normal replan_m)
+    max_m_s: 0.15           # cap on the feed-forward part; each robot's max_speed_m_s still caps the total
+    lead_s: 0.4             # plan from where the user will be after the camera + processing delay
+  limits:
+    max_speed_m_s: 0.15
+    max_yaw_rad_s: 0.4
+    position_gain: 0.8      # (m/s) per m of position error
+    yaw_gain: 1.0           # (rad/s) per rad of heading error
+    position_tolerance_m: 0.05
+    yaw_tolerance_deg: 5
+    keep_out_m: 0.8         # robots never move toward the user when closer than this
+    robot_clearance_m: 0.6  # ...or toward each other when closer than this (center to center)
+    drive_heading_deadband_deg: 5
+    drive_alignment_release_deg: 45
+    reverse_hysteresis_deg: 20
+    allow_strafe: false     # (per-robot limits above set true) robot 2's strafe turns into rotation: turn-then-drive instead. true = full mecanum
+
+# ---- System GUI (python -m monitor -> http://localhost:8090/): status of every Pi, robot and laptop program ----
+system:
+  gui_port: 8090
+  status_port: 5007         # vision.main and control.main report their status here (UDP, this laptop only)
+  probe_interval_s: 2       # reachability, camera ports, drive server, head tracker
+  ssh_interval_s: 10        # Pi health over SSH with the laptop's key (temperature, power, WiFi, programs); 0 = off
+  ssh: null                 # ssh client; null = Windows OpenSSH, else the one on PATH
+  probe_via: vision@192.168.1.20  # read-only probes/cameras through main Pi; null for a routed laptop
+  master: {host: 192.168.1.20, wifi_host: 192.168.50.1, ssh_user: vision}
+  robots:                   # address + drive port from control.robots, camera from streams.robotN
+    1: {ssh_user: robot-pi1, dashboard_port: 8080,
+        # 2026-11-22: servos on a USB BusLinker. Limits from the dashboard's range-seen (pan 307-1062, tilt 684-1093)
+        # with margins and the 0-1000 command range; tilt only goes down from level on this mount.
+        head_tracking_limits: [[327, 980], [692, 980]],   # +tilt looks UP on Robot 1 (level ~686, up to ~980)
+        head_tracking_signs: [-1, -1],                    # measured 2026-11-22 (the earlier +1 tilt made it run away upward)
+        head_tracking_units_per_frame: [168, 116],        # servo units across its 320x240 image, measured
+        speaker_offset_m: 0.1016,  # speaker driver ~4 in below the camera centre: the speaker, not the camera, aims at the face
+        face_width_m: 0.15}        # face width assumed when judging distance from the face box
+    2: {ssh_user: capstone-pi2, dashboard_port: 8080,   # William's image
+        # Head tracking stays inside the range vision's head-pose model covers (robots[id=2].head_pose.valid_units),
+        # so Robot 2 stays located while its head follows the user.
+        head_tracking_limits: [[141, 641], [450, 812]],   # ~±68 deg pan; tilt within the owner-taught 433-812
+        head_tracking_signs: [-1, 1],                     # measured 2026-11-22 (+tilt looks down on Robot 2)
+        head_tracking_units_per_frame: [171, 117],        # servo units across its 320x240 image, measured
+        speaker_offset_m: 0.1016,  # speaker driver ~4 in below the camera centre: the speaker, not the camera, aims at the face
+        face_width_m: 0.15}        # face width assumed when judging distance from the face box
+
+debug:
+  stream_port: 8080         # MJPEG debug stream port when run with --stream
+  map_x: [-3.0, 3.0]        # top-down map extent (meters)
+  map_y: [-0.5, 7.0]
+  map_px_per_m: 70
