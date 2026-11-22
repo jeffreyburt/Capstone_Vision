@@ -162,10 +162,11 @@ def compute_commands(msg, msg_age_s, planner, controllers, timing=None, compensa
     u = msg.get("user")
     user = (u["x"], u["y"]) if u is not None and u["age"] <= timing["user_lost_s"] else None
     ff, plan_from = user_feedforward(u if user is not None else None, feedforward)
+    planner.set_view(CameraView.from_message(msg), VIEW_TARGET_MARGIN_M)
     targets = planner.update(plan_from or user, force=ff is not None)
     if targets:
         view = CameraView.from_message(msg)
-        if view is not None:
+        if view is not None:  # safety net only: the planner already sized the triangle to fit the view
             targets = {rid: inside_view(view, t) for rid, t in targets.items()}
         targets = planner.assign(targets, {rid: r for rid, r in robots.items() if rid in controllers
                                            and r.get("age", 999) <= timing["max_pose_age_s"]})

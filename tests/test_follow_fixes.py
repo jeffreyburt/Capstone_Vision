@@ -1,6 +1,8 @@
 """Follow-test fixes: no turning on a held heading, targets kept inside the camera view, robots swap sides
 instead of crossing."""
 
+import math
+
 import pytest
 
 from control.controller import Limits, RobotController
@@ -86,3 +88,48 @@ def test_one_frame_user_jump_is_ignored_but_a_real_move_is_followed():
     for _ in range(p.JUMP_CONFIRM):                   # the user really is over there now
         moved = p.update((1.0, 4.5))
     assert moved != first
+
+
+# A camera-view wedge like the 2026-11-22 calibration: narrow near the camera (about x -0.7..0.6 usable at y 1.0).
+WEDGE_VIEW = [[0.0, 0.0], [2.6, 2.4], [2.6, 8.0], [-3.0, 8.0], [-3.0, 2.4]]
+
+
+def _view_planner():
+    from control.view_guard import CameraView
+    p = FormationPlanner({1: "right", 2: "left"}, x_limits=[-1.9, 1.9], y_limits=[0.6, 6.0], line_y_m=1.0,
+                         min_side_m=0.8, max_turn_deg=20)
+    p.set_view(CameraView(WEDGE_VIEW), 0.35)
+    return p, CameraView(WEDGE_VIEW)
+
+
+def test_a_robot_blocked_by_the_camera_view_brings_its_partner_in_too():
+    p, view = _view_planner()
+    # The 118 s mark: user at (-0.63, 2.61). On the line, Robot 1's spot (-1.56, 1.0) is outside the view;
+    # before, it alone was pulled in (1.36 m from the user) while Robot 2 stayed at 1.87 m.
+    t = p.targets_for(-0.63, 2.61)
+    d = [math.hypot(v.x + 0.63, v.y - 2.61) for v in t.values()]
+    assert d[0] == pytest.approx(d[1], abs=1e-6) and d[0] < 1.86
+    assert all(view.boundary(v.x, v.y)[0] >= 0.35 - 1e-6 for v in t.values())
+    assert math.hypot(t[1].x - t[2].x, t[1].y - t[2].y) == pytest.approx(d[0], abs=1e-6)  # still equilateral
+    free = p.targets_for(0.0, 1.9)  # centred and near: nothing blocked, the full line formation
+    assert free[1].y == pytest.approx(1.0) and free[2].y == pytest.approx(1.0)
+
+
+def test_near_the_view_edge_the_triangle_turns_rather_than_lose_balance():
+    p, view = _view_planner()
+    side, rot = p.layout(-0.8, 1.8)  # even the smallest triangle doesn't fit unturned here
+    assert rot != 0 and side >= 0.8
+    t = p.targets_for(-0.8, 1.8)
+    d = [math.hypot(v.x + 0.8, v.y - 1.8) for v in t.values()]
+    assert d[0] == pytest.approx(d[1], abs=1e-6)
+    assert all(view.boundary(v.x, v.y)[0] >= 0.35 - 1e-6 for v in t.values())
+
+
+def test_control_step_plans_inside_the_view_from_the_vision_message():
+    p = FormationPlanner({1: "right", 2: "left"}, x_limits=[-1.9, 1.9], y_limits=[0.6, 6.0], line_y_m=1.0,
+                         min_side_m=0.8, max_turn_deg=20)
+    ctl = {1: RobotController(Limits()), 2: RobotController(Limits())}
+    targets, _ = compute_commands(_msg([_robot(1, -1.2, 1.4), _robot(2, 0.3, 1.0)], user=(-0.63, 2.61), view=WEDGE_VIEW),
+                                  0.0, p, ctl)
+    d = [math.hypot(v.x + 0.63, v.y - 2.61) for v in targets.values()]
+    assert d[0] == pytest.approx(d[1], abs=1e-6)

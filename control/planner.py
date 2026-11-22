@@ -49,6 +49,10 @@ class FormationPlanner:
         for lim in (x_limits, y_limits):
             if lim is not None and not (len(lim) == 2 and lim[0] < lim[1]):
                 raise ValueError("x_limits / y_limits must be [min, max] with min < max")
+        # Camera view (control.view_guard.CameraView) the targets must stay view_margin_m inside; set each step by
+        # control.main from the vision message. Like the walls, it shrinks the triangle for BOTH robots (equal
+        # distances to the user) instead of pulling one robot in on its own.
+        self.view, self.view_margin_m = None, 0.35
         self.anchor = None  # user position the current targets were computed for
         self.targets = {}
         self.swapped = False
@@ -65,22 +69,80 @@ class FormationPlanner:
             y = min(max(y, self.y_limits[0]), self.y_limits[1])
         return x, y
 
-    def side_for(self, ux, uy):
-        """Triangle side (user-to-robot distance) for a user at (ux, uy)."""
+    VIEW_STEP_M = 0.02
+
+    def set_view(self, view, margin_m=None):
+        """New camera view (or None). A changed view re-plans on the next update."""
+        poly = None if view is None else view.poly
+        if margin_m is not None:
+            self.view_margin_m = margin_m
+        if poly != (None if self.view is None else self.view.poly):
+            self.view, self.anchor = view, None
+
+    def _offsets(self):
+        return {"left": self.spread_deg / 2, "right": -self.spread_deg / 2, "center": 0.0}
+
+    def _in_view(self, x, y):
+        return self.view is None or self.view.boundary(x, y)[0] >= self.view_margin_m - 1e-9
+
+    def _angles(self, rot_deg=0.0):
+        """Direction (radians) from the user to each side's robot; rot_deg turns the whole triangle about the user."""
+        offsets = self._offsets()
+        return {s: math.radians(self.facing_deg + offsets[s] + rot_deg) for s in set(self.sides.values())}
+
+    def _fits(self, ux, uy, side, rot_deg=0.0):
+        """Every robot's spot at this triangle side is inside the camera view (walls are handled by side_for)."""
+        for a in self._angles(rot_deg).values():
+            x, y = self._clamp(ux + side * math.cos(a), uy + side * math.sin(a))
+            if not self._in_view(x, y):
+                return False
+        return True
+
+    def side_for(self, ux, uy, rot_deg=0.0):
+        """Triangle side (user-to-robot distance) for a user at (ux, uy), the triangle turned rot_deg."""
+        angles = list(self._angles(rot_deg).values())
         if self.line_y_m is None:
-            return self.distance_m
-        offsets = {"left": self.spread_deg / 2, "right": -self.spread_deg / 2, "center": 0.0}
-        angles = [math.radians(self.facing_deg + offsets[s]) for s in set(self.sides.values())]
-        # Distance from the user to the robots' line along the robots' direction from the user.
-        depth = max(-math.sin(a) for a in angles)
-        side = (uy - self.line_y_m) / depth if depth > 1e-6 else self.distance_m
-        for a in angles:  # largest side that keeps every robot inside the limits (then they move off the line)
-            for lim, d, u in ((self.x_limits, math.cos(a), ux), (self.y_limits, math.sin(a), uy)):
-                if lim and d > 1e-6:
-                    side = min(side, (lim[1] - u) / d)
-                elif lim and d < -1e-6:
-                    side = min(side, (lim[0] - u) / d)
-        return max(side, self.min_side_m)
+            side = self.distance_m
+        else:
+            # Distance from the user to the robots' line along the robots' direction from the user.
+            depth = max(-math.sin(a) for a in angles)
+            side = (uy - self.line_y_m) / depth if depth > 1e-6 else self.distance_m
+            for a in angles:  # largest side that keeps every robot inside the limits (then they move off the line)
+                for lim, d, u in ((self.x_limits, math.cos(a), ux), (self.y_limits, math.sin(a), uy)):
+                    if lim and d > 1e-6:
+                        side = min(side, (lim[1] - u) / d)
+                    elif lim and d < -1e-6:
+                        side = min(side, (lim[0] - u) / d)
+            side = max(side, self.min_side_m)
+        if self.view is not None and not self._fits(ux, uy, side, rot_deg):
+            # A spot outside the camera view: bring BOTH robots in (one can't go further back, so the other comes
+            # forward too) until both fit, keeping their distances to the user equal.
+            # Coarse steps down to the first size that fits, then fine steps back up to the largest.
+            s = side
+            while s > self.min_side_m + 1e-9:
+                s = max(self.min_side_m, s - 5 * self.VIEW_STEP_M)
+                if self._fits(ux, uy, s, rot_deg):
+                    while s + self.VIEW_STEP_M < side and self._fits(ux, uy, s + self.VIEW_STEP_M, rot_deg):
+                        s += self.VIEW_STEP_M
+                    return s
+        return side
+
+    MAX_ROTATION_DEG = 60
+    ROTATION_STEP_DEG = 5
+
+    def layout(self, ux, uy):
+        """(side, rotation) of the triangle. Normally the full size, unrotated. When a robot's spot is outside the
+        camera view the triangle first shrinks (both robots, equal distances); if even min_side_m doesn't fit (the
+        user near the edge of the view, where it is narrow), it also turns about the user, the least that fits.
+        Nothing fits: full size, unrotated, and control.main pulls the outside robot into the view on its own."""
+        side = self.side_for(ux, uy)
+        if self.view is None or self._fits(ux, uy, side):
+            return side, 0.0
+        for d in range(self.ROTATION_STEP_DEG, self.MAX_ROTATION_DEG + 1, self.ROTATION_STEP_DEG):
+            fits = [(s, r) for r in (d, -d) for s in [self.side_for(ux, uy, r)] if self._fits(ux, uy, s, r)]
+            if fits:
+                return max(fits)  # of the two directions, the larger triangle
+        return side, 0.0
 
     def plan_x(self, ux, uy):
         """The user's x for planning: kept far enough from the walls that the smallest triangle still fits between
@@ -94,12 +156,12 @@ class FormationPlanner:
 
     def targets_for(self, ux, uy):
         """Targets for a user standing at (ux, uy), ignoring hysteresis."""
-        offsets = {"left": self.spread_deg / 2, "right": -self.spread_deg / 2, "center": 0.0}
         ux = self.plan_x(ux, uy)
-        side = self.side_for(ux, uy)
+        side, rot = self.layout(ux, uy)
+        angles = self._angles(rot)
         out = {}
         for rid, s in self.sides.items():
-            a = math.radians(self.facing_deg + offsets[s])  # left = counter-clockwise of the facing direction
+            a = angles[s]  # left = counter-clockwise of the facing direction
             x, y = self._clamp(ux + side * math.cos(a), uy + side * math.sin(a))
             heading = math.degrees(math.atan2(uy - y, ux - x))
             if self.max_turn_deg is not None:

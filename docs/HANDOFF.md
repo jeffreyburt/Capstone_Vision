@@ -244,6 +244,45 @@ Still true: Robot 2's only fit-capable tag (6) is on the back of its head. With 
 panned more than about 35–55°, only centre-only tag 5 is visible, so Robot 2 has no heading
 and will not drive until its head faces nearer forward. The dashboard status says so.
 
+## Unequal robot distances to the user (2026-11-22)
+
+**What the black box showed.** In the Follow run `20261122_141957`, you marked "R2 too far" at 118 s, "now R1 too
+far" at 167 s and "take too long to decide" at 264 s.
+- The robots were mostly where they were told to go. The targets themselves were unequal: their distances to the
+  user differed by a median 0.38 m (90th percentile 0.61 m), and by more than 0.3 m 57% of the time.
+- At 118 s the user stood at (−0.63, 2.61). Robot 2's spot on the line, (0.33, 1.00), was 1.87 m from the user.
+  Robot 1's spot (−1.56, 1.00) was outside the camera view, so `inside_view` pulled Robot 1 alone in to
+  (−1.23, 1.39), only 1.36 m away. At 167 s the same thing happened mirrored (2.26 m vs 1.65 m).
+- This low camera's view is narrow near it: usable x is only −0.73 to +0.59 m at the robots' line (y 1.0) with
+  the 0.35 m margin. So the per-robot view clamp moved a target on 89% of steps.
+
+**Fix** (`FormationPlanner.side_for` / `layout`; the planner gets the view each step through `set_view`):
+- The camera view now limits the triangle the way the walls already did. If either robot's spot is outside
+  the view, the triangle shrinks for **both** robots (one can't go further back, so the other comes forward too),
+  keeping both distances to the user equal and the shape equilateral.
+- If even `min_side_m` doesn't fit (the user within about 1 m of the view edge), the triangle also turns about
+  the user by the least amount that fits, in 5° steps up to 60°.
+- `inside_view` in `compute_commands` remains only as a safety net.
+
+Replayed on the same run's user positions:
+
+| | Before | After |
+|---|---|---|
+| Target distance imbalance (median / 90th percentile / max) | 0.37 / 0.62 / 0.76 m | 0 / 0 / 0.12 m |
+| Steps with imbalance over 0.1 m | 77% | 1% |
+| Steps where the view clamp moved a target | 89% | 0% |
+| Planning time per step (median / max) | — | 0.7 / 2.6 ms |
+
+**Slow settling** (the 264 s mark): follow targets sat 0.35 m inside the view, but `view_guard.slow_m` was 0.50,
+so the guard slowed every approach to a target near the edge, and robots crawled the last 0.1–0.3 m for seconds.
+`slow_m` is now 0.35, matching the target margin; `stop_m` stays 0.20.
+
+Tests: `tests/test_follow_fixes.py`.
+
+**Not covered:** a robot that falls behind its target at runtime (a slow or held robot) doesn't move its partner;
+the balancing happens in planning. If that shows up in the black box, a follow-up could re-plan from where the
+held robot actually is.
+
 ## User position jumping and jitter (2026-11-22)
 
 **What the black box showed.** The session `20261122_133643` ran for 10 min with the robots idle. Standing still,
